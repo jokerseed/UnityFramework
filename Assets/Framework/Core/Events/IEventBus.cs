@@ -6,6 +6,7 @@ namespace Framework.Core.Events
     {
         void Publish<TEvent>(TEvent evt) where TEvent : struct;
         IDisposable Subscribe<TEvent>(Action<TEvent> handler) where TEvent : struct;
+        void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : struct;
         void Clear();
     }
 }

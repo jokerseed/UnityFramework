@@ -15,10 +15,10 @@ namespace Framework.Res
 
         public bool IsValid => _handle != null && _handle.IsValid;
         public bool IsDone => _handle != null && _handle.IsDone;
-        public EOperationStatus Status => _handle != null ? _handle.Status : EOperationStatus.None;
+        public ResourceLoadStatus Status => MapStatus(_handle?.Status);
+        public bool Succeeded => Status == ResourceLoadStatus.Succeeded;
         public string Error => _handle != null ? _handle.Error : string.Empty;
         public UnityEngine.Object Asset => _handle?.AssetObject;
-        public AssetHandle RawHandle => _handle;
 
         public T GetAsset<T>() where T : UnityEngine.Object
         {
@@ -43,6 +43,26 @@ namespace Framework.Res
         public void Dispose()
         {
             _handle?.Release();
+        }
+
+        static ResourceLoadStatus MapStatus(EOperationStatus? status)
+        {
+            if (status == null)
+            {
+                return ResourceLoadStatus.None;
+            }
+
+            switch (status.Value)
+            {
+                case EOperationStatus.Processing:
+                    return ResourceLoadStatus.Processing;
+                case EOperationStatus.Succeeded:
+                    return ResourceLoadStatus.Succeeded;
+                case EOperationStatus.Failed:
+                    return ResourceLoadStatus.Failed;
+                default:
+                    return ResourceLoadStatus.None;
+            }
         }
     }
 }

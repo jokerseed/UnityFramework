@@ -2,8 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Framework.Bootstrap;
+using Framework.Logging;
 using UnityEngine;
-using YooAsset;
 
 namespace Framework.Res
 {
@@ -18,7 +18,7 @@ namespace Framework.Res
 
         public string Name => "Resource";
         public ModulePhase Phase => ModulePhase.Infrastructure;
-        public IReadOnlyList<Type> Dependencies => Array.Empty<Type>();
+        public IReadOnlyList<Type> Dependencies => new[] { typeof(LoggingModule) };
         public ModuleInitMode InitMode => ModuleInitMode.Asynchronous;
 
         public void Initialize()
@@ -31,14 +31,20 @@ namespace Framework.Res
 
             var manager = ResourceManager.Instance;
             yield return manager.InitializeAsync(_options);
-            Debug.Log("[Resource] Module ready.");
+            GameLog.Info(LogCategories.Resource, "Module ready.");
         }
 
         public void Shutdown()
         {
-            if (ResourceManager.Instance.IsInitialized)
+            if (!ResourceManager.HasInstance)
             {
-                ResourceManager.Instance.Shutdown();
+                return;
+            }
+
+            var manager = ResourceManager.Instance;
+            if (manager != null && manager.IsInitialized)
+            {
+                manager.Shutdown();
             }
         }
 
@@ -47,9 +53,9 @@ namespace Framework.Res
 #if UNITY_EDITOR
             return;
 #else
-            if (options.PlayMode == EPlayMode.EditorSimulateMode)
+            if (options.PlayMode == ResourcePlayMode.EditorSimulate)
             {
-                options.PlayMode = EPlayMode.OfflinePlayMode;
+                options.PlayMode = ResourcePlayMode.Offline;
             }
 #endif
         }

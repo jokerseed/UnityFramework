@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using Framework.Logging;
 using UnityEditor;
 using UnityEngine;
 using YooAsset.Editor;
@@ -99,7 +100,7 @@ namespace Framework.Editor.YooAsset
             BundleCollectorSettingData.SaveFile();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[YooAsset] Collector generated. Package={PackageName}, Rules={rules.Count}");
+            GameLog.Info(LogCategories.YooAsset, $"Collector generated. Package={PackageName}, Rules={rules.Count}");
             EditorUtility.DisplayDialog(
                 "YooAsset Collector",
                 $"已写入 BundleCollectorSetting.asset\nCollector 数量: {rules.Count}",

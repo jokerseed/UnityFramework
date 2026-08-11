@@ -1,9 +1,8 @@
 {
-    "name": "Framework.Bootstrap",
-    "rootNamespace": "Framework.Bootstrap",
+    "name": "Framework.Logging",
+    "rootNamespace": "Framework.Logging",
     "references": [
-        "Framework.Core",
-        "Framework.Logging"
+        "Framework.Core"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.Logging;
 using UnityEngine;
 
 namespace Framework.Bootstrap
@@ -118,7 +119,7 @@ namespace Framework.Bootstrap
 
             if (failure != null)
             {
-                Debug.LogException(failure);
+                GameLog.Exception(LogCategories.Bootstrap, failure);
                 group.SetState(ModuleGroupState.Failed, failure);
                 yield break;
             }
@@ -128,7 +129,7 @@ namespace Framework.Bootstrap
         {
             if (group.Modules.Count == 0)
             {
-                Debug.LogWarning($"[Bootstrap] Group '{group.Name}' has no modules.");
+                GameLog.Warning(LogCategories.Bootstrap, $"Group '{group.Name}' has no modules.");
                 group.SetState(ModuleGroupState.Ready);
                 yield break;
             }
@@ -144,8 +145,9 @@ namespace Framework.Bootstrap
 
                 if (useConcurrent)
                 {
-                    Debug.Log(
-                        $"[Bootstrap][{group.Name}] Wave {waveIndex + 1}/{waves.Count} concurrent ({wave.Count} modules)...");
+                    GameLog.Info(
+                        LogCategories.Bootstrap,
+                        $"[{group.Name}] Wave {waveIndex + 1}/{waves.Count} concurrent ({wave.Count} modules)...");
                     yield return InitializeWaveConcurrent(group, wave, progress, totalModules);
                 }
                 else
@@ -158,7 +160,7 @@ namespace Framework.Bootstrap
             }
 
             group.SetState(ModuleGroupState.Ready);
-            Debug.Log($"[Bootstrap] Group '{group.Name}' ready.");
+            GameLog.Info(LogCategories.Bootstrap, $"Group '{group.Name}' ready.");
         }
 
         IEnumerator InitializeModuleSequential(
@@ -169,8 +171,9 @@ namespace Framework.Bootstrap
         {
             progress.Value++;
             group.ReportProgress(progress.Value, totalModules);
-            Debug.Log(
-                $"[Bootstrap][{group.Name}] Initializing {module.Name} ({progress.Value}/{totalModules}, {module.InitMode})...");
+            GameLog.Info(
+                LogCategories.Bootstrap,
+                $"[{group.Name}] Initializing {module.Name} ({progress.Value}/{totalModules}, {module.InitMode})...");
 
             if (module.InitMode == ModuleInitMode.Synchronous)
             {
@@ -198,8 +201,9 @@ namespace Framework.Bootstrap
                 var module = wave[i];
                 progress.Value++;
                 group.ReportProgress(progress.Value, totalModules);
-                Debug.Log(
-                    $"[Bootstrap][{group.Name}] Initializing {module.Name} ({progress.Value}/{totalModules}, {module.InitMode}, concurrent)...");
+                GameLog.Info(
+                    LogCategories.Bootstrap,
+                    $"[{group.Name}] Initializing {module.Name} ({progress.Value}/{totalModules}, {module.InitMode}, concurrent)...");
 
                 if (module.InitMode == ModuleInitMode.Synchronous)
                 {

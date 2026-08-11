@@ -1,0 +1,44 @@
+---
+description: 运行时资源加载必须走 Framework.Res 封装
+globs: Assets/**/*.cs
+alwaysApply: false
+---
+
+# 资源加载规范
+
+## 唯一入口
+
+运行时加载 Asset / Bundle / 配置 bytes **只能**通过 `Framework.Res`：
+
+| 场景 | 用法 |
+|------|------|
+| 模块初始化 | `ResourceModule` 注册到 `GameBootstrap`，完成后用 `ResourceManager.Instance` |
+| 同步资源 | `ResourceManager.Instance.LoadAssetSync<T>(location)` |
+| 异步资源 | `ResourceManager.Instance.LoadAssetAsync<T>(...)` |
+| 配置 bytes | `LoadConfigBytes` / `LoadConfigBytesCached` |
+| 寻址 | `ResourceAddresses`（不要手写路径字符串） |
+
+## 禁止（运行时业务代码）
+
+- `YooAssets` / `YooAsset` API（`LoadAssetSync`、`CreatePackage` 等）
+- `UnityEngine.Resources.Load`
+- `AssetDatabase`（仅 Editor 工具可用）
+- 为加载 Bundle 直接 `File.ReadAllBytes` / `FileStream`
+
+## 程序集边界
+
+- **唯一**可引用 `YooAsset` 的运行时程序集：`Framework.Res`
+- 其他 `Framework.*` 与 `Assets/Scripts` **不得**添加 `YooAsset` asmdef 引用
+- `Framework.Editor` 仅用于打表、Collector 等编辑器工具，不做运行时加载
+
+## 示例
+
+```csharp
+// ❌ BAD
+var pkg = YooAssets.GetPackage("DefaultPackage");
+var go = pkg.LoadAssetSync<GameObject>("path");
+
+// ✅ GOOD
+using var handle = ResourceManager.Instance.LoadAssetSync<GameObject>("bundles/prefabs/player");
+var asset = handle.GetAsset<GameObject>();
+```

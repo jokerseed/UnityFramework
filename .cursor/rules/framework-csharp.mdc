@@ -24,14 +24,14 @@ public enum ModuleInitMode
 }
 ```
 
-## 新增 IGameModule
+## 新增 / 修改 IGameModule
 
 ```csharp
 public sealed class MyModule : IGameModule
 {
     public string Name => "My";
     public ModulePhase Phase => ModulePhase.Gameplay;
-    public IReadOnlyList<Type> Dependencies => new[] { typeof(ConfigModule) };
+    public IReadOnlyList<Type> Dependencies => new[] { typeof(ResourceModule) };
     public ModuleInitMode InitMode => ModuleInitMode.Synchronous;
 
     public void Initialize() { /* 模块内自行初始化单例/静态入口 */ }
@@ -41,6 +41,32 @@ public sealed class MyModule : IGameModule
 ```
 
 在 `Launch.cs` 中：`bootstrap.SetModules("组名", new IGameModule[] { ... })`。
+
+### `Dependencies` 维护（修改模块时必做）
+
+凡改动 `Assets/Framework/**` 下实现 `IGameModule` 的模块，**必须同步更新 `Dependencies`**，不能只改 `Initialize` / `InitializeAsync` 而留空依赖。
+
+| 情况 | 要求 |
+|------|------|
+| `Initialize` 中用到其他模块的 Manager / 静态入口 | 在 `Dependencies` 添加对应 `typeof(XxxModule)` |
+| 不再依赖某模块 | 从 `Dependencies` 移除 |
+| 新增 `IGameModule` | 声明全部**直接**依赖；被依赖模块须在同一 `SetModules` 组内注册 |
+| 仅依赖间接模块 | 只写直接依赖（如依赖 Config 即写 Config，不必重复写 Resource） |
+| 使用 `GameLog` | 在 `Dependencies` 添加 `typeof(LoggingModule)` |
+
+```csharp
+// ❌ BAD：Initialize 用了 ResourceManager，但 Dependencies 为空
+public IReadOnlyList<Type> Dependencies => Array.Empty<Type>();
+public void Initialize()
+{
+    BattleTables.Load(ResourceManager.Instance); // 须先 ResourceModule
+}
+
+// ✅ GOOD
+public IReadOnlyList<Type> Dependencies => new[] { typeof(ResourceModule) };
+```
+
+改模块逻辑时，一并检查：`Dependencies`、`InitMode`、`SetModules` 注册列表是否仍一致。
 
 ## 新增常驻 Manager
 
@@ -53,19 +79,29 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 
 - 新功能放进对应 `Framework.*` asmdef，避免 `Assembly-CSharp` 膨胀
 - `Framework.Editor` 仅 Editor；运行时模块禁止引用 Editor 程序集
-- 跨模块通过各模块自己的单例/静态入口访问（如 `ResourceManager.Instance`、`BattleConfigBootstrap.Tables`）
+- 跨模块通过各模块自己的单例/静态入口访问（如 `ResourceManager.Instance`）
 - Bootstrap 不保存模块上下文，只做初始化调度
 
-## 配置与资源
+## 资源加载
 
-- 运行时：`BattleConfigBootstrap.Tables`（由 `ConfigModule` 加载）
-- 资源：`ResourceManager.Instance`
+- 运行时**只能**通过 `ResourceManager.Instance`（须先 `ResourceModule` 初始化）
+- 寻址用 `ResourceAddresses`，禁止业务代码直接引用 `YooAsset`
+- 详见 `framework-res.mdc`
+
+## 日志输出
+
+- **自有代码**（`Assets/Framework`、`Assets/Scripts`）运行时日志**只能**用 `GameLog`
+- 须先 `LoggingModule` 初始化；分类用 `LogCategories`；定制输出用 `ILogSink` / `GameLog.Formatter`
+- **禁止**业务代码直接 `Debug.Log` / `LogWarning` / `LogError`（三方库、`Generated`、Logging 底层 Sink 除外）
+- 详见 `framework-logging.mdc`、`Assets/Framework/Logging/README.md`
 
 ## 禁止
 
 - 不要在 ECS 组件中存储生命值/攻击力（GAS 已有）
 - 不要让 `GameBootstrap` 实现 `IGameModule`（它是 Host）
 - 不要恢复已删除的 `Samples` / `Tests` 程序集，示例写 README
+- 运行时禁止 `YooAssets` / `Resources.Load` / 直读 Bundle 文件加载资源
+- 自有运行时业务代码禁止直接 `Debug.Log`（见 `framework-logging.mdc`）
 
 ## 改完代码后
 

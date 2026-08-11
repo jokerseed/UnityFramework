@@ -25,11 +25,12 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 |--------|------|
 | `Framework.Bootstrap` | `GameBootstrap` 多组模块编排（Host，非 IGameModule） |
 | `Framework.Core` | CommandBuffer、EventBus、`PersistentSingleton<T>` |
+| `Framework.Events` | 零 GC 事件系统（`ZeroGcEventBus`、`GameEvent`） | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性） |
 | `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据） |
 | `Framework.Bridge` | `BattleFramework` 入口 |
-| `Framework.Config` | Luban 加载、`AbilityFactory` / `EffectFactory` |
-| `Framework.Res` | YooAsset、`ResourceManager` |
+| `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时资源加载唯一入口** |
+| `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
 | `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
 
 ## 启动与模块
@@ -39,6 +40,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 多组初始化：`SetModules("组名", modules)` → `Run` / `RunAsync` → 监听 `ModuleGroup` 事件
 - Bootstrap **仅做调度**，不保存 `ModuleContext`；模块实例由各模块自己管理
 - 业务模块实现 `IGameModule`，在 `Dependencies` 声明依赖，由拓扑排序决定顺序
+- **修改 `Framework` 内 `IGameModule` 时，必须同步检查并更新 `Dependencies`**（见 `framework-csharp.mdc`）
 - 同步模块：`InitMode = Synchronous`；异步：`InitMode = Asynchronous`
 
 ## 设计原则
@@ -47,6 +49,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 热路径走 `BattleCommandBuffer`，表现走 `EventBus`
 - Tick 顺序：`GAS → Flush Spawn → ECS → Flush Damage → Sync Positions`
 - 常驻 Mono 单例用 `PersistentSingleton<T>`，不要重复造轮子
+- **运行时资源加载只能走 `Framework.Res`**（详见 `framework-res.mdc`）
+- **自有代码日志只能走 `Framework.Logging`**（详见 `framework-logging.mdc`）
 
 ## 示例与文档
 

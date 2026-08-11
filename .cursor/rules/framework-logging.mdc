@@ -1,0 +1,64 @@
+---
+description: 自有代码日志输出必须走 Framework.Logging
+globs: Assets/**/*.cs
+alwaysApply: false
+---
+
+# 日志输出规范
+
+## 唯一入口
+
+项目**自有代码**的运行时日志 **只能**通过 `Framework.Logging`：
+
+| 场景 | 用法 |
+|------|------|
+| 模块初始化 | `LoggingModule` 注册到 `GameBootstrap`（须在依赖它的模块之前） |
+| 常规日志 | `GameLog.Info` / `Warning` / `Error` / `Debug` / `Trace` |
+| 异常 | `GameLog.Exception(category, ex, message?)` |
+| 分类 | `LogCategories` 常量，或自定义字符串（建议集中定义） |
+| 过滤 / 定制 | `LogInitOptions`、`GameLog.SetMinLevel`、`ILogSink`、`GameLog.Formatter` |
+
+## 适用范围
+
+| 范围 | 要求 |
+|------|------|
+| `Assets/Framework/**` | 必须 `GameLog`（见下方例外） |
+| `Assets/Scripts/**` | 必须 `GameLog` |
+| `ThirdParty/`、`Packages/` | 三方库，不改动 |
+| `Assets/Generated/**` | Luban 等生成代码，不改动 |
+
+## 禁止（自有运行时业务代码）
+
+- `UnityEngine.Debug.Log` / `LogWarning` / `LogError` / `LogException`
+- `System.Console.WriteLine` 作为业务日志
+- 自行封装绕过 `GameLog` 的日志 Helper（应扩展 `ILogSink` 或 `GameLog`）
+
+## 允许例外
+
+| 位置 | 原因 |
+|------|------|
+| `UnityConsoleLogSink` | Logging 模块底层，负责真正写入 Unity Console |
+
+未 `Configure` 时 `GameLog` 会使用内部 fallback Sink 输出（便于 Bootstrap 首轮日志与 Editor 工具）。
+
+- 需要打日志的运行时程序集应引用 `Framework.Logging`
+- `LoggingModule` 位于 `Framework.Bootstrap` 程序集（避免循环依赖）
+- 使用 `GameLog` 的 `IGameModule` 须在 `Dependencies` 声明 `typeof(LoggingModule)`
+- `LoggingModule` 须在同组 `SetModules` 中、且早于依赖它的模块初始化
+
+## 示例
+
+```csharp
+// ❌ BAD
+Debug.Log("[Resource] Package ready.");
+
+// ✅ GOOD
+using Framework.Logging;
+GameLog.Info(LogCategories.Resource, "Package ready.");
+```
+
+```csharp
+// 自定义输出
+GameLog.AddSink(new MyFileLogSink());
+GameLog.Formatter = e => $"[{e.UtcTime:HH:mm:ss}] [{e.Category}] {e.Message}";
+```

@@ -3,6 +3,8 @@
     "rootNamespace": "Framework.Res",
     "references": [
         "Framework.Bootstrap",
+        "Framework.Core",
+        "Framework.Logging",
         "YooAsset"
     ],
     "includePlatforms": [],

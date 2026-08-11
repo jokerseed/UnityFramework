@@ -1,25 +1,22 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Framework.Core;
+using Framework.Logging;
 using UnityEngine;
 using YooAsset;
 
 namespace Framework.Res
 {
-    public sealed class ResourceManager
+    public sealed class ResourceManager : PersistentSingleton<ResourceManager>
     {
-        static ResourceManager _instance;
-
         readonly Dictionary<string, ResourceAssetHandle> _syncCache = new Dictionary<string, ResourceAssetHandle>();
 
         ResourcePackage _package;
         ResourceInitOptions _options;
         bool _initialized;
 
-        public static ResourceManager Instance => _instance ??= new ResourceManager();
-
         public bool IsInitialized => _initialized;
-        public ResourcePackage Package => _package;
         public string PackageName => _options != null ? _options.PackageName : ResourceInitOptions.DefaultPackageName;
 
         public IEnumerator InitializeAsync(ResourceInitOptions options)
@@ -64,7 +61,7 @@ namespace Framework.Res
             }
 
             _initialized = true;
-            Debug.Log($"[Resource] Package ready: {options.PackageName}, version={versionOperation.PackageVersion}");
+            GameLog.Info(LogCategories.Resource, $"Package ready: {options.PackageName}, version={versionOperation.PackageVersion}");
         }
 
         public ResourceAssetHandle LoadAssetSync<T>(string location) where T : UnityEngine.Object
@@ -90,7 +87,7 @@ namespace Framework.Res
             var location = ResourceAddresses.ConfigTable(tableName);
             using (var handle = LoadAssetSync<TextAsset>(location))
             {
-                if (!handle.IsValid || handle.Status != EOperationStatus.Succeeded)
+                if (!handle.IsValid || !handle.Succeeded)
                 {
                     throw new InvalidOperationException(
                         $"[Resource] Load config failed: {tableName}, location={location}, error={handle.Error}");
@@ -111,7 +108,7 @@ namespace Framework.Res
             }
 
             var handle = LoadAssetSync<TextAsset>(location);
-            if (!handle.IsValid || handle.Status != EOperationStatus.Succeeded)
+            if (!handle.IsValid || !handle.Succeeded)
             {
                 handle.Dispose();
                 throw new InvalidOperationException(
@@ -145,7 +142,7 @@ namespace Framework.Res
         {
             switch (options.PlayMode)
             {
-                case EPlayMode.EditorSimulateMode:
+                case ResourcePlayMode.EditorSimulate:
                 {
                     var buildResult = EditorSimulateBuildInvoker.Build(
                         options.PackageName,
@@ -155,14 +152,14 @@ namespace Framework.Res
                         FileSystemParameters.CreateDefaultEditorFileSystemParameters(buildResult.PackageRootDirectory);
                     return _package.InitializePackageAsync(simulateOptions);
                 }
-                case EPlayMode.OfflinePlayMode:
+                case ResourcePlayMode.Offline:
                 {
                     var offlineOptions = new OfflinePlayModeOptions();
                     offlineOptions.BuiltinFileSystemParameters =
                         FileSystemParameters.CreateDefaultBuiltinFileSystemParameters();
                     return _package.InitializePackageAsync(offlineOptions);
                 }
-                case EPlayMode.HostPlayMode:
+                case ResourcePlayMode.Host:
                 {
                     var fallback = string.IsNullOrEmpty(options.FallbackHostServerUrl)
                         ? options.HostServerUrl

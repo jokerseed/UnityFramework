@@ -19,7 +19,7 @@ namespace Framework.Core
             {
                 if (_applicationQuitting)
                 {
-                    return null;
+                    return _instance;
                 }
 
                 if (_instance != null)

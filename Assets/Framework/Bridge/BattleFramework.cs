@@ -5,6 +5,7 @@ using Framework.Core.Events;
 using Framework.Core.Tick;
 using Framework.ECS;
 using Framework.ECS.Systems;
+using Framework.Events;
 using Framework.GAS;
 using Framework.GAS.Abilities;
 using UnityEngine;
@@ -17,7 +18,7 @@ namespace Framework.Bridge
     /// </summary>
     public sealed class BattleFramework : ITickable, IDisposable
     {
-        readonly EventBus _presentationBus = new EventBus();
+        readonly ZeroGcEventBus _presentationBus = new ZeroGcEventBus();
         readonly BattleCommandBuffer _commandBuffer = new BattleCommandBuffer();
         readonly BattleContext _battleContext;
         readonly World _world;

@@ -2,6 +2,7 @@
     "name": "Framework.Editor",
     "rootNamespace": "Framework.Editor",
     "references": [
+        "Framework.Logging",
         "YooAsset.Editor"
     ],
     "includePlatforms": [

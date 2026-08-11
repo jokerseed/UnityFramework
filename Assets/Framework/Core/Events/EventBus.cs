@@ -36,6 +36,20 @@ namespace Framework.Core.Events
             return new Subscription(this, type, handler);
         }
 
+        public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : struct
+        {
+            if (handler == null)
+            {
+                return;
+            }
+
+            var type = typeof(TEvent);
+            if (_handlers.TryGetValue(type, out var list))
+            {
+                list.Remove(handler);
+            }
+        }
+
         public void Clear() => _handlers.Clear();
 
         void Unsubscribe(Type type, Delegate handler)

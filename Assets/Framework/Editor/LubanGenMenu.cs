@@ -1,9 +1,9 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using Framework.Logging;
 using UnityEditor;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 
 namespace Framework.Editor
 {
@@ -28,13 +28,13 @@ namespace Framework.Editor
             {
                 EditorUtility.DisplayProgressBar("Luban", "正在生成配置...", 0.5f);
                 var output = RunBat(batPath);
-                Debug.Log($"[Luban] Generate finished.\n{output}");
+                GameLog.Info(LogCategories.Luban, $"Generate finished.\n{output}");
                 AssetDatabase.Refresh();
                 EditorUtility.DisplayDialog("Luban", "配置表生成完成。", "确定");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Luban] Generate failed: {ex.Message}\n{ex}");
+                GameLog.Exception(LogCategories.Luban, ex, "Generate failed.");
                 EditorUtility.DisplayDialog("Luban", $"打表失败：\n{ex.Message}", "确定");
             }
             finally

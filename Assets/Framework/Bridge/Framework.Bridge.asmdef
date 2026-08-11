@@ -3,6 +3,7 @@
     "rootNamespace": "Framework.Bridge",
     "references": [
         "Framework.Core",
+        "Framework.Events",
         "Framework.GAS",
         "Framework.ECS"
     ],
