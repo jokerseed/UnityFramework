@@ -1,0 +1,16 @@
+{
+    "name": "Framework.ECS",
+    "rootNamespace": "Framework.ECS",
+    "references": [
+        "Framework.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

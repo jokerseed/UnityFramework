@@ -1,0 +1,18 @@
+{
+    "name": "Framework.Bridge",
+    "rootNamespace": "Framework.Bridge",
+    "references": [
+        "Framework.Core",
+        "Framework.GAS",
+        "Framework.ECS"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

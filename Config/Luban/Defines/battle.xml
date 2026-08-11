@@ -1,0 +1,44 @@
+<module name="">
+    <enum name="AbilityType">
+        <var name="Projectile" alias="弹道" value="0"/>
+        <var name="Melee" alias="近战" value="1"/>
+    </enum>
+
+    <enum name="EffectDurationType">
+        <var name="Instant" alias="即时" value="0"/>
+        <var name="Duration" alias="持续" value="1"/>
+        <var name="Infinite" alias="永久" value="2"/>
+    </enum>
+
+    <enum name="EffectStackingType">
+        <var name="None" value="0"/>
+        <var name="RefreshDuration" value="1"/>
+        <var name="StackCount" value="2"/>
+        <var name="AggregateBySource" value="3"/>
+    </enum>
+
+    <bean name="AbilityDef" comment="技能配置">
+        <var name="id" type="string" comment="技能ID"/>
+        <var name="type" type="AbilityType" comment="技能类型"/>
+        <var name="cooldown" type="float" comment="冷却(秒)"/>
+        <var name="damage" type="float" comment="伤害"/>
+        <var name="speed" type="float" comment="弹道速度"/>
+        <var name="radius" type="float" comment="碰撞半径"/>
+        <var name="lifetime" type="float" comment="弹道存活时间"/>
+        <var name="range" type="float" comment="近战范围"/>
+        <var name="cue_tag" type="string" comment="GameplayCue"/>
+    </bean>
+
+    <bean name="EffectDef" comment="效果配置">
+        <var name="id" type="string"/>
+        <var name="duration_type" type="EffectDurationType"/>
+        <var name="duration" type="float"/>
+        <var name="stacking" type="EffectStackingType"/>
+        <var name="mod_attribute" type="string" comment="修改属性名"/>
+        <var name="mod_operation" type="int" comment="0=Add 1=Multiply"/>
+        <var name="mod_magnitude" type="float"/>
+    </bean>
+
+    <table name="TbAbility" value="AbilityDef" input="battle/ability.xlsx" comment="技能表"/>
+    <table name="TbEffect" value="EffectDef" input="battle/effect.xlsx" comment="效果表"/>
+</module>

@@ -1,0 +1,77 @@
+---
+description: Framework 战斗框架项目约定与架构（换窗口后 Agent 必读）
+alwaysApply: true
+---
+
+# Framework.Battle 项目约定
+
+Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
+
+## Agent 行为（最高优先级）
+
+- **未明确要求改代码时，不得动任何文件**（不创建、不修改、不删除）
+- 仅提问、讲解、评审、讨论方案 → 只读回答，不给文件 diff
+- 以下才算明确要求改动：实现、修 bug、重构、加功能、按名改某文件、更新 rules/README 等
+- 意图模糊时先确认，不要擅自改代码或「顺手」优化
+
+## 工作区
+
+- 始终打开仓库根目录 `Framework/`（含 `Assets/`、`Framework.sln`）
+- 模块文档：`Assets/Framework/<模块>/README.md`，总览见 `Assets/Framework/README.md`
+
+## 程序集职责
+
+| 程序集 | 职责 |
+|--------|------|
+| `Framework.Bootstrap` | `GameBootstrap` 多组模块编排（Host，非 IGameModule） |
+| `Framework.Core` | CommandBuffer、EventBus、`PersistentSingleton<T>` |
+| `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性） |
+| `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据） |
+| `Framework.Bridge` | `BattleFramework` 入口 |
+| `Framework.Config` | Luban 加载、`AbilityFactory` / `EffectFactory` |
+| `Framework.Res` | YooAsset、`ResourceManager` |
+| `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
+
+## 启动与模块
+
+- 入口：`Assets/Scripts/Launch.cs`，场景 `Assets/Bundles/Scenes/Launch.unity`
+- `GameBootstrap` 继承 `PersistentSingleton<GameBootstrap>`，跨场景常驻
+- 多组初始化：`SetModules("组名", modules)` → `Run` / `RunAsync` → 监听 `ModuleGroup` 事件
+- 业务模块实现 `IGameModule`，在 `Dependencies` 声明依赖，由拓扑排序决定顺序
+- 同步模块：`InitMode = Synchronous`；异步：`InitMode = Asynchronous`
+
+## 设计原则
+
+- GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` 等模拟数据
+- 热路径走 `BattleCommandBuffer`，表现走 `EventBus`
+- Tick 顺序：`GAS → Flush Spawn → ECS → Flush Damage → Sync Positions`
+- 常驻 Mono 单例用 `PersistentSingleton<T>`，不要重复造轮子
+
+## 示例与文档
+
+- **不**单独维护 `Samples` / `Tests` 程序集；演示与验证用例写在各模块 README
+- 新增模块时同步更新对应 `README.md`
+
+## 工具链
+
+- 打表：`Config/Luban/gen_client.bat` 或 **Tools → Luban → Generate Client Config**
+- 资源：**Tools → YooAsset → Generate Collector**
+- 配置寻址：`bundles/configs/{表名}.unity3d`
+
+## 编码要求
+
+- **无明确改动请求时不改任何文件**（见上文 Agent 行为）
+- 最小改动范围，匹配现有命名与 asmdef 边界
+- 未经明确要求不提交 git、不新建无关文档
+- 回复使用简体中文
+
+## Unity MCP 验证（改代码后必做）
+
+当 **user-unityMCP** 可用且修改了 C# / Unity 相关代码后，结束前必须：
+
+1. `refresh_unity` — 触发 Unity 刷新与编译
+2. 若仍在编译，等待 `mcpforunity://editor/state` 中 `compilation.is_compiling` 为 `false`
+3. `read_console` — 查看 Console，`types` 至少包含 `error`（建议同时看 `warning`）
+4. 有编译错误 → 修复后重复 1–3，直到无 error 或明确说明无法在当前环境验证
+
+MCP 不可用或 Unity 未连接时，在回复中说明原因，不要假装已验证。

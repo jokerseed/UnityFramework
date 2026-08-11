@@ -1,0 +1,53 @@
+---
+description: Framework C# 与 Unity 代码规范
+globs: Assets/**/*.cs
+alwaysApply: false
+---
+
+# C# 编码规范
+
+## 新增 IGameModule
+
+```csharp
+public sealed class MyModule : IGameModule
+{
+    public string Name => "My";
+    public ModulePhase Phase => ModulePhase.Gameplay;
+    public IReadOnlyList<Type> Dependencies => new[] { typeof(ConfigModule) };
+    public ModuleInitMode InitMode => ModuleInitMode.Synchronous;
+
+    public void Initialize(ModuleContext context) { /* RegisterService */ }
+    public IEnumerator InitializeAsync(ModuleContext context) { Initialize(context); yield break; }
+    public void Shutdown(ModuleContext context) { }
+}
+```
+
+在 `Launch.cs` 中：`bootstrap.SetModules("组名", new IGameModule[] { ... })`。
+
+## 新增常驻 Manager
+
+```csharp
+public sealed class AudioManager : PersistentSingleton<AudioManager> { }
+// 访问：AudioManager.Instance
+```
+
+## 程序集
+
+- 新功能放进对应 `Framework.*` asmdef，避免 `Assembly-CSharp` 膨胀
+- `Framework.Editor` 仅 Editor；运行时模块禁止引用 Editor 程序集
+- 跨模块通过 `ModuleContext.RegisterService` / `GetService`，避免硬编码单例耦合
+
+## 配置与资源
+
+- 运行时推荐：`GetGroup("launch").Context.GetService<cfg.Tables>()`
+- Editor 调试可用：`BattleConfigBootstrap.LoadTables()` 直读 bytes
+
+## 禁止
+
+- 不要在 ECS 组件中存储生命值/攻击力（GAS 已有）
+- 不要让 `GameBootstrap` 实现 `IGameModule`（它是 Host）
+- 不要恢复已删除的 `Samples` / `Tests` 程序集，示例写 README
+
+## 改完代码后
+
+有 Unity MCP 时：`refresh_unity` → 等编译完成 → `read_console` 查 error，有错必须修。详见 `framework-project.mdc`。

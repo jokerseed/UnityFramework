@@ -1,0 +1,4 @@
+<root>
+    <topmodule name="cfg"/>
+    <import name="battle"/>
+</root>
