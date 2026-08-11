@@ -29,6 +29,18 @@ namespace Framework.Config
                 : BattleConfigLoader.LoadFromBytes(resourceManager.LoadConfigBytes);
         }
 
+        public static Tables Tables { get; private set; }
+
+        public static void LoadRuntimeTables(ResourceManager resourceManager)
+        {
+            Tables = LoadTables(resourceManager);
+        }
+
+        public static void UnloadRuntimeTables()
+        {
+            Tables = null;
+        }
+
         public static void RegisterActorAbilities(
             BattleFramework framework,
             ActorId actorId,

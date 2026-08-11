@@ -8,7 +8,6 @@ namespace Framework.Bootstrap
         internal readonly List<IGameModule> Modules = new List<IGameModule>();
         internal readonly List<IGameModule> Initialized = new List<IGameModule>();
 
-        public ModuleContext Context { get; internal set; }
         internal Exception LastError;
 
         public ModuleGroup(string name)

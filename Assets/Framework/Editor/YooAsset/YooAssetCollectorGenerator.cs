@@ -16,9 +16,13 @@ namespace Framework.Editor.YooAsset
         const string PackageName = "DefaultPackage";
         const string ConfigsRoot = "Assets/Bundles/Configs";
 
+        /// <summary>Collector 打包粒度。</summary>
         enum PackMode
         {
+            /// <summary>目录下每个文件单独打包。</summary>
             PerFile,
+
+            /// <summary>整个目录打成一个包。</summary>
             PerFolder,
         }
 

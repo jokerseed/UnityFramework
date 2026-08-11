@@ -35,8 +35,7 @@ public sealed class Launch : MonoBehaviour
     {
         yield return GameBootstrap.Instance.RunAsync("launch");
 
-        var launch = GameBootstrap.Instance.GetGroup("launch");
-        var tables = launch.Context.GetService<Tables>();
+        var tables = BattleConfigBootstrap.Tables;
         Debug.Log("[Launch] Bootstrap ready, printing config test...");
         PrintConfigTest(tables);
     }

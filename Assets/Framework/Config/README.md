@@ -43,8 +43,8 @@ Luban 配置表加载与 GAS 工厂，将策划数据转换为运行时 `Gamepla
 ## 加载方式
 
 ```csharp
-// 方式一：通过 Bootstrap（推荐，Launch 场景）
-var tables = bootstrap.Context.GetService<cfg.Tables>();
+// 方式一：Bootstrap 初始化后（推荐，Launch 场景）
+var tables = BattleConfigBootstrap.Tables;
 
 // 方式二：YooAsset 直调
 var tables = BattleConfigBootstrap.LoadTables(ResourceManager.Instance);

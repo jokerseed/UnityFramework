@@ -105,8 +105,9 @@ Collector 规则：
 ## 运行时加载配置
 
 ```csharp
-// 通过 Bootstrap（推荐）
-var tables = bootstrap.Context.GetService<cfg.Tables>();
+// 通过 Bootstrap 初始化后，从各模块入口取用
+var tables = BattleConfigBootstrap.Tables;
+var manager = ResourceManager.Instance;
 
 // YooAsset 直调
 var tables = BattleConfigBootstrap.LoadTables(ResourceManager.Instance);

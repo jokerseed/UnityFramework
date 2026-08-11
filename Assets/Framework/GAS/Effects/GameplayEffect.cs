@@ -6,16 +6,26 @@ using Framework.GAS.Tags;
 
 namespace Framework.GAS.Effects
 {
+    /// <summary>GameplayEffect 持续时间策略。</summary>
     public enum EffectDurationPolicy
     {
+        /// <summary>立即生效并结束，不保留运行时实例。</summary>
         Instant,
+
+        /// <summary>在指定时长内持续生效。</summary>
         Duration,
+
+        /// <summary>永久生效，直到被显式移除。</summary>
         Infinite
     }
 
+    /// <summary>属性修改器的运算方式。</summary>
     public enum EffectModifierOperation
     {
+        /// <summary>在当前值上加上修改量。</summary>
         Add,
+
+        /// <summary>在当前值上乘以修改系数。</summary>
         Multiply
     }
 

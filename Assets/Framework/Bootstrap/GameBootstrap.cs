@@ -86,7 +86,6 @@ namespace Framework.Bootstrap
             ShutdownGroup(group);
             group.Modules.Clear();
             group.Initialized.Clear();
-            group.Context = null;
             group.SetState(ModuleGroupState.Idle);
         }
 
@@ -130,12 +129,10 @@ namespace Framework.Bootstrap
             if (group.Modules.Count == 0)
             {
                 Debug.LogWarning($"[Bootstrap] Group '{group.Name}' has no modules.");
-                group.Context = new ModuleContext();
                 group.SetState(ModuleGroupState.Ready);
                 yield break;
             }
 
-            group.Context = new ModuleContext();
             var waves = ModuleSorter.SortIntoWaves(group.Modules);
             var progress = new InitProgress();
             var totalModules = group.Modules.Count;
@@ -177,11 +174,11 @@ namespace Framework.Bootstrap
 
             if (module.InitMode == ModuleInitMode.Synchronous)
             {
-                module.Initialize(group.Context);
+                module.Initialize();
             }
             else
             {
-                yield return module.InitializeAsync(group.Context);
+                yield return module.InitializeAsync();
             }
 
             CompleteModule(group, module);
@@ -208,7 +205,7 @@ namespace Framework.Bootstrap
                 {
                     try
                     {
-                        module.Initialize(group.Context);
+                        module.Initialize();
                         CompleteModule(group, module);
                     }
                     catch (Exception ex)
@@ -248,7 +245,7 @@ namespace Framework.Bootstrap
             IEnumerator routine;
             try
             {
-                routine = module.InitializeAsync(group.Context);
+                routine = module.InitializeAsync();
             }
             catch (Exception ex)
             {
@@ -283,7 +280,6 @@ namespace Framework.Bootstrap
 
         static void CompleteModule(ModuleGroup group, IGameModule module)
         {
-            group.Context.RegisterModule(module);
             group.Initialized.Add(module);
         }
 
@@ -307,14 +303,9 @@ namespace Framework.Bootstrap
 
         static void ShutdownGroup(ModuleGroup group)
         {
-            if (group.Context == null)
-            {
-                return;
-            }
-
             for (var i = group.Initialized.Count - 1; i >= 0; i--)
             {
-                group.Initialized[i].Shutdown(group.Context);
+                group.Initialized[i].Shutdown();
             }
 
             group.Initialized.Clear();

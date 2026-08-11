@@ -37,6 +37,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 入口：`Assets/Scripts/Launch.cs`，场景 `Assets/Bundles/Scenes/Launch.unity`
 - `GameBootstrap` 继承 `PersistentSingleton<GameBootstrap>`，跨场景常驻
 - 多组初始化：`SetModules("组名", modules)` → `Run` / `RunAsync` → 监听 `ModuleGroup` 事件
+- Bootstrap **仅做调度**，不保存 `ModuleContext`；模块实例由各模块自己管理
 - 业务模块实现 `IGameModule`，在 `Dependencies` 声明依赖，由拓扑排序决定顺序
 - 同步模块：`InitMode = Synchronous`；异步：`InitMode = Asynchronous`
 
@@ -62,6 +63,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 
 - **无明确改动请求时不改任何文件**（见上文 Agent 行为）
 - 最小改动范围，匹配现有命名与 asmdef 边界
+- **枚举必须加注释**：枚举类型与每个成员都要有 `/// <summary>`（详见 `framework-csharp.mdc`）
 - 未经明确要求不提交 git、不新建无关文档
 - 回复使用简体中文
 

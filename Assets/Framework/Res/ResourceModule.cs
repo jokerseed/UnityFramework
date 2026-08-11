@@ -21,25 +21,24 @@ namespace Framework.Res
         public IReadOnlyList<Type> Dependencies => Array.Empty<Type>();
         public ModuleInitMode InitMode => ModuleInitMode.Asynchronous;
 
-        public void Initialize(ModuleContext context)
+        public void Initialize()
         {
         }
 
-        public IEnumerator InitializeAsync(ModuleContext context)
+        public IEnumerator InitializeAsync()
         {
             ApplyPlatformDefaults(_options);
 
             var manager = ResourceManager.Instance;
             yield return manager.InitializeAsync(_options);
-            context.RegisterService(manager);
             Debug.Log("[Resource] Module ready.");
         }
 
-        public void Shutdown(ModuleContext context)
+        public void Shutdown()
         {
-            if (context.TryGetService<ResourceManager>(out var manager))
+            if (ResourceManager.Instance.IsInitialized)
             {
-                manager.Shutdown();
+                ResourceManager.Instance.Shutdown();
             }
         }
 

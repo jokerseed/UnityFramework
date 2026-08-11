@@ -1,5 +1,6 @@
 namespace Framework.GAS.Effects
 {
+    /// <summary>同 EffectId 的多个实例如何叠加。</summary>
     public enum EffectStackingPolicy
     {
         /// <summary>同 EffectId 不可重复，忽略新实例。</summary>

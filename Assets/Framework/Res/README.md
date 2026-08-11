@@ -45,9 +45,8 @@ Collector 规则：
 ## 典型用法
 
 ```csharp
-// 通过 Bootstrap（推荐）
-// ResourceModule 已在 Launch 中注册，直接取用：
-var manager = bootstrap.Context.GetService<ResourceManager>();
+// ResourceModule 初始化后
+var manager = ResourceManager.Instance;
 
 // 加载配置 bytes
 var tables = BattleConfigBootstrap.LoadTables(manager);
@@ -62,7 +61,7 @@ var prefab = handle.GetAsset<GameObject>();
 `ResourceModule` 是第一个业务模块：
 - `Phase` = `Infrastructure`
 - `Dependencies` = 空
-- 初始化后注册 `ResourceManager` 到 `ModuleContext`
+- 初始化后通过 `ResourceManager.Instance` 访问
 
 ## 被谁使用
 

@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using cfg;
 using Framework.Bootstrap;
 using Framework.Res;
 using UnityEngine;
@@ -15,22 +14,21 @@ namespace Framework.Config
         public IReadOnlyList<Type> Dependencies => new[] { typeof(ResourceModule) };
         public ModuleInitMode InitMode => ModuleInitMode.Synchronous;
 
-        public void Initialize(ModuleContext context)
+        public void Initialize()
         {
-            var resourceManager = context.GetService<ResourceManager>();
-            var tables = BattleConfigBootstrap.LoadTables(resourceManager);
-            context.RegisterService(tables);
+            BattleConfigBootstrap.LoadRuntimeTables(ResourceManager.Instance);
             Debug.Log("[Config] Module ready.");
         }
 
-        public IEnumerator InitializeAsync(ModuleContext context)
+        public IEnumerator InitializeAsync()
         {
-            Initialize(context);
+            Initialize();
             yield break;
         }
 
-        public void Shutdown(ModuleContext context)
+        public void Shutdown()
         {
+            BattleConfigBootstrap.UnloadRuntimeTables();
         }
     }
 }

@@ -19,8 +19,7 @@
 | `IGameModule` | 业务模块契约（名称、阶段、依赖、同步/异步初始化） |
 | `ModuleGroup` | 一组模块的句柄，含状态与事件 |
 | `ModuleGroupState` | `Idle` / `Running` / `Ready` / `Failed` |
-| `ModuleContext` | 每组独立的服务容器 |
-| `GameBootstrap` | 常驻单例，管理多组 `SetModules` / `Run` |
+| `GameBootstrap` | 常驻单例，仅负责多组模块的初始化调度 |
 
 ## 多组模块
 
@@ -52,8 +51,9 @@ groupB.StateChanged += g => Debug.Log($"{g.Name} -> {g.State}");
 yield return bootstrap.RunAsync("launch");
 bootstrap.Run("battle"); // 或 yield return RunAsync("battle")
 
-// 各组独立 Context
-var tables = bootstrap.GetGroup("launch").Context.GetService<cfg.Tables>();
+// 各组初始化完成后，从各模块自己的入口取用（非 Bootstrap 职责）
+var tables = BattleConfigBootstrap.Tables;
+var manager = ResourceManager.Instance;
 ```
 
 | API | 说明 |
@@ -61,7 +61,7 @@ var tables = bootstrap.GetGroup("launch").Context.GetService<cfg.Tables>();
 | `SetModules(name, modules)` | 配置一组模块，返回 `ModuleGroup` |
 | `Run(name)` | 启动该组初始化（协程） |
 | `RunAsync(name)` | `yield return` 等待该组完成 |
-| `GetGroup(name)` | 获取组句柄，查 `IsReady` / `Context` |
+| `GetGroup(name)` | 获取组句柄，查 `IsReady` / 状态事件 |
 | `ResetGroup(name)` | 关闭并清空该组，可重新配置 |
 
 ## 初始化模式
