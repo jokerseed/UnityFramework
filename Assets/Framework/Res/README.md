@@ -15,8 +15,8 @@ YooAsset 资源管线封装，提供配置表与通用资源的同步/异步加�
 | 类型 | 职责 |
 |------|------|
 | `ResourceModule` | `IGameModule` 实现，初始化 YooAsset 并注册 `ResourceManager` |
-| `ResourceManager` | 单例，包初始化、资源加载、配置 bytes 读取 |
-| `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host） |
+| `ResourceManager` | 常驻单例，Inspector 配置 `InitOptions`，包初始化与加载 |
+| `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host），挂在 `ResourceManager` 上 |
 | `ResourceAddresses` | 寻址规则（如 `bundles/configs/{表名}.unity3d`） |
 | `ResourceAssetHandle` | 资源句柄封装，支持 Dispose |
 
@@ -57,10 +57,15 @@ var prefab = handle.GetAsset<GameObject>();
 
 ## Bootstrap 集成
 
-`ResourceModule` 是第一个业务模块：
+```csharp
+new ResourceModule(),
+```
+
+初始化选项在常驻 `ResourceManager`（`PersistentSingleton`）上配置，不要写在 `Launch` 上。
 - `Phase` = `Infrastructure`
-- `Dependencies` = 空
+- `Dependencies` = `LoggingModule`
 - 初始化后通过 `ResourceManager.Instance` 访问
+- `Shutdown` / 停 Play 时销毁 YooAsset，避免编辑器 abort 未完成异步任务的 Warning
 
 ## 被谁使用
 

@@ -16,7 +16,7 @@ alwaysApply: false
 | 常规日志 | `GameLog.Info` / `Warning` / `Error` / `Debug` / `Trace` |
 | 异常 | `GameLog.Exception(category, ex, message?)` |
 | 分类 | `LogCategories` 常量，或自定义字符串（建议集中定义） |
-| 过滤 / 定制 | `LogInitOptions`、`GameLog.SetMinLevel`、`ILogSink`、`GameLog.Formatter` |
+| 过滤 / 定制 | `LoggingManager` Inspector 上的 `LogInitOptions`、`GameLog.SetMinLevel`、`ILogSink`、`GameLog.Formatter` |
 
 ## 适用范围
 

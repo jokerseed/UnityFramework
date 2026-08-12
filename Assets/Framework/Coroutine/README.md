@@ -61,7 +61,7 @@ IEnumerator FadeIn()
 ## Bootstrap
 
 ```csharp
-new LoggingModule(...),
+new LoggingModule(),
 new CoroutineModule(), // Dependencies: LoggingModule
 ```
 

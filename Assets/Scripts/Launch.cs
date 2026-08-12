@@ -1,4 +1,3 @@
-using System.Collections;
 using Framework.Bootstrap;
 using Framework.Coroutine;
 using Framework.Logging;
@@ -10,24 +9,21 @@ using UnityEngine;
 /// <summary>
 /// 启动入口：通过 GameBootstrap 按依赖顺序初始化各模块。
 /// 挂到 Launch 场景任意 GameObject 上即可。
+/// 各模块 Inspector 选项在对应 <c>PersistentSingleton</c> Manager 上配置。
 /// </summary>
 public sealed class Launch : MonoBehaviour
 {
-    [SerializeField] LogInitOptions _logOptions = new LogInitOptions();
-    [SerializeField] ResourceInitOptions _resourceOptions = new ResourceInitOptions();
-    [SerializeField] bool _memoryPoolStrictCheck = true;
-
     void Awake()
     {
         var bootstrap = GameBootstrap.Instance;
 
         var launch = bootstrap.SetModules("launch", new IGameModule[]
         {
-            new LoggingModule(_logOptions),
+            new LoggingModule(),
             new CoroutineModule(),
-            new MemoryPoolModule(_memoryPoolStrictCheck),
+            new MemoryPoolModule(),
             new ObjectPoolModule(),
-            new ResourceModule(_resourceOptions),
+            new ResourceModule(),
         });
         launch.StateChanged += OnGroupStateChanged;
         launch.Ready += OnGroupReady;

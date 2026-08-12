@@ -12,13 +12,31 @@ namespace Framework.Res
     /// 运行时资源包管理器，封装 YooAsset 的初始化与加载流程。
     /// 是运行时唯一合法的 Asset / 配置字节加载入口；通过 <see cref="ResourceModule"/> 驱动初始化。
     /// </summary>
+    [DefaultExecutionOrder(-500)]
     public sealed class ResourceManager : PersistentSingleton<ResourceManager>
     {
         readonly Dictionary<string, ResourceAssetHandle> _syncCache = new Dictionary<string, ResourceAssetHandle>();
 
+        [SerializeField] ResourceInitOptions _initOptions = new ResourceInitOptions();
+
         ResourcePackage _package;
         ResourceInitOptions _options;
         bool _initialized;
+        bool _stopped;
+
+        /// <summary>Inspector 中配置的资源初始化选项；未赋值时返回默认配置。</summary>
+        public ResourceInitOptions InitOptions
+        {
+            get
+            {
+                if (_initOptions == null)
+                {
+                    _initOptions = new ResourceInitOptions();
+                }
+
+                return _initOptions;
+            }
+        }
 
         /// <summary>是否已完成初始化。</summary>
         public bool IsInitialized => _initialized;
@@ -37,11 +55,12 @@ namespace Framework.Res
                 throw new ArgumentNullException(nameof(options));
             }
 
+            _stopped = false;
             _options = options;
 
             if (!YooAssets.IsInitialized)
             {
-                YooAssets.Initialize();
+                YooAssets.Initialize(new YooAssetLogAdapter());
             }
 
             if (!YooAssets.TryGetPackage(options.PackageName, out _package))
@@ -160,13 +179,43 @@ namespace Framework.Res
             _syncCache.Clear();
         }
 
-        /// <summary>释放缓存并重置管理器状态；由 <see cref="ResourceModule"/> 在 Shutdown 阶段调用。</summary>
+        /// <summary>
+        /// 释放缓存并销毁 YooAsset；由 <see cref="ResourceModule"/> Shutdown 或退出 Play 时调用。
+        /// 可重复调用，仅首次生效。
+        /// </summary>
         public void Shutdown()
         {
+            if (_stopped)
+            {
+                return;
+            }
+
+            _stopped = true;
             ReleaseCache();
             _initialized = false;
             _package = null;
             _options = null;
+
+            if (YooAssets.IsInitialized)
+            {
+                YooAssets.Destroy();
+            }
+
+            GameLog.Info(LogCategories.Resource, "Resource manager shut down.");
+        }
+
+        /// <summary>退出 Play / 应用时先于 YooAsset Driver 销毁资源系统，避免 abort Warning。</summary>
+        protected override void OnApplicationQuit()
+        {
+            Shutdown();
+            base.OnApplicationQuit();
+        }
+
+        /// <inheritdoc />
+        protected override void OnDestroy()
+        {
+            Shutdown();
+            base.OnDestroy();
         }
 
         InitializePackageOperation CreateInitializeOperation(ResourceInitOptions options)

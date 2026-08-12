@@ -15,21 +15,22 @@
 | 类型 | 职责 |
 |------|------|
 | `LoggingModule` | `IGameModule`，位于 `Framework.Bootstrap` 程序集 |
+| `LoggingManager` | 常驻单例，Inspector 配置 `LogInitOptions` |
 | `GameLog` | 全局静态入口（级别 / 分类 / Sink / 格式化） |
 | `ILogSink` | 自定义输出目标 |
 | `UnityConsoleLogSink` | 默认输出到 Unity Console |
-| `LogInitOptions` | Inspector 可配的初始化选项 |
+| `LogInitOptions` | Inspector 可配的初始化选项（挂在 `LoggingManager` 上） |
 | `LogCategories` | 常用分类常量 |
 
 ## Bootstrap 集成
 
-`LoggingModule` 应在 `ResourceModule` 之前注册（同 `Infrastructure` 阶段按名称排序）：
+`LoggingModule` 应在 `ResourceModule` 之前注册。初始化选项在常驻 `LoggingManager`（`PersistentSingleton`）上配置，不要写在 `Launch` 上：
 
 ```csharp
 bootstrap.SetModules("launch", new IGameModule[]
 {
-    new LoggingModule(_logOptions),
-    new ResourceModule(_resourceOptions),
+    new LoggingModule(),
+    new ResourceModule(),
 });
 ```
 

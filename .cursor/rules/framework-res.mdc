@@ -12,7 +12,7 @@ alwaysApply: false
 
 | 场景 | 用法 |
 |------|------|
-| 模块初始化 | `ResourceModule` 注册到 `GameBootstrap`，完成后用 `ResourceManager.Instance` |
+| 模块初始化 | `ResourceModule` 注册到 `GameBootstrap`；选项在 `ResourceManager` Inspector（`InitOptions`） |
 | 同步资源 | `ResourceManager.Instance.LoadAssetSync<T>(location)` |
 | 异步资源 | `ResourceManager.Instance.LoadAssetAsync<T>(...)` |
 | 配置 bytes | `LoadConfigBytes` / `LoadConfigBytesCached` |

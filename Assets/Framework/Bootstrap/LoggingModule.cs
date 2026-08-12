@@ -7,18 +7,10 @@ namespace Framework.Logging
 {
     /// <summary>
     /// 日志模块：置于 Bootstrap 程序集，避免与 GameLog 所在程序集循环依赖。
+    /// 初始化选项从 <see cref="LoggingManager"/> 读取。
     /// </summary>
     public sealed class LoggingModule : IGameModule
     {
-        readonly LogInitOptions _options;
-
-        /// <summary>使用指定初始化选项创建日志模块；<paramref name="options"/> 为 null 时使用默认配置。</summary>
-        /// <param name="options">日志初始化选项；可为 null，表示使用 <see cref="LogInitOptions"/> 默认值。</param>
-        public LoggingModule(LogInitOptions options = null)
-        {
-            _options = options ?? new LogInitOptions();
-        }
-
         /// <summary>获取模块名称。</summary>
         public string Name => "Logging";
 
@@ -31,10 +23,11 @@ namespace Framework.Logging
         /// <summary>获取初始化执行方式（同步）。</summary>
         public ModuleInitMode InitMode => ModuleInitMode.Synchronous;
 
-        /// <summary>同步初始化日志系统，调用 <see cref="GameLog.Configure"/> 并输出就绪日志。</summary>
+        /// <summary>同步初始化日志系统，从 <see cref="LoggingManager"/> 读取选项并调用 <see cref="GameLog.Configure"/>。</summary>
         public void Initialize()
         {
-            GameLog.Configure(_options);
+            var options = LoggingManager.Instance.Options;
+            GameLog.Configure(options);
             GameLog.Info(LogCategories.Bootstrap, "Logging module ready.");
         }
 

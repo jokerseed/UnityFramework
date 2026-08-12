@@ -29,7 +29,7 @@ var bootstrap = GameBootstrap.Instance;
 // 配置组 A
 var groupA = bootstrap.SetModules("launch", new IGameModule[]
 {
-    new ResourceModule(options),
+    new ResourceModule(),
     new ConfigModule(),
 });
 

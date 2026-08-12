@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.MemoryPool` |
 | 命名空间 | `Framework.MemoryPool` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Logging` |
+| 依赖 | `Framework.Core`、`Framework.Bootstrap`、`Framework.Logging` |
 
 ## 核心类型
 
@@ -16,7 +16,8 @@
 |------|------|
 | `IMemory` | 可池化对象契约，`Clear()` 归还前复位 |
 | `MemoryPool` | 静态 `Acquire` / `Release` / `Add` / `ClearAll` |
-| `MemoryPoolModule` | Bootstrap 模块：严格检查开关，Shutdown 清空 |
+| `MemoryPoolManager` | 常驻单例，Inspector 配置严格检查 |
+| `MemoryPoolModule` | Bootstrap 模块：读取 Manager 开关，Shutdown 清空 |
 
 ## 用法
 
@@ -40,14 +41,14 @@ buf = null; // Release 后禁止再访问
 ## Bootstrap
 
 ```csharp
-new MemoryPoolModule(enableStrictCheck: true), // Editor 建议开
+new MemoryPoolModule(),
 ```
 
-依赖：`LoggingModule`。
+依赖：`LoggingModule`。严格检查在常驻 `MemoryPoolManager`（`PersistentSingleton`）上配置（默认开启）。
 
 ## `enableStrictCheck`
 
-对应 `MemoryPool.EnableStrictCheck`，由 `MemoryPoolModule` 在初始化时写入。
+对应 `MemoryPool.EnableStrictCheck`，由 `MemoryPoolModule` 在初始化时从 `MemoryPoolManager` 写入。
 
 ### 实际作用
 
@@ -58,7 +59,7 @@ new MemoryPoolModule(enableStrictCheck: true), // Editor 建议开
 
 | 环境 | 建议 |
 |------|------|
-| Editor / 调试 | `true`（`Launch` 默认如此） |
+| Editor / 调试 | `true`（`MemoryPoolManager` 默认如此） |
 | 正式包 | 可关，少一次判断、也避免把池错误变成线上崩溃（根因仍应修复） |
 
 ### 它不会做的事

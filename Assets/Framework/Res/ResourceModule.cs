@@ -9,19 +9,11 @@ namespace Framework.Res
 {
     /// <summary>
     /// 资源模块，负责驱动 <see cref="ResourceManager"/> 完成初始化与关闭。
+    /// 初始化选项从 <see cref="ResourceManager.InitOptions"/> 读取。
     /// 在 <c>GameBootstrap</c> 中注册后，其他依赖资源的模块须在 <c>Dependencies</c> 中声明对本模块的依赖。
     /// </summary>
     public sealed class ResourceModule : IGameModule
     {
-        readonly ResourceInitOptions _options;
-
-        /// <summary>使用指定选项创建资源模块。</summary>
-        /// <param name="options">资源初始化选项；为 null 时使用默认选项。</param>
-        public ResourceModule(ResourceInitOptions options = null)
-        {
-            _options = options ?? new ResourceInitOptions();
-        }
-
         /// <summary>模块名称。</summary>
         public string Name => "Resource";
 
@@ -39,17 +31,19 @@ namespace Framework.Res
         {
         }
 
-        /// <summary>异步初始化：应用平台默认配置后驱动 <see cref="ResourceManager"/> 完成包初始化。</summary>
+        /// <summary>异步初始化：从 <see cref="ResourceManager"/> 读取选项，应用平台默认后完成包初始化。</summary>
+        /// <returns>协程枚举器。</returns>
         public IEnumerator InitializeAsync()
         {
-            ApplyPlatformDefaults(_options);
-
             var manager = ResourceManager.Instance;
-            yield return manager.InitializeAsync(_options);
+            var options = manager.InitOptions;
+            ApplyPlatformDefaults(options);
+
+            yield return manager.InitializeAsync(options);
             GameLog.Info(LogCategories.Resource, "Module ready.");
         }
 
-        /// <summary>关闭资源管理器，释放所有已缓存的资源句柄。</summary>
+        /// <summary>关闭资源管理器：释放缓存并销毁 YooAsset。</summary>
         public void Shutdown()
         {
             if (!ResourceManager.HasInstance)
@@ -57,11 +51,7 @@ namespace Framework.Res
                 return;
             }
 
-            var manager = ResourceManager.Instance;
-            if (manager != null && manager.IsInitialized)
-            {
-                manager.Shutdown();
-            }
+            ResourceManager.Instance.Shutdown();
         }
 
         static void ApplyPlatformDefaults(ResourceInitOptions options)

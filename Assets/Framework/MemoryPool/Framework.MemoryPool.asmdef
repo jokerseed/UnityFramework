@@ -3,6 +3,7 @@
     "rootNamespace": "Framework.MemoryPool",
     "references": [
         "Framework.Bootstrap",
+        "Framework.Core",
         "Framework.Logging"
     ],
     "includePlatforms": [],
