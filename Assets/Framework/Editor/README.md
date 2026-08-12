@@ -35,7 +35,9 @@
 `YooAssetCollectorGenerator` 根据 `Assets/Bundles/` 目录结构生成 Collector 配置：
 
 - `Assets/Bundles/Configs/*.bytes` — 每个文件单独打包
-- 寻址规则由 `AddressByPreImportPath` 实现：`bundles/configs/{表名}.unity3d`
+- `Assets/Bundles/Prefabs/` — 每个 Prefab 单独打包
+- `Assets/Bundles/Scenes/` — 每个场景单独打包
+- 寻址规则由 `AddressByPreImportPath` 实现：`bundles/{目录}/{文件名}.unity3d`
 
 ## 目录结构
 

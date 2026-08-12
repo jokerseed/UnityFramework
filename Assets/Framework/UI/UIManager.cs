@@ -25,6 +25,7 @@ namespace Framework.UI
         readonly Dictionary<UILayer, Transform> _layerRoots = new Dictionary<UILayer, Transform>(8);
 
         Transform _uiRoot;
+        Transform _eventSystemRoot;
         bool _initialized;
 
         /// <summary>当前打开的窗口数量。</summary>
@@ -39,7 +40,10 @@ namespace Framework.UI
             }
 
             _uiRoot = new GameObject("UIRoot").transform;
-            DontDestroyOnLoad(_uiRoot.gameObject);
+            _uiRoot.SetParent(transform, false);
+            _uiRoot.localPosition = Vector3.zero;
+            _uiRoot.localRotation = Quaternion.identity;
+            _uiRoot.localScale = Vector3.one;
 
             EnsureLayer(UILayer.Bottom);
             EnsureLayer(UILayer.UI);
@@ -157,6 +161,12 @@ namespace Framework.UI
             }
 
             _layerRoots.Clear();
+
+            if (_eventSystemRoot != null)
+            {
+                Destroy(_eventSystemRoot.gameObject);
+                _eventSystemRoot = null;
+            }
 
             if (_uiRoot != null)
             {
@@ -367,13 +377,21 @@ namespace Framework.UI
 
         void EnsureEventSystem()
         {
-            if (FindObjectOfType<EventSystem>() != null)
+            if (_eventSystemRoot != null)
             {
                 return;
             }
 
+            var existing = transform.Find("EventSystem");
+            if (existing != null)
+            {
+                _eventSystemRoot = existing;
+                return;
+            }
+
             var eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-            DontDestroyOnLoad(eventSystemGo);
+            eventSystemGo.transform.SetParent(transform, false);
+            _eventSystemRoot = eventSystemGo.transform;
         }
 
         void EnsureInitialized()
