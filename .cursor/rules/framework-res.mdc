@@ -1,44 +1,89 @@
 ---
-description: 运行时资源加载必须走 Framework.Res 封装
+description: 运行时资源加载、释放、初始化与寻址必须走 Framework.Res 封装
 globs: Assets/**/*.cs
 alwaysApply: false
 ---
 
-# 资源加载规范
+# 资源加载与释放规范
 
 ## 唯一入口
 
-运行时加载 Asset / Bundle / 配置 bytes **只能**通过 `Framework.Res`：
+运行时资源的 **加载、释放、缓存、包初始化/关闭** 只能走 `Framework.Res`（`ResourceModule` + `ResourceManager` + `ResourceAssetHandle` + `ResourceAddresses`）。
 
 | 场景 | 用法 |
 |------|------|
-| 模块初始化 | `ResourceModule` 注册到 `GameBootstrap`；选项在 `ResourceManager` Inspector（`InitOptions`） |
-| 同步资源 | `ResourceManager.Instance.LoadAssetSync<T>(location)` |
-| 异步资源 | `ResourceManager.Instance.LoadAssetAsync<T>(...)` |
-| 配置 bytes | `LoadConfigBytes` / `LoadConfigBytesCached` |
-| 寻址 | `ResourceAddresses`（不要手写路径字符串） |
+| 模块编排 | `ResourceModule` 注册到 `GameBootstrap`；`Dependencies` 声明依赖 `ResourceModule` |
+| 包初始化 | `ResourceModule.InitializeAsync` → `ResourceManager.InitializeAsync`（业务代码不得自行 `YooAssets.Initialize`） |
+| 同步加载 Asset | `ResourceManager.Instance.LoadAssetSync<T>(location)` → `ResourceAssetHandle` |
+| 异步加载 Asset | `ResourceManager.Instance.LoadAssetAsync<T>(location, onComplete)` |
+| 配置 Luban 全表 | `LoadLubanTables()`（推荐，一次调用） |
+| 任意二进制 | `LoadBytes(location)` / `LoadBinary<T>(location, deserialize)` |
+| 配置单表 bytes | `LoadConfigBytes(tableName)` / `LoadConfigBytesCached(tableName)` |
+| 释放单次句柄 | `ResourceAssetHandle.Dispose()` 或 `using var handle = ...` |
+| 释放配置缓存 | `ResourceManager.Instance.ReleaseCache()` |
+| 模块/应用关闭 | `ResourceModule.Shutdown()` → `ResourceManager.Shutdown()`（业务代码不得自行 `YooAssets.Destroy`） |
+| 寻址 | `ResourceAddresses`（禁止业务层手写 Bundle 路径字符串） |
+
+## 释放与生命周期
+
+- 凡通过 `LoadAssetSync` / `LoadAssetAsync` 获得的 `ResourceAssetHandle`，**必须**在不用时 `Dispose`，或使用 `using`
+- 使用 `LoadConfigBytesCached` 后，须在合适时机（如场景切换、模块 Shutdown）调用 `ReleaseCache()`
+- **禁止**在业务代码中持有或调用 YooAsset 原生 `AssetHandle.Release()` / `UnloadAsset()` 等 API
+- **禁止**在 `Framework.Res` 之外调用 `YooAssets.Destroy()`、`DestroyPackage()` 等全局销毁 API
+- 实例化：`ResourceAssetHandle.InstantiateSync(...)`；销毁实例仍用 Unity `Destroy`，释放引用计数须 `Dispose` 句柄
 
 ## 禁止（运行时业务代码）
 
-- `YooAssets` / `YooAsset` API（`LoadAssetSync`、`CreatePackage` 等）
-- `UnityEngine.Resources.Load`
-- `AssetDatabase`（仅 Editor 工具可用）
-- 为加载 Bundle 直接 `File.ReadAllBytes` / `FileStream`
+**加载：**
+
+- `YooAssets` / `YooAsset` 包与 Asset API（`LoadAssetSync`、`CreatePackage`、`GetPackage` 等）
+- `UnityEngine.Resources.Load` / `Resources.LoadAsync`
+- `AssetDatabase.LoadAssetAtPath` 等（**仅** `Framework.Editor` 工具可用）
+- 为加载 Bundle/配置而直接 `File.ReadAllBytes` / `FileStream`（Editor 调试例外见下）
+
+**释放：**
+
+- 直接 `handle.Release()`（YooAsset 原生句柄）
+- 业务模块自行 `YooAssets.Destroy()` / `UnloadUnusedAssets` 替代 `ResourceManager.Shutdown`
+- 只加载不释放、长期持有 `ResourceAssetHandle` 而不 `Dispose`
+
+## Editor 调试例外
+
+- `ConfigLoader.LoadDefault()` / `LoadBinaryFromDirectory`：仅 Editor 未打 Bundle 时的**本地调试**，**不能**作为 shipped 运行时路径
+- 正式运行时：配置表使用 `ResourceManager.Instance.LoadLubanTables()`
 
 ## 程序集边界
 
 - **唯一**可引用 `YooAsset` 的运行时程序集：`Framework.Res`
 - 其他 `Framework.*` 与 `Assets/Scripts` **不得**添加 `YooAsset` asmdef 引用
-- `Framework.Editor` 仅用于打表、Collector 等编辑器工具，不做运行时加载
+- `Framework.Editor` 仅用于打表、Collector 等编辑器工具，不做运行时加载/释放
+
+## Agent 行为
+
+- 新增/修改加载逻辑时，默认使用 `ResourceManager` API；若 Res 缺少能力，**先扩展 `Framework.Res`**，不在业务模块直接引用 YooAsset
+- Code Review 时：凡出现 `YooAssets`、`AssetHandle`、`Resources.Load`、裸 `File.ReadAllBytes` 加载 Bundle，视为违规
 
 ## 示例
 
 ```csharp
-// ❌ BAD
+// ❌ BAD — 绕过 Res 加载
 var pkg = YooAssets.GetPackage("DefaultPackage");
 var go = pkg.LoadAssetSync<GameObject>("path");
 
-// ✅ GOOD
-using var handle = ResourceManager.Instance.LoadAssetSync<GameObject>("bundles/prefabs/player");
+// ❌ BAD — 绕过 Res 释放
+yooAssetHandle.Release();
+
+// ✅ GOOD — 加载 + 释放
+using var handle = ResourceManager.Instance.LoadAssetSync<GameObject>(
+    ResourceAddresses.ConfigTable("tbability")); // 或业务 prefab 寻址
 var asset = handle.GetAsset<GameObject>();
+
+// ✅ GOOD — Luban 配置表
+var tables = ResourceManager.Instance.LoadLubanTables();
+
+// ✅ GOOD — 任意二进制反序列化
+var data = ResourceManager.Instance.LoadBinary("bundles/data/foo.unity3d", MyCodec.Decode);
+
+// ✅ GOOD — 模块关闭（Launch/Bootstrap 已注册 ResourceModule 时由其 Shutdown 触发）
+ResourceManager.Instance.ReleaseCache();
 ```

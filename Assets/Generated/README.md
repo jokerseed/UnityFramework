@@ -24,6 +24,6 @@ using cfg;
 using Framework.Config;
 using Framework.Res;
 
-Tables tables = BattleConfigBootstrap.LoadTables(ResourceManager.Instance);
+Tables tables = ResourceManager.Instance.LoadLubanTables();
 var fireball = tables.TbAbility.Get("Fireball");
 ```

@@ -75,4 +75,4 @@ instance.ActivationInfo.SetSetByCaller("Damage", 120f);
 ## 被谁使用
 
 - `Framework.GamePlay` — Tick、目标查询、Cue 转发
-- `Framework.Config` — Luban 工厂创建 Def
+- `Framework.GamePlay.Data` — Luban 表 → GAS Def 装配

@@ -4,10 +4,8 @@
     "references": [
         "Framework.Bootstrap",
         "Framework.Core",
-        "Framework.GAS",
         "Framework.Res",
         "Framework.Logging",
-        "Framework.Events",
         "Generated.Luban",
         "Luban.Runtime"
     ],

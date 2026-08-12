@@ -1,6 +1,6 @@
 # Framework.Config
 
-Luban 配置表加载与 GAS 工厂，将策划数据转换为运行时 `GameplayAbility` / `GameplayEffect`。
+Luban 配置表运行时缓存；**加载走 `ResourceManager.LoadLubanTables()`**，本模块只持有 `Tables`。
 
 ## 程序集
 
@@ -8,73 +8,43 @@ Luban 配置表加载与 GAS 工厂，将策划数据转换为运行时 `Gamepla
 |---|---|
 | 程序集 | `Framework.Config` |
 | 命名空间 | `Framework.Config` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.GAS`、`Framework.Res`、`Framework.Logging`、`Framework.Events`、`Generated.Luban`、`Luban.Runtime` |
+| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.Res`、`Framework.Logging`、`Generated.Luban`、`Luban.Runtime` |
 
 ## 核心类型
 
 | 类型 | 职责 |
 |------|------|
-| `ConfigModule` | `IGameModule` 实现，依赖 `ResourceModule`，加载表并注册 `cfg.Tables` |
-| `BattleConfigLoader` | 从 bytes 或 Editor 直读文件加载 Luban 表 |
-| `BattleConfigBootstrap` | 对外便捷 API：加载表、应用效果 |
-| `AbilityFactory` | Luban `Ability` 定义 → `GameplayAbility` |
-| `EffectFactory` | Luban `Effect` 定义 → `GameplayEffect` |
+| `ConfigModule` | `IGameModule`：`Tables = ResourceManager.Instance.LoadLubanTables()` |
+| `ConfigService` | `Tables` 静态访问；Editor 下 `LoadEditorDefault()` |
+| `ConfigLoader` | **仅 Editor** 直读 `Assets/Bundles/Configs/*.bytes` |
+| `ConfigPaths` | bin 目录路径常量 |
 
-## 配置表
-
-| 表 | Excel 路径 | 运行时寻址 |
-|----|-----------|-----------|
-| 技能 | `Config/Luban/Datas/battle/ability.xlsx` | `bundles/configs/tbability.unity3d` |
-| 效果 | `Config/Luban/Datas/battle/effect.xlsx` | `bundles/configs/tbeffect.unity3d` |
-
-表结构定义：`Config/Luban/Defines/battle.xml`
-
-## 打表
-
-| 方式 | 入口 |
-|------|------|
-| 命令行 | `Config\Luban\gen_client.bat` |
-| Unity 菜单 | **Tools → Luban → Generate Client Config** |
-
-产出：
-- C# 代码 → `Assets/Generated/Luban/`
-- 二进制 → `Assets/Bundles/Configs/*.bytes`
-
-## 加载方式
+## 运行时加载（推荐）
 
 ```csharp
-// 方式一：Bootstrap 初始化后（推荐，Launch 场景）
-var tables = BattleConfigBootstrap.Tables;
+// Launch 初始化后
+var tables = ConfigService.Tables;
+// 或
+var tables = ConfigModule.Instance.Tables;
 
-// 方式二：YooAsset 直调
-var tables = BattleConfigBootstrap.LoadTables(ResourceManager.Instance);
-
-// 方式三：Editor 直读文件（未打 Bundle 时调试）
-var tables = BattleConfigBootstrap.LoadTables();
+// 或直接走 Res（与 ConfigModule 相同）
+var tables = ResourceManager.Instance.LoadLubanTables();
 ```
 
-## 注册技能到玩法框架
-
-技能装配在 `Framework.GamePlay.GamePlayConfigSetup`（避免 Config ↔ GamePlay 循环依赖）：
+## Editor 调试（未打 Bundle）
 
 ```csharp
-using Framework.GamePlay;
-
-framework.RegisterActorAbilities(
-    actorId,
-    teamId: 1,
-    abilityIds: new[] { "Fireball", "Slash" },
-    tables);
+#if UNITY_EDITOR
+var tables = ConfigService.LoadEditorDefault();
+#endif
 ```
 
-## Bootstrap 集成
+## 战斗表装配
 
-`ConfigModule` 声明依赖 `ResourceModule`，在 `ModulePhase.Data` 阶段初始化：
+Luban → GAS 装配在 **`Framework.GamePlay.Data`**（见 [GamePlay/README.md](../GamePlay/README.md)）。
+
+## Bootstrap
 
 ```
-ResourceModule → ConfigModule（加载 cfg.Tables）→ GamePlayModule
+ResourceModule → ConfigModule → GamePlayModule
 ```
-
-## 被谁使用
-
-- `Assets/Scripts/Launch.cs` — 通过 `ConfigModule` 加载配置

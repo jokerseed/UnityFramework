@@ -4,7 +4,7 @@ using Framework.Config;
 using Framework.Core;
 using Framework.GAS.Abilities;
 
-namespace Framework.GamePlay
+namespace Framework.GamePlay.Data
 {
     /// <summary>将 Luban 配置装配到 <see cref="GamePlayFramework"/> 的扩展方法。</summary>
     public static class GamePlayConfigSetup
@@ -14,7 +14,7 @@ namespace Framework.GamePlay
         /// <param name="actorId">Actor ID。</param>
         /// <param name="teamId">队伍 ID。</param>
         /// <param name="abilityIds">技能 ID 列表。</param>
-        /// <param name="tables">Luban 表；为 null 时使用 <see cref="BattleConfigBootstrap.Tables"/>。</param>
+        /// <param name="tables">Luban 表；为 null 时使用 <see cref="ConfigService.Tables"/>。</param>
         public static void RegisterActorAbilities(
             this GamePlayFramework framework,
             ActorId actorId,
@@ -22,13 +22,13 @@ namespace Framework.GamePlay
             IReadOnlyList<string> abilityIds,
             Tables tables = null)
         {
-            tables ??= BattleConfigBootstrap.Tables;
+            tables ??= ConfigService.Tables;
             if (tables == null)
             {
                 throw new System.InvalidOperationException("Config tables are not loaded. Initialize ConfigModule first.");
             }
 
-            var factory = new AbilityFactory(framework.QueryNearestEnemy);
+            var factory = new AbilityConfigFactory(framework.QueryNearestEnemy);
             for (var i = 0; i < abilityIds.Count; i++)
             {
                 var abilityId = abilityIds[i];

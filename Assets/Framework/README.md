@@ -6,8 +6,8 @@
 |------|------|
 | 单一数据源 | GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` |
 | 热路径命令化 | `BattleCommandBuffer` 批量刷；表现走 `IEventBus`（`ZeroGcEventBus`） |
-| 配置驱动 | Luban 导表 → `AbilityFactory` / `EffectFactory` |
-| 资源管线 | YooAsset 打包加载；配置表走 `ResourceManager` |
+| 配置驱动 | Luban 导表 → `GamePlay.Data` 装配到 GAS |
+| 资源管线 | YooAsset 打包；运行时加载/释放统一走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
 | 示例文档化 | 演示与验证用例写在各模块 README，不单独维护 Samples/Tests 程序集 |
 
@@ -21,7 +21,7 @@
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
 | `Framework.ECS` | World、System、空间哈希 | [ECS/README.md](ECS/README.md) |
 | `Framework.GamePlay` | `GamePlayFramework` 玩法主入口 | [GamePlay/README.md](GamePlay/README.md) |
-| `Framework.Config` | Luban 加载、Ability/Effect 工厂 | [Config/README.md](Config/README.md) |
+| `Framework.Config` | Luban 加载与 Tables 缓存 | [Config/README.md](Config/README.md) |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
 | `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | 对象池（`ObjectBase` / 容量过期） | [ObjectPool/README.md](ObjectPool/README.md) |
@@ -113,15 +113,8 @@ Collector 规则：
 ## 运行时加载配置
 
 ```csharp
-// 通过 Bootstrap 初始化后，从各模块入口取用
-var tables = BattleConfigBootstrap.Tables;
-var manager = ResourceManager.Instance;
-
-// YooAsset 直调
-var tables = BattleConfigBootstrap.LoadTables(ResourceManager.Instance);
-
-// Editor 直读（调试用）
-var tables = BattleConfigBootstrap.LoadTables();
+var tables = ConfigService.Tables;
+// 或 ResourceManager.Instance.LoadLubanTables()
 ```
 
 ## 编辑器工具

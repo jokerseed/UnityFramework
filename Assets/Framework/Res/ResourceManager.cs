@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using cfg;
 using Framework.Core;
 using Framework.Logging;
+using Luban;
 using UnityEngine;
 using YooAsset;
 
@@ -120,6 +122,83 @@ namespace Framework.Res
 
             var wrapped = new ResourceAssetHandle(handle);
             onComplete?.Invoke(wrapped);
+        }
+
+        /// <summary>同步加载寻址资源的原始字节。</summary>
+        /// <param name="location">YooAsset 寻址字符串。</param>
+        /// <param name="cache">为 true 时缓存句柄，须配合 <see cref="ReleaseCache"/>。</param>
+        /// <returns>资源字节内容。</returns>
+        public byte[] LoadBytes(string location, bool cache = false)
+        {
+            EnsureInitialized();
+
+            if (cache)
+            {
+                if (_syncCache.TryGetValue(location, out var cached) && cached.IsValid)
+                {
+                    var cachedAsset = cached.GetAsset<TextAsset>();
+                    return cachedAsset != null ? cachedAsset.bytes : Array.Empty<byte>();
+                }
+
+                var cachedHandle = LoadAssetSync<TextAsset>(location);
+                if (!cachedHandle.IsValid || !cachedHandle.Succeeded)
+                {
+                    cachedHandle.Dispose();
+                    throw new InvalidOperationException(
+                        $"[Resource] Load bytes failed: location={location}, error={cachedHandle.Error}");
+                }
+
+                _syncCache[location] = cachedHandle;
+                var asset = cachedHandle.GetAsset<TextAsset>();
+                return asset != null ? asset.bytes : Array.Empty<byte>();
+            }
+
+            using (var handle = LoadAssetSync<TextAsset>(location))
+            {
+                if (!handle.IsValid || !handle.Succeeded)
+                {
+                    throw new InvalidOperationException(
+                        $"[Resource] Load bytes failed: location={location}, error={handle.Error}");
+                }
+
+                var asset = handle.GetAsset<TextAsset>();
+                return asset != null ? asset.bytes : Array.Empty<byte>();
+            }
+        }
+
+        /// <summary>加载字节并通过回调反序列化为对象。</summary>
+        /// <typeparam name="T">目标类型。</typeparam>
+        /// <param name="location">YooAsset 寻址字符串。</param>
+        /// <param name="deserialize">bytes → 对象的反序列化函数。</param>
+        /// <param name="cache">为 true 时缓存底层资源句柄。</param>
+        /// <returns>反序列化结果。</returns>
+        public T LoadBinary<T>(string location, Func<byte[], T> deserialize, bool cache = false)
+        {
+            if (deserialize == null)
+            {
+                throw new ArgumentNullException(nameof(deserialize));
+            }
+
+            var bytes = LoadBytes(location, cache);
+            if (bytes == null || bytes.Length == 0)
+            {
+                throw new InvalidOperationException($"[Resource] Empty bytes: location={location}");
+            }
+
+            return deserialize(bytes);
+        }
+
+        /// <summary>加载 Luban 全量配置表（运行时推荐，一次调用完成）。</summary>
+        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄。</param>
+        /// <returns>Luban <see cref="Tables"/>。</returns>
+        public Tables LoadLubanTables(bool cacheTableAssets = true)
+        {
+            EnsureInitialized();
+            return new Tables(file =>
+            {
+                var bytes = cacheTableAssets ? LoadConfigBytesCached(file) : LoadConfigBytes(file);
+                return new ByteBuf(bytes);
+            });
         }
 
         /// <summary>同步加载配置表原始字节（不缓存），加载完成后立即释放句柄。</summary>

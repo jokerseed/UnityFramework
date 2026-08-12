@@ -1,15 +1,24 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using cfg;
 using Framework.Bootstrap;
 using Framework.Logging;
 using Framework.Res;
 
 namespace Framework.Config
 {
-    /// <summary>配置模块：加载 Luban Tables 并供战斗层使用。</summary>
+    /// <summary>配置模块：通过 <see cref="ResourceManager"/> 加载并持有 Luban <see cref="Tables"/>。</summary>
     public sealed class ConfigModule : IGameModule
     {
+        static ConfigModule s_instance;
+
+        /// <summary>当前已初始化的配置模块；未初始化时为 null。</summary>
+        public static ConfigModule Instance => s_instance;
+
+        /// <summary>运行时 Luban 表；<see cref="Initialize"/> 后可用。</summary>
+        public Tables Tables { get; private set; }
+
         /// <inheritdoc/>
         public string Name => "Config";
 
@@ -25,7 +34,8 @@ namespace Framework.Config
         /// <inheritdoc/>
         public void Initialize()
         {
-            BattleConfigBootstrap.LoadRuntimeTables(ResourceManager.Instance);
+            s_instance = this;
+            Tables = ResourceManager.Instance.LoadLubanTables();
             GameLog.Info(LogCategories.Config, $"{LogStyle.Name(Name)} {LogStyle.Ok("ready")}");
         }
 
@@ -39,7 +49,17 @@ namespace Framework.Config
         /// <inheritdoc/>
         public void Shutdown()
         {
-            BattleConfigBootstrap.UnloadRuntimeTables();
+            Tables = null;
+
+            if (ResourceManager.HasInstance && ResourceManager.Instance.IsInitialized)
+            {
+                ResourceManager.Instance.ReleaseCache();
+            }
+
+            if (s_instance == this)
+            {
+                s_instance = null;
+            }
         }
     }
 }
