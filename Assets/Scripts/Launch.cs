@@ -1,5 +1,6 @@
 using System.Collections;
 using Framework.Bootstrap;
+using Framework.Coroutine;
 using Framework.Logging;
 using Framework.MemoryPool;
 using Framework.ObjectPool;
@@ -23,6 +24,7 @@ public sealed class Launch : MonoBehaviour
         var launch = bootstrap.SetModules("launch", new IGameModule[]
         {
             new LoggingModule(_logOptions),
+            new CoroutineModule(),
             new MemoryPoolModule(_memoryPoolStrictCheck),
             new ObjectPoolModule(),
             new ResourceModule(_resourceOptions),

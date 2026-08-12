@@ -1,0 +1,63 @@
+---
+description: 自有代码协程生命周期必须走 Framework.Coroutine
+globs: Assets/**/*.cs
+alwaysApply: false
+---
+
+# 协程生命周期规范
+
+## 唯一入口
+
+项目**自有代码**中协程的**启动 / 停止 / 生命周期** **只能**通过 `Framework.Coroutine`（`GameBootstrap` 编排除外，见下方白名单）：
+
+| 场景 | 用法 |
+|------|------|
+| 模块初始化 | `CoroutineModule` 注册到 `GameBootstrap`（须在依赖它的模块之前；依赖 `LoggingModule`） |
+| 全局（跨场景） | `GameCoroutine.StartGlobal` / `StopAllGlobal` |
+| 当前场景 | `GameCoroutine.StartScene` / `StopAllScene` |
+| 绑定 GameObject | `GameCoroutine.Start(go|mono, routine)` / `StopAll(go)` |
+| 停止单个 | `GameCoroutine.Stop(handle)` 或 `handle.Stop()` / `Dispose()` |
+| 查询 | `handle.IsRunning` / `GameCoroutine.IsRunning(handle)` |
+
+## 适用范围
+
+| 范围 | 要求 |
+|------|------|
+| `Assets/Framework/**` | 必须 `GameCoroutine`（见下方例外） |
+| `Assets/Scripts/**` | 必须 `GameCoroutine` |
+| `ThirdParty/`、`Packages/` | 三方库，不改动 |
+| `Assets/Generated/**` | 生成代码，不改动 |
+
+## Unity 原生接口白名单
+
+**仅以下两处**可调用 Unity 的 `StartCoroutine` / `StopCoroutine` / `StopAllCoroutines`（含 `IEnumerator Start()` 这种隐式启动）：
+
+| 位置 | 原因 |
+|------|------|
+| `Framework.Coroutine` 程序集内部（`CoroutineManager`、Hosts） | 模块底层必须驱动 Unity 协程 |
+| `Framework.Bootstrap`（`GameBootstrap`） | 编排模块初始化时 `CoroutineModule` 尚未就绪，且宿主为跨场景常驻单例 |
+
+除此之外的自有代码（含其它 Framework 模块、`Assets/Scripts`）**一律禁止**直接调用上述接口，必须走 `GameCoroutine`。
+
+## 禁止（白名单以外）
+
+- `MonoBehaviour.StartCoroutine` / `StopCoroutine` / `StopAllCoroutines`
+- `IEnumerator Start()` 依赖 Unity 自动开协程
+- 自行挂临时 `MonoBehaviour` 当协程宿主绕过本模块
+- 引入第二套协程调度（如再包一层 Manager 而不走 `GameCoroutine`）
+
+```csharp
+// ❌ BAD（非 Coroutine / Bootstrap）
+StartCoroutine(Fade());
+StopAllCoroutines();
+
+// ✅ GOOD
+using Framework.Coroutine;
+var h = GameCoroutine.Start(this, Fade());
+GameCoroutine.Stop(h);
+```
+
+## 依赖声明
+
+- 使用 `GameCoroutine` 的 `IGameModule` 须在 `Dependencies` 声明 `typeof(CoroutineModule)`（并保证同组已注册）
+- 详见 `Assets/Framework/Coroutine/README.md`

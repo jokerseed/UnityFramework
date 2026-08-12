@@ -35,5 +35,8 @@ namespace Framework.Logging
 
         /// <summary>对象池。</summary>
         public const string ObjectPool = "ObjectPool";
+
+        /// <summary>协程模块。</summary>
+        public const string Coroutine = "Coroutine";
     }
 }

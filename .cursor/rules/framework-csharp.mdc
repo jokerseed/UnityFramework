@@ -96,6 +96,7 @@ public sealed class MyModule : IGameModule
 | 新增 `IGameModule` | 声明全部**直接**依赖；被依赖模块须在同一 `SetModules` 组内注册 |
 | 仅依赖间接模块 | 只写直接依赖（如依赖 Config 即写 Config，不必重复写 Resource） |
 | 使用 `GameLog` | 在 `Dependencies` 添加 `typeof(LoggingModule)` |
+| 使用 `GameCoroutine` | 在 `Dependencies` 添加 `typeof(CoroutineModule)` |
 
 ```csharp
 // ❌ BAD：Initialize 用了 ResourceManager，但 Dependencies 为空
@@ -138,6 +139,13 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 - **禁止**业务代码直接 `Debug.Log` / `LogWarning` / `LogError`（三方库、`Generated`、Logging 底层 Sink 除外）
 - 详见 `framework-logging.mdc`、`Assets/Framework/Logging/README.md`
 
+## 协程生命周期
+
+- **自有代码**协程的启动/停止**只能**用 `GameCoroutine`（须先 `CoroutineModule`）
+- Unity 的 `StartCoroutine` / `StopCoroutine` / `StopAllCoroutines` **仅允许** `Framework.Coroutine` 与 `Framework.Bootstrap` 调用
+- 使用协程的 `IGameModule` 须在 `Dependencies` 声明 `typeof(CoroutineModule)`
+- 详见 `framework-coroutine.mdc`、`Assets/Framework/Coroutine/README.md`
+
 ## 禁止
 
 - 不要在 ECS 组件中存储生命值/攻击力（GAS 已有）
@@ -145,6 +153,7 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 - 不要恢复已删除的 `Samples` / `Tests` 程序集，示例写 README
 - 运行时禁止 `YooAssets` / `Resources.Load` / 直读 Bundle 文件加载资源
 - 自有运行时业务代码禁止直接 `Debug.Log`（见 `framework-logging.mdc`）
+- 自有运行时业务代码禁止直接 `StartCoroutine` / `StopCoroutine`（仅 Coroutine / Bootstrap 例外，见 `framework-coroutine.mdc`）
 
 ## 改完代码后
 

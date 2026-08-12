@@ -33,6 +33,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
 | `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | `ObjectBase` 对象池（容量/过期） | [ObjectPool/README.md](ObjectPool/README.md) |
+| `Framework.Coroutine` | 协程生命周期（Global/Scene/GameObject） | [Coroutine/README.md](Coroutine/README.md) |
 | `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
 
 ## 启动与模块
@@ -53,6 +54,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 常驻 Mono 单例用 `PersistentSingleton<T>`，不要重复造轮子
 - **运行时资源加载只能走 `Framework.Res`**（详见 `framework-res.mdc`）
 - **自有代码日志只能走 `Framework.Logging`**（详见 `framework-logging.mdc`）
+- **自有代码协程生命周期只能走 `Framework.Coroutine`**；Unity `StartCoroutine` **仅允许** Coroutine / Bootstrap（详见 `framework-coroutine.mdc`）
 
 ## 示例与文档
 
