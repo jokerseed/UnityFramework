@@ -130,11 +130,3 @@ var tables = BattleConfigBootstrap.LoadTables();
 |------|------|
 | Tools/Luban/Generate Client Config | 执行 Luban 打表 |
 | Tools/YooAsset/Generate Collector | 生成 `BundleCollectorSetting.asset` |
-
-## 下一步
-
-- [ ] `BattleModule`（`IGameModule` 接入 `BattleFramework`）
-- [ ] AbilityTask（蓄力/引导/打断）
-- [ ] Actor 分层（Hero / Mob / Projectile）
-- [ ] 对象池 + 增量空间索引
-- [ ] LockStep 定点数对接

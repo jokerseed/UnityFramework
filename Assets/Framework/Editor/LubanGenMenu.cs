@@ -30,13 +30,13 @@ namespace Framework.Editor
             {
                 EditorUtility.DisplayProgressBar("Luban", "正在生成配置...", 0.5f);
                 var output = RunBat(batPath);
-                GameLog.Info(LogCategories.Luban, $"Generate finished.\n{output}");
+                GameLog.Info(LogCategories.Luban, $"Generate {LogStyle.Ok("finished")}.\n{output}");
                 AssetDatabase.Refresh();
                 EditorUtility.DisplayDialog("Luban", "配置表生成完成。", "确定");
             }
             catch (Exception ex)
             {
-                GameLog.Exception(LogCategories.Luban, ex, "Generate failed.");
+                GameLog.Exception(LogCategories.Luban, ex, $"Generate {LogStyle.Fail("failed")}.");
                 EditorUtility.DisplayDialog("Luban", $"打表失败：\n{ex.Message}", "确定");
             }
             finally

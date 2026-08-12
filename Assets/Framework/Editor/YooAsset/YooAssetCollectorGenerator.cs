@@ -104,7 +104,7 @@ namespace Framework.Editor.YooAsset
             BundleCollectorSettingData.SaveFile();
             AssetDatabase.Refresh();
 
-            GameLog.Info(LogCategories.YooAsset, $"Collector generated. Package={PackageName}, Rules={rules.Count}");
+            GameLog.Info(LogCategories.YooAsset, $"Collector generated  Package={LogStyle.Name(PackageName)}  Rules={LogStyle.Value(rules.Count)}");
             EditorUtility.DisplayDialog(
                 "YooAsset Collector",
                 $"已写入 BundleCollectorSetting.asset\nCollector 数量: {rules.Count}",

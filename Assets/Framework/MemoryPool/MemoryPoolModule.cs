@@ -26,7 +26,7 @@ namespace Framework.MemoryPool
         {
             var enableStrictCheck = MemoryPoolManager.Instance.EnableStrictCheck;
             MemoryPool.EnableStrictCheck = enableStrictCheck;
-            GameLog.Info(LogCategories.MemoryPool, $"MemoryPool ready. StrictCheck={enableStrictCheck}");
+            GameLog.Info(LogCategories.MemoryPool, $"Ready  StrictCheck={LogStyle.Value(enableStrictCheck)}");
         }
 
         /// <summary>异步初始化，内部直接调用同步 <see cref="Initialize"/>。</summary>
@@ -41,7 +41,7 @@ namespace Framework.MemoryPool
         public void Shutdown()
         {
             MemoryPool.ClearAll();
-            GameLog.Info(LogCategories.MemoryPool, "MemoryPool cleared.");
+            GameLog.Info(LogCategories.MemoryPool, LogStyle.Muted("cleared"));
         }
     }
 }

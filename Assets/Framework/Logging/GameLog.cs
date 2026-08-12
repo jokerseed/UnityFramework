@@ -16,6 +16,7 @@ namespace Framework.Logging
         static LogLevel _minLevel = LogLevel.Info;
         static LogFormatter _formatter = DefaultFormatter;
         static bool _configured;
+        static bool _useRichText = true;
         static ILogSink _fallbackSink;
 
         /// <summary>是否已通过 <see cref="Configure"/> 完成初始化配置。</summary>
@@ -24,6 +25,9 @@ namespace Framework.Logging
         /// <summary>当前全局最低日志级别。</summary>
         public static LogLevel MinLevel => _minLevel;
 
+        /// <summary>是否对默认格式使用 Unity 富文本（颜色 / 加粗）。</summary>
+        public static bool UseRichText => _useRichText;
+
         /// <summary>当前日志格式化委托；设为 null 时自动回退到 <see cref="DefaultFormatter"/>。</summary>
         public static LogFormatter Formatter
         {
@@ -31,12 +35,12 @@ namespace Framework.Logging
             set => _formatter = value ?? DefaultFormatter;
         }
 
-        /// <summary>默认格式化方法，输出 "[分类] 消息" 格式。</summary>
+        /// <summary>默认格式化：富文本为「时间 │ 级别 │ 分类 │ 正文」，纯文本同结构用 | 分隔。</summary>
         /// <param name="entry">要格式化的日志条目。</param>
         /// <returns>格式化后的文本。</returns>
         public static string DefaultFormatter(in LogEntry entry)
         {
-            return $"[{entry.Category}] {entry.Message}";
+            return _useRichText ? LogStyle.FormatRich(in entry) : LogStyle.FormatPlain(in entry);
         }
 
         /// <summary>
@@ -54,6 +58,7 @@ namespace Framework.Logging
             Shutdown();
 
             _minLevel = options.MinLevel;
+            _useRichText = options.UseRichText;
             _configured = true;
 
             CategoryFilters.Clear();
@@ -73,7 +78,7 @@ namespace Framework.Logging
 
             if (options.UnityConsoleEnabled)
             {
-                AddSink(new UnityConsoleLogSink(_formatter));
+                AddSink(new UnityConsoleLogSink());
             }
         }
 
@@ -233,6 +238,7 @@ namespace Framework.Logging
             CategoryFilters.Clear();
             _minLevel = LogLevel.Info;
             _formatter = DefaultFormatter;
+            _useRichText = true;
             _configured = false;
             _fallbackSink = null;
         }

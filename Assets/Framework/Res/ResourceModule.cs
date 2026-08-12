@@ -40,7 +40,7 @@ namespace Framework.Res
             ApplyPlatformDefaults(options);
 
             yield return manager.InitializeAsync(options);
-            GameLog.Info(LogCategories.Resource, "Module ready.");
+            GameLog.Info(LogCategories.Resource, $"Module {LogStyle.Ok("ready")}");
         }
 
         /// <summary>关闭资源管理器：释放缓存并销毁 YooAsset。</summary>

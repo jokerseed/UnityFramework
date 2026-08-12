@@ -30,7 +30,7 @@ namespace Framework.ObjectPool
         public void Initialize()
         {
             var manager = ObjectPoolManager.Instance;
-            GameLog.Info(LogCategories.ObjectPool, $"ObjectPool ready. Pools={manager.Count}");
+            GameLog.Info(LogCategories.ObjectPool, $"Ready  Pools={LogStyle.Value(manager.Count)}");
         }
 
         /// <summary>异步初始化，内部直接调用同步 <see cref="Initialize"/>。</summary>
@@ -50,7 +50,7 @@ namespace Framework.ObjectPool
                 ObjectPoolManager.DestroyInstance();
             }
 
-            GameLog.Info(LogCategories.ObjectPool, "ObjectPool shut down.");
+            GameLog.Info(LogCategories.ObjectPool, LogStyle.Muted("shut down"));
         }
     }
 }

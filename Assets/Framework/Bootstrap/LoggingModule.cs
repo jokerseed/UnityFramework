@@ -28,7 +28,7 @@ namespace Framework.Logging
         {
             var options = LoggingManager.Instance.Options;
             GameLog.Configure(options);
-            GameLog.Info(LogCategories.Bootstrap, "Logging module ready.");
+            GameLog.Info(LogCategories.Bootstrap, $"Logging {LogStyle.Ok("ready")}");
         }
 
         /// <summary>异步初始化协程（内部直接调用同步 <see cref="Initialize"/>）。</summary>

@@ -17,6 +17,7 @@ alwaysApply: false
 | 异常 | `GameLog.Exception(category, ex, message?)` |
 | 分类 | `LogCategories` 常量，或自定义字符串（建议集中定义） |
 | 过滤 / 定制 | `LoggingManager` Inspector 上的 `LogInitOptions`、`GameLog.SetMinLevel`、`ILogSink`、`GameLog.Formatter` |
+| 重点高亮 | `LogStyle.Name` / `Value` / `Ok` / `Fail`（组名、包名、数量、成功/失败） |
 
 ## 适用范围
 
@@ -54,7 +55,7 @@ Debug.Log("[Resource] Package ready.");
 
 // ✅ GOOD
 using Framework.Logging;
-GameLog.Info(LogCategories.Resource, "Package ready.");
+GameLog.Info(LogCategories.Resource, $"Package {LogStyle.Ok("ready")}: {LogStyle.Name(packageName)}");
 ```
 
 ```csharp

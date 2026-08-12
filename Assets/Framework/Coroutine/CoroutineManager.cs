@@ -69,7 +69,7 @@ namespace Framework.Coroutine
             }
 
             _sceneRunner = null;
-            GameLog.Debug(LogCategories.Coroutine, $"Scene coroutines cleared on unload: {scene.name}");
+            GameLog.Debug(LogCategories.Coroutine, $"Scene coroutines cleared on unload: {LogStyle.Name(scene.name)}");
         }
 
         /// <summary>在全局作用域启动协程。</summary>
@@ -96,7 +96,7 @@ namespace Framework.Coroutine
         {
             if (host == null)
             {
-                GameLog.Warning(LogCategories.Coroutine, "StartOnGameObject failed: host is null or destroyed.");
+                GameLog.Warning(LogCategories.Coroutine, $"StartOnGameObject {LogStyle.Fail("failed")}: host is null or destroyed.");
                 return CoroutineHandle.Invalid;
             }
 
@@ -117,7 +117,7 @@ namespace Framework.Coroutine
         {
             if (host == null)
             {
-                GameLog.Warning(LogCategories.Coroutine, "StartOnBehaviour failed: host is null or destroyed.");
+                GameLog.Warning(LogCategories.Coroutine, $"StartOnBehaviour {LogStyle.Fail("failed")}: host is null or destroyed.");
                 return CoroutineHandle.Invalid;
             }
 
@@ -202,13 +202,13 @@ namespace Framework.Coroutine
         {
             if (routine == null)
             {
-                GameLog.Warning(LogCategories.Coroutine, "Start failed: routine is null.");
+                GameLog.Warning(LogCategories.Coroutine, $"Start {LogStyle.Fail("failed")}: routine is null.");
                 return CoroutineHandle.Invalid;
             }
 
             if (runner == null)
             {
-                GameLog.Warning(LogCategories.Coroutine, "Start failed: runner is null.");
+                GameLog.Warning(LogCategories.Coroutine, $"Start {LogStyle.Fail("failed")}: runner is null.");
                 return CoroutineHandle.Invalid;
             }
 

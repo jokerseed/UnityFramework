@@ -140,7 +140,7 @@ namespace Framework.ObjectPool
 
             var pool = new ObjectPool<T>(name, allowMultiSpawn, autoReleaseInterval, capacity, expireTime, priority);
             _pools.Add(key, pool);
-            GameLog.Info(LogCategories.ObjectPool, $"Created object pool '{key}' multi={allowMultiSpawn}");
+            GameLog.Info(LogCategories.ObjectPool, $"Created pool {LogStyle.Name(key)}  multi={LogStyle.Value(allowMultiSpawn)}");
             return pool;
         }
 

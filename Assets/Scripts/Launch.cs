@@ -29,27 +29,42 @@ public sealed class Launch : MonoBehaviour
         launch.Ready += OnGroupReady;
         launch.Failed += OnGroupFailed;
         launch.ProgressChanged += (group, current, total) =>
-            GameLog.Debug(LogCategories.Launch, $"{group.Name} progress {current}/{total}");
+            GameLog.Debug(LogCategories.Launch, $"{LogStyle.Name(group.Name)} progress {LogStyle.Value($"{current}/{total}")}");
     }
 
     void Start()
     {
         GameBootstrap.Instance.Run("launch");
-        GameLog.Info(LogCategories.Launch, "Run requested.");
+        GameLog.Info(LogCategories.Launch, $"Run {LogStyle.Value("requested")}");
     }
 
     static void OnGroupStateChanged(ModuleGroup group)
     {
-        GameLog.Info(LogCategories.Launch, $"Group '{group.Name}' state -> {group.State}");
+        GameLog.Info(LogCategories.Launch, $"Group {LogStyle.Name(group.Name)} state → {FormatState(group.State)}");
     }
 
     static void OnGroupReady(ModuleGroup group)
     {
-        GameLog.Info(LogCategories.Launch, $"Group '{group.Name}' ready.");
+        GameLog.Info(LogCategories.Launch, $"Group {LogStyle.Name(group.Name)} {LogStyle.Ok("ready")}");
     }
 
     static void OnGroupFailed(ModuleGroup group, System.Exception error)
     {
-        GameLog.Error(LogCategories.Launch, $"Group '{group.Name}' failed: {error.Message}");
+        GameLog.Error(LogCategories.Launch, $"Group {LogStyle.Name(group.Name)} {LogStyle.Fail("failed")}: {error.Message}");
+    }
+
+    static string FormatState(ModuleGroupState state)
+    {
+        switch (state)
+        {
+            case ModuleGroupState.Ready:
+                return LogStyle.Ok(state);
+            case ModuleGroupState.Failed:
+                return LogStyle.Fail(state);
+            case ModuleGroupState.Running:
+                return LogStyle.Value(state);
+            default:
+                return LogStyle.Muted(state);
+        }
     }
 }

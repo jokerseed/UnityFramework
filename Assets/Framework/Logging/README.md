@@ -20,6 +20,7 @@
 | `ILogSink` | 自定义输出目标 |
 | `UnityConsoleLogSink` | 默认输出到 Unity Console |
 | `LogInitOptions` | Inspector 可配的初始化选项（挂在 `LoggingManager` 上） |
+| `LogStyle` | Console 富文本：级别/分类颜色，正文 `Name` / `Value` / `Ok` / `Fail` |
 | `LogCategories` | 常用分类常量 |
 
 ## Bootstrap 集成
@@ -39,9 +40,9 @@ bootstrap.SetModules("launch", new IGameModule[]
 ```csharp
 using Framework.Logging;
 
-GameLog.Info(LogCategories.Resource, "Package ready.");
-GameLog.Warning(LogCategories.Launch, "Config not loaded.");
-GameLog.Error(LogCategories.Bootstrap, "Init failed.");
+GameLog.Info(LogCategories.Resource, $"Package {LogStyle.Ok("ready")}: {LogStyle.Name("DefaultPackage")}");
+GameLog.Warning(LogCategories.Launch, $"Config {LogStyle.Fail("not loaded")}");
+GameLog.Error(LogCategories.Bootstrap, $"Init {LogStyle.Fail("failed")}");
 
 try { /* ... */ }
 catch (Exception ex)
@@ -50,6 +51,15 @@ catch (Exception ex)
 }
 ```
 
+默认 Console 行结构（Unity 富文本）：
+
+```text
+14:27:01.235 │ INFO │ Resource │ Package ready: DefaultPackage  version=Simulate
+^灰色时间     ^级别色  ^分类色    ^正文；重点用 LogStyle 加粗高亮
+```
+
+`LoggingManager` 上可关 `UseRichText`，输出变为纯文本 `时间 | INFO | Resource | ...`。
+
 ## 运行时控制
 
 ```csharp
@@ -57,7 +67,7 @@ GameLog.SetMinLevel(LogLevel.Warning);           // 全局最低级别
 GameLog.SetCategoryEnabled("GAS", false);      // 关闭某分类
 GameLog.SetCategoryMinLevel("ECS", LogLevel.Error);
 
-// 自定义格式
+// 自定义格式（覆盖默认富文本）
 GameLog.Formatter = entry => $"{entry.UtcTime:HH:mm:ss} [{entry.Level}] {entry.Message}";
 ```
 
@@ -77,6 +87,7 @@ GameLog.AddSink(new FileLogSink());
 
 ## 设计说明
 
-- 未 `Configure` 时 `GameLog` 不输出（避免 Bootstrap 之前误用）
+- 未 `Configure` 时 `GameLog` 仍可用 fallback Sink（便于 Bootstrap 首轮与 Editor 工具）
 - `Shutdown` 时清空 Sink 与过滤规则
 - 业务模块通过 `GameLog` 输出，避免散落 `Debug.Log`
+- 重点内容用 `LogStyle.Name` / `Value` / `Ok` / `Fail`，不要把关键 ID 埋在纯字符串里

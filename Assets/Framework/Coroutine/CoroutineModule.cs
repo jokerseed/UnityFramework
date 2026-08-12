@@ -25,7 +25,7 @@ namespace Framework.Coroutine
         public void Initialize()
         {
             var manager = CoroutineManager.Instance;
-            GameLog.Info(LogCategories.Coroutine, "Coroutine module ready.");
+            GameLog.Info(LogCategories.Coroutine, $"Module {LogStyle.Ok("ready")}");
             _ = manager;
         }
 
@@ -45,7 +45,7 @@ namespace Framework.Coroutine
                 CoroutineManager.DestroyInstance();
             }
 
-            GameLog.Info(LogCategories.Coroutine, "Coroutine module shut down.");
+            GameLog.Info(LogCategories.Coroutine, $"Module {LogStyle.Muted("shut down")}");
         }
     }
 }

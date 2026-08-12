@@ -135,7 +135,7 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 ## 日志输出
 
 - **自有代码**（`Assets/Framework`、`Assets/Scripts`）运行时日志**只能**用 `GameLog`
-- 须先 `LoggingModule` 初始化；分类用 `LogCategories`；定制输出用 `ILogSink` / `GameLog.Formatter`
+- 须先 `LoggingModule` 初始化；分类用 `LogCategories`；重点用 `LogStyle.Name` / `Value` / `Ok` / `Fail`
 - **禁止**业务代码直接 `Debug.Log` / `LogWarning` / `LogError`（三方库、`Generated`、Logging 底层 Sink 除外）
 - 详见 `framework-logging.mdc`、`Assets/Framework/Logging/README.md`
 

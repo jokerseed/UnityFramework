@@ -168,7 +168,7 @@ namespace Framework.Bootstrap
         {
             if (group.Modules.Count == 0)
             {
-                GameLog.Warning(LogCategories.Bootstrap, $"Group '{group.Name}' has no modules.");
+                GameLog.Warning(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} has no modules.");
                 group.SetState(ModuleGroupState.Ready);
                 yield break;
             }
@@ -186,7 +186,7 @@ namespace Framework.Bootstrap
                 {
                     GameLog.Info(
                         LogCategories.Bootstrap,
-                        $"[{group.Name}] Wave {waveIndex + 1}/{waves.Count} concurrent ({wave.Count} modules)...");
+                        $"Group {LogStyle.Name(group.Name)} wave {LogStyle.Value($"{waveIndex + 1}/{waves.Count}")} {LogStyle.Muted("concurrent")} ({LogStyle.Value(wave.Count)} modules)");
                     yield return InitializeWaveConcurrent(group, wave, progress, totalModules);
                 }
                 else
@@ -199,7 +199,7 @@ namespace Framework.Bootstrap
             }
 
             group.SetState(ModuleGroupState.Ready);
-            GameLog.Info(LogCategories.Bootstrap, $"Group '{group.Name}' ready.");
+            GameLog.Info(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} {LogStyle.Ok("ready")}");
         }
 
         IEnumerator InitializeModuleSequential(
@@ -212,7 +212,7 @@ namespace Framework.Bootstrap
             group.ReportProgress(progress.Value, totalModules);
             GameLog.Info(
                 LogCategories.Bootstrap,
-                $"[{group.Name}] Initializing {module.Name} ({progress.Value}/{totalModules}, {module.InitMode})...");
+                $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")}, {LogStyle.Muted(module.InitMode)})");
 
             if (module.InitMode == ModuleInitMode.Synchronous)
             {
@@ -242,7 +242,7 @@ namespace Framework.Bootstrap
                 group.ReportProgress(progress.Value, totalModules);
                 GameLog.Info(
                     LogCategories.Bootstrap,
-                    $"[{group.Name}] Initializing {module.Name} ({progress.Value}/{totalModules}, {module.InitMode}, concurrent)...");
+                    $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")}, {LogStyle.Muted(module.InitMode)}, {LogStyle.Muted("concurrent")})");
 
                 if (module.InitMode == ModuleInitMode.Synchronous)
                 {

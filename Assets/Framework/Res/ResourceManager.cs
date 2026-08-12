@@ -91,7 +91,7 @@ namespace Framework.Res
             }
 
             _initialized = true;
-            GameLog.Info(LogCategories.Resource, $"Package ready: {options.PackageName}, version={versionOperation.PackageVersion}");
+            GameLog.Info(LogCategories.Resource, $"Package {LogStyle.Ok("ready")}: {LogStyle.Name(options.PackageName)}  version={LogStyle.Value(versionOperation.PackageVersion)}");
         }
 
         /// <summary>同步加载指定寻址的资源，返回封装句柄。</summary>
@@ -201,7 +201,7 @@ namespace Framework.Res
                 YooAssets.Destroy();
             }
 
-            GameLog.Info(LogCategories.Resource, "Resource manager shut down.");
+            GameLog.Info(LogCategories.Resource, $"Manager {LogStyle.Muted("shut down")}");
         }
 
         /// <summary>退出 Play / 应用时先于 YooAsset Driver 销毁资源系统，避免 abort Warning。</summary>
