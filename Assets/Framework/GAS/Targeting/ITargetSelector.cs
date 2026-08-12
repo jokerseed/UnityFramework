@@ -19,7 +19,7 @@ namespace Framework.GAS.Targeting
             out ActorId target);
     }
 
-    /// <summary>近战：选择主目标或范围内最近敌人（由 Bridge 注入查询）。</summary>
+    /// <summary>近战：选择主目标或范围内最近敌人（由 GamePlay 注入查询）。</summary>
     public sealed class MeleeTargetSelector : ITargetSelector
     {
         readonly System.Func<ActorId, Vector3, float, ActorId> _queryNearestEnemy;

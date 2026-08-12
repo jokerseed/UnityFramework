@@ -47,7 +47,7 @@ ECS/
 
 ## Tick 顺序
 
-在 `BattleFramework.Tick` 中，ECS 在 GAS Tick 和命令刷写之后执行：
+在 `GamePlayFramework.Tick` 中，ECS 在 GAS Tick 和命令刷写之后执行：
 
 ```
 GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
@@ -56,10 +56,10 @@ GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
 ## 与 GAS 的协作
 
 - ECS 通过 `ActorLinkComponent.ActorId` 关联 GAS 的 `AbilitySystemComponent`
-- 碰撞命中时写入 `ApplyDamageCommand` 到 `BattleCommandBuffer`，由 Bridge 刷写后交给 GAS 结算
+- 碰撞命中时写入 `ApplyDamageCommand` 到 `BattleCommandBuffer`，由 GamePlay 刷写后交给 GAS 结算
 - **不在 ECS 组件中存储生命值/攻击力**，避免双源数据
 
 ## 被谁使用
 
-- `Framework.Bridge` — 创建 `World`、注册 System、驱动 Tick
-- `Framework.Bridge.ActorRegistry` — 创建 Entity 并绑定 ActorId
+- `Framework.GamePlay` — 创建 `World`、注册 System、驱动 Tick
+- `Framework.GamePlay.ActorRegistry` — 创建 Entity 并绑定 ActorId

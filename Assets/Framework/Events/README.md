@@ -28,7 +28,7 @@
 | 实现 | 场景 |
 |------|------|
 | `GlobalEventBus` / `GameEvent` | 全局 UI / 流程事件 |
-| `ZeroGcEventBus` | 单场战斗表现总线（`BattleFramework.EventBus`） |
+| `ZeroGcEventBus` | 单场战斗表现总线（`GamePlayFramework.EventBus`） |
 
 分发时直接遍历监听列表（不 `AddRange` 复制），分发中增删延迟到本轮结束后应用。
 
@@ -56,10 +56,10 @@ static void OnDamage(DamageDealtEvent evt)
 }
 ```
 
-### 战斗内独立总线（`BattleFramework` 已默认使用）
+### 战斗内独立总线（`GamePlayFramework` 已默认使用）
 
 ```csharp
-var framework = new BattleFramework();
+var framework = new GamePlayFramework();
 framework.EventBus.Subscribe<GameplayCueEvent>(e => { /* ... */ });
 
 // 推荐无 IDisposable 分配：
@@ -84,5 +84,5 @@ framework.EventBus.Publish(evt);
 ## 被谁使用
 
 - `Framework.Core` — `BattleContext.Presentation`
-- `Framework.GAS` / `Framework.Bridge` — 发布与订阅表现事件
+- `Framework.GAS` / `Framework.GamePlay` — 发布与订阅表现事件
 - 业务层可通过 `GameEvent` 做全局 UI/流程事件

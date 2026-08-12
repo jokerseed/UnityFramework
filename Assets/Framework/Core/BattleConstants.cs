@@ -15,6 +15,12 @@ namespace Framework.Core
         /// <summary>防御力属性名。</summary>
         public const string Defense = "Defense";
 
+        /// <summary>法力值属性名。</summary>
+        public const string Mana = "Mana";
+
+        /// <summary>最大法力属性名。</summary>
+        public const string MaxMana = "MaxMana";
+
         /// <summary>死亡状态标签。</summary>
         public const string TagDead = "State.Dead";
 

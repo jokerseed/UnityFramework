@@ -42,7 +42,7 @@ namespace Framework.ECS.Components
         public int TeamId;
     }
 
-    /// <summary>Actor 关联组件，将 ECS 实体与 GAS Actor ID 绑定，供系统查找对应的 <see cref="Framework.Bridge.BattleActor"/>。</summary>
+    /// <summary>Actor 关联组件，将 ECS 实体与 GAS Actor ID 绑定，供系统查找对应的 <see cref="Framework.GamePlay.BattleActor"/>。</summary>
     public struct ActorLinkComponent : IComponent
     {
         /// <summary>关联的 GAS Actor ID。</summary>

@@ -7,14 +7,14 @@ namespace Framework.GAS.Abilities
 {
     /// <summary>
     /// 技能基类，定义冷却、前提标签检查及激活接口。
-    /// 具体技能继承此类并实现 <see cref="Activate"/>。
+    /// 激活流程：<see cref="CanActivate"/> → <see cref="Commit"/> → <see cref="Activate"/> → <see cref="End"/>。
     /// </summary>
     public abstract class GameplayAbility
     {
         /// <summary>技能唯一标识符。</summary>
         public string AbilityId { get; }
 
-        /// <summary>技能冷却时间（秒）；激活后 ASC 将启动对应冷却计时。</summary>
+        /// <summary>技能冷却时间（秒）；Commit 后 ASC 将启动对应冷却计时。</summary>
         public float Cooldown { get; }
 
         /// <summary>激活所需的 GameplayTag 列表；拥有者必须持有所有标签方可激活。</summary>
@@ -22,6 +22,13 @@ namespace Framework.GAS.Abilities
 
         /// <summary>阻止激活的 GameplayTag 列表；拥有者持有任意标签时不可激活。</summary>
         public IReadOnlyList<GameplayTag> BlockedTags { get; }
+
+        /// <summary>激活时是否立即 Commit（设冷却）；false 时由子类手动调用 Commit。</summary>
+        public virtual bool AutoCommit { get; } = true;
+
+        /// <summary>激活属性消耗（属性名 → 量）；默认无消耗。</summary>
+        public virtual IReadOnlyDictionary<string, float> CostAttributes { get; } =
+            new Dictionary<string, float>();
 
         /// <summary>初始化技能基础属性。</summary>
         /// <param name="abilityId">技能唯一 ID；不可为 null 或空。</param>
@@ -43,8 +50,12 @@ namespace Framework.GAS.Abilities
         /// <summary>检查技能是否满足激活条件（冷却、标签前提）。子类可重写以添加自定义检查。</summary>
         /// <param name="owner">持有该技能的 ASC。</param>
         /// <param name="context">激活上下文。</param>
-        /// <returns>检查结果；成功则可调用 <see cref="Activate"/>。</returns>
-        public virtual AbilityActivationResult CanActivate(AbilitySystemComponent owner, in AbilityActivationContext context)
+        /// <param name="spec">授予 Spec；可为 null（兼容旧 API）。</param>
+        /// <returns>检查结果；成功则可进入 Commit。</returns>
+        public virtual AbilityActivationResult CanActivate(
+            AbilitySystemComponent owner,
+            in AbilityActivationContext context,
+            GameplayAbilitySpec spec = null)
         {
             if (owner.CooldownRemaining(AbilityId) > 0f)
             {
@@ -64,15 +75,35 @@ namespace Framework.GAS.Abilities
             return AbilityActivationResult.Succeeded();
         }
 
-        /// <summary>执行技能激活逻辑（写入命令缓冲 / 发布表现事件）。</summary>
+        /// <summary>
+        /// Commit 阶段：默认启动冷却。返回 false 时激活流程中止（如资源不足，阶段 2 Cost GE 使用）。
+        /// </summary>
         /// <param name="owner">持有该技能的 ASC。</param>
-        /// <param name="context">激活上下文（起点、方向、目标、范围）。</param>
-        /// <param name="battle">当前帧战斗上下文，用于写入 CommandBuffer 或发布事件。</param>
-        public abstract void Activate(AbilitySystemComponent owner, in AbilityActivationContext context, BattleContext battle);
+        /// <param name="instance">激活实例。</param>
+        /// <param name="battle">战斗上下文。</param>
+        /// <returns>Commit 成功返回 true。</returns>
+        public virtual bool Commit(
+            AbilitySystemComponent owner,
+            ActiveAbilityInstance instance,
+            BattleContext battle)
+        {
+            owner.StartCooldown(AbilityId, Cooldown);
+            return true;
+        }
 
-        /// <summary>技能结束时的清理回调；默认无操作，子类可重写。</summary>
+        /// <summary>执行技能激活逻辑（写入命令缓冲 / 启动 AbilityTask）。</summary>
         /// <param name="owner">持有该技能的 ASC。</param>
-        public virtual void End(AbilitySystemComponent owner) { }
+        /// <param name="instance">激活实例（含 Context 与 ActivationInfo）。</param>
+        /// <param name="battle">当前帧战斗上下文。</param>
+        public abstract void Activate(
+            AbilitySystemComponent owner,
+            ActiveAbilityInstance instance,
+            BattleContext battle);
+
+        /// <summary>技能结束时的清理回调；ASC 在 End/Cancel 时 garant 调用。</summary>
+        /// <param name="owner">持有该技能的 ASC。</param>
+        /// <param name="instance">激活实例；Cancel 时 State 为 Cancelled。</param>
+        public virtual void End(AbilitySystemComponent owner, ActiveAbilityInstance instance) { }
     }
 
     /// <summary>技能激活上下文，描述激活瞬间的空间信息与目标。</summary>

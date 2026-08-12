@@ -20,7 +20,7 @@
 | `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
 | `Framework.ECS` | World、System、空间哈希 | [ECS/README.md](ECS/README.md) |
-| `Framework.Bridge` | `BattleFramework` 入口 | [Bridge/README.md](Bridge/README.md) |
+| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口 | [GamePlay/README.md](GamePlay/README.md) |
 | `Framework.Config` | Luban 加载、Ability/Effect 工厂 | [Config/README.md](Config/README.md) |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
 | `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |
@@ -34,7 +34,7 @@
 | 内容 | 位置 |
 |------|------|
 | 启动流程 + 配置加载 | `Assets/Scripts/Launch.cs`、[Config/README.md](Config/README.md) |
-| 完整战斗演示 | [Bridge/README.md](Bridge/README.md) → 完整示例 |
+| 完整战斗演示 | [GamePlay/README.md](GamePlay/README.md) → 完整示例 |
 | ASC 伤害/效果/标签验证 | [GAS/README.md](GAS/README.md) → 行为验证示例 |
 
 ## 模块依赖图
@@ -47,8 +47,8 @@ Bootstrap (Host)
     ├── MemoryPool (MemoryPoolModule) Infrastructure
     ├── ObjectPool (ObjectPoolModule) Infrastructure（依赖 MemoryPool）
     ├── Res (ResourceModule)          Infrastructure
-    │       └── Config (ConfigModule) Data
-    │               └── Bridge        Gameplay
+    │       └── Config (ConfigModule)     Data
+    │               └── GamePlay (GamePlayModule)  Gameplay
     │                       ├── GAS
     │                       └── ECS
     │                               └── Core
@@ -60,7 +60,7 @@ Bootstrap (Host)
 
 ```
 Launch.Awake
-  → GameBootstrap.SetModules([ResourceModule, ConfigModule, ...])
+  → GameBootstrap.SetModules([ResourceModule, ConfigModule, GamePlayModule, ...])
   → 拓扑排序 → 依次 InitializeAsync
   → IsReady → 业务逻辑
 ```

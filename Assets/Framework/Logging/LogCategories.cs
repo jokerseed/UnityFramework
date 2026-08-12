@@ -18,8 +18,8 @@ namespace Framework.Logging
         /// <summary>ECS 模拟。</summary>
         public const string Ecs = "ECS";
 
-        /// <summary>战斗 Bridge。</summary>
-        public const string Bridge = "Bridge";
+        /// <summary>玩法模块（GAS + ECS 编排）。</summary>
+        public const string GamePlay = "GamePlay";
 
         /// <summary>编辑器工具。</summary>
         public const string Editor = "Editor";
@@ -38,5 +38,8 @@ namespace Framework.Logging
 
         /// <summary>协程模块。</summary>
         public const string Coroutine = "Coroutine";
+
+        /// <summary>配置模块。</summary>
+        public const string Config = "Config";
     }
 }

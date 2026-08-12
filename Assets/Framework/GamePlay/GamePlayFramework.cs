@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
 using Framework.Core.Tick;
@@ -7,15 +8,18 @@ using Framework.ECS.Systems;
 using Framework.Events;
 using Framework.GAS;
 using Framework.GAS.Abilities;
+using Framework.GAS.Cues;
+using Framework.GAS.Events;
+using Framework.GAS.Targeting;
 using UnityEngine;
 
-namespace Framework.Bridge
+namespace Framework.GamePlay
 {
     /// <summary>
-    /// 战斗框架入口。
+    /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
     /// Tick 顺序：GAS Tick → Flush Spawn → ECS Tick → Flush Damage → 同步坐标
     /// </summary>
-    public sealed class BattleFramework : ITickable, IDisposable
+    public sealed class GamePlayFramework : ITickable, IDisposable
     {
         readonly ZeroGcEventBus _presentationBus = new ZeroGcEventBus();
         readonly BattleCommandBuffer _commandBuffer = new BattleCommandBuffer();
@@ -23,9 +27,14 @@ namespace Framework.Bridge
         readonly World _world;
         readonly ActorRegistry _registry;
         readonly BattleCommandProcessor _commandProcessor;
+        readonly EventBusGameplayCueManager _cueManager;
+        readonly List<ActorId> _targetScratch = new List<ActorId>();
 
         /// <summary>表现层事件总线，用于向外广播战斗事件（如伤害飘字、技能特效触发）。</summary>
         public IEventBus EventBus => _presentationBus;
+
+        /// <summary>GameplayCue 管理器。</summary>
+        public IGameplayCueManager CueManager => _cueManager;
 
         /// <summary>战斗命令缓冲，GAS 系统通过此缓冲向 ECS 提交延迟指令。</summary>
         public BattleCommandBuffer Commands => _commandBuffer;
@@ -39,13 +48,14 @@ namespace Framework.Bridge
         /// <summary>Actor 注册表，维护所有参战单位的 GAS 与 ECS 双侧数据。</summary>
         public ActorRegistry Registry => _registry;
 
-        /// <summary>创建并初始化战斗框架，注册默认 ECS 系统。</summary>
-        public BattleFramework()
+        /// <summary>创建并初始化玩法框架，注册默认 ECS 系统。</summary>
+        public GamePlayFramework()
         {
             _battleContext = new BattleContext(_commandBuffer, _presentationBus);
             _world = new World { Commands = _commandBuffer };
             _registry = new ActorRegistry(_world);
             _commandProcessor = new BattleCommandProcessor(_world, _registry);
+            _cueManager = new EventBusGameplayCueManager(_presentationBus);
 
             _world.AddSystem(new SpatialIndexSystem());
             _world.AddSystem(new MovementSystem());
@@ -92,25 +102,22 @@ namespace Framework.Bridge
             return false;
         }
 
-        /// <summary>向指定 Actor 注册技能。</summary>
-        /// <param name="actorId">目标 Actor ID；Actor 必须已通过 <see cref="CreateActor"/> 创建。</param>
-        /// <param name="ability">要注册的技能实例；不可为 null。</param>
-        /// <exception cref="InvalidOperationException">指定 Actor 不存在时抛出。</exception>
-        public void RegisterAbility(ActorId actorId, GameplayAbility ability)
+        /// <summary>授予技能并返回 Spec 句柄。</summary>
+        public GameplayAbilitySpecHandle GiveAbility(ActorId actorId, GameplayAbilityDef def, int level = 1, int inputId = -1)
         {
             if (!_registry.TryGet(actorId, out var actor))
             {
-                throw new InvalidOperationException($"Cannot register ability: actor {actorId} not found.");
+                throw new InvalidOperationException($"Cannot give ability: actor {actorId} not found.");
             }
 
-            actor.AbilitySystem.RegisterAbility(ability);
+            return actor.AbilitySystem.GiveAbility(def, level, inputId);
         }
 
-        /// <summary>尝试激活指定 Actor 的技能。</summary>
-        /// <param name="actorId">发起技能的 Actor ID。</param>
-        /// <param name="abilityId">技能唯一 ID。</param>
-        /// <param name="context">技能激活上下文，含目标、方向等信息；以 in 传递避免拷贝。</param>
-        /// <returns>包含激活结果及失败原因的 <see cref="AbilityActivationResult"/>。</returns>
+        /// <summary>向指定 Actor 注册技能（兼容 API）。</summary>
+        public void RegisterAbility(ActorId actorId, GameplayAbility ability) =>
+            GiveAbility(actorId, new GameplayAbilityDef(ability));
+
+        /// <summary>尝试激活技能（兼容 API）。</summary>
         public AbilityActivationResult TryActivateAbility(
             ActorId actorId,
             string abilityId,
@@ -122,6 +129,83 @@ namespace Framework.Bridge
             }
 
             return actor.AbilitySystem.TryActivateAbility(abilityId, context, _battleContext);
+        }
+
+        /// <summary>按 Spec 句柄激活技能。</summary>
+        public AbilityActivationResult TryActivateAbility(
+            ActorId actorId,
+            GameplayAbilitySpecHandle handle,
+            in AbilityActivationContext context,
+            out ActiveAbilityInstance instance)
+        {
+            instance = null;
+            if (!_registry.TryGet(actorId, out var actor))
+            {
+                return AbilityActivationResult.Failed(AbilityActivationFailureReason.CustomBlocked);
+            }
+
+            return actor.AbilitySystem.TryActivateAbility(handle, context, _battleContext, out instance);
+        }
+
+        /// <summary>取消指定激活实例。</summary>
+        public bool CancelAbility(ActorId actorId, int activeInstanceId)
+        {
+            if (!_registry.TryGet(actorId, out var actor))
+            {
+                return false;
+            }
+
+            return actor.AbilitySystem.CancelAbility(activeInstanceId, _presentationBus);
+        }
+
+        /// <summary>分发 GameplayEvent 到指定 Actor ASC。</summary>
+        public bool HandleGameplayEvent(ActorId actorId, in GameplayEventData eventData)
+        {
+            if (!_registry.TryGet(actorId, out var actor))
+            {
+                return false;
+            }
+
+            return actor.AbilitySystem.HandleGameplayEvent(eventData, _battleContext);
+        }
+
+        /// <summary>半径内目标查询。</summary>
+        public void QueryTargetsInRadius(
+            ActorId source,
+            Vector3 origin,
+            float radius,
+            TargetDataFilter filter,
+            List<ActorId> results)
+        {
+            var f = new TargetDataFilter(source, filter.SourceTeamId, filter.EnemiesOnly, filter.MaxDistance, filter.RequiredTags);
+            if (!_registry.TryGet(source, out var sourceActor))
+            {
+                results.Clear();
+                return;
+            }
+
+            f = new TargetDataFilter(source, sourceActor.TeamId, filter.EnemiesOnly, filter.MaxDistance, filter.RequiredTags);
+            _registry.QueryTargetsInRadius(origin, radius, f, results);
+        }
+
+        /// <summary>扇形目标查询。</summary>
+        public void QueryTargetsInCone(
+            ActorId source,
+            Vector3 origin,
+            Vector3 direction,
+            float halfAngleDegrees,
+            float range,
+            TargetDataFilter filter,
+            List<ActorId> results)
+        {
+            if (!_registry.TryGet(source, out var sourceActor))
+            {
+                results.Clear();
+                return;
+            }
+
+            var f = new TargetDataFilter(source, sourceActor.TeamId, filter.EnemiesOnly, filter.MaxDistance, filter.RequiredTags);
+            _registry.QueryTargetsInCone(origin, direction, halfAngleDegrees, range, f, results);
         }
 
         /// <summary>在指定范围内查询距 origin 最近的敌方 Actor ID。</summary>
@@ -153,7 +237,7 @@ namespace Framework.Bridge
             _registry.SyncPositionsFromEcs();
         }
 
-        /// <summary>释放战斗框架持有的全部资源，包括 ECS 世界、命令缓冲与事件总线。</summary>
+        /// <summary>释放玩法框架持有的全部资源，包括 ECS 世界、命令缓冲与事件总线。</summary>
         public void Dispose()
         {
             _world.Dispose();

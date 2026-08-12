@@ -6,7 +6,7 @@ using Framework.ECS.Components;
 using Framework.GAS;
 using UnityEngine;
 
-namespace Framework.Bridge
+namespace Framework.GamePlay
 {
     /// <summary>
     /// 战斗 Actor 的运行时数据容器，聚合 Actor ID、GAS 组件、ECS 实体及队伍信息。
@@ -170,6 +170,103 @@ namespace Framework.Bridge
             }
 
             return best;
+        }
+
+        /// <summary>在半径内查询符合筛选条件的 Actor 列表。</summary>
+        /// <param name="origin">圆心。</param>
+        /// <param name="radius">半径。</param>
+        /// <param name="filter">筛选条件。</param>
+        /// <param name="results">输出列表（调用前清空）。</param>
+        public void QueryTargetsInRadius(Vector3 origin, float radius, GAS.Targeting.TargetDataFilter filter, List<ActorId> results)
+        {
+            results.Clear();
+            if (!_actors.TryGetValue(filter.Source, out var sourceActor))
+            {
+                return;
+            }
+
+            foreach (var pair in _actors)
+            {
+                var target = pair.Value;
+                if (target.ActorId == filter.Source)
+                {
+                    continue;
+                }
+
+                if (filter.EnemiesOnly && target.TeamId == sourceActor.TeamId)
+                {
+                    continue;
+                }
+
+                if (target.AbilitySystem.Tags.HasTag(new GAS.Tags.GameplayTag(BattleConstants.TagDead)))
+                {
+                    continue;
+                }
+
+                var distance = Vector3.Distance(origin, target.Position);
+                if (distance > radius)
+                {
+                    continue;
+                }
+
+                if (filter.MaxDistance > 0f && distance > filter.MaxDistance)
+                {
+                    continue;
+                }
+
+                results.Add(target.ActorId);
+            }
+        }
+
+        /// <summary>在扇形范围内查询符合筛选条件的 Actor 列表。</summary>
+        public void QueryTargetsInCone(
+            Vector3 origin,
+            Vector3 direction,
+            float halfAngleDegrees,
+            float range,
+            GAS.Targeting.TargetDataFilter filter,
+            List<ActorId> results)
+        {
+            results.Clear();
+            if (!_actors.TryGetValue(filter.Source, out var sourceActor))
+            {
+                return;
+            }
+
+            var forward = direction.sqrMagnitude > 0f ? direction.normalized : Vector3.forward;
+            foreach (var pair in _actors)
+            {
+                var target = pair.Value;
+                if (target.ActorId == filter.Source)
+                {
+                    continue;
+                }
+
+                if (filter.EnemiesOnly && target.TeamId == sourceActor.TeamId)
+                {
+                    continue;
+                }
+
+                if (target.AbilitySystem.Tags.HasTag(new GAS.Tags.GameplayTag(BattleConstants.TagDead)))
+                {
+                    continue;
+                }
+
+                var toTarget = target.Position - origin;
+                var distance = toTarget.magnitude;
+                if (distance > range || distance <= 0.001f)
+                {
+                    continue;
+                }
+
+                var angle = Vector3.Angle(forward, toTarget);
+                if (angle > halfAngleDegrees)
+                {
+                    continue;
+                }
+
+                results.Add(target.ActorId);
+            }
         }
 
         /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.Position"/>，每帧 Tick 末尾调用。</summary>

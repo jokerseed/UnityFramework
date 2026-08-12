@@ -51,19 +51,17 @@ namespace Framework.GAS.Attributes
     {
         readonly Dictionary<string, float> _additive = new Dictionary<string, float>();
         readonly Dictionary<string, float> _multiplier = new Dictionary<string, float>();
+        readonly Dictionary<string, float> _override = new Dictionary<string, float>();
 
         /// <summary>清空本轮汇总数据，以便下一次重算前重新填入。</summary>
         public void Clear()
         {
             _additive.Clear();
             _multiplier.Clear();
+            _override.Clear();
         }
 
-        /// <summary>将单个修改器的贡献量（已乘以叠加层数）累加到对应属性桶中。</summary>
-        /// <param name="attributeName">目标属性名称。</param>
-        /// <param name="magnitude">修改幅度（未缩放）。</param>
-        /// <param name="operation">运算方式（加法或乘法）。</param>
-        /// <param name="stackCount">叠加层数；幅度将乘以此值后累加。</param>
+        /// <summary>将单个修改器的贡献量累加到对应属性桶中。</summary>
         public void Add(string attributeName, float magnitude, Effects.EffectModifierOperation operation, int stackCount = 1)
         {
             var scaled = magnitude * stackCount;
@@ -75,29 +73,32 @@ namespace Framework.GAS.Attributes
                 case Effects.EffectModifierOperation.Multiply:
                     _multiplier[attributeName] = _multiplier.TryGetValue(attributeName, out var mul) ? mul * scaled : scaled;
                     break;
+                case Effects.EffectModifierOperation.Override:
+                    _override[attributeName] = scaled;
+                    break;
             }
         }
 
-        /// <summary>将汇总后的修改量应用到属性集合，调用每个属性的 <see cref="GameplayAttribute.Recalculate"/>。</summary>
-        /// <param name="attributes">要更新的属性集合；不可为 null。</param>
+        /// <summary>将汇总后的修改量应用到属性集合。</summary>
         public void ApplyTo(GameplayAttributeSet attributes)
         {
-            foreach (var pair in _additive)
-            {
-                var attribute = attributes.GetOrCreate(pair.Key);
-                var mul = _multiplier.TryGetValue(pair.Key, out var value) ? value : 1f;
-                attribute.Recalculate(pair.Value, mul);
-            }
+            var keys = new HashSet<string>();
+            foreach (var key in _additive.Keys) keys.Add(key);
+            foreach (var key in _multiplier.Keys) keys.Add(key);
+            foreach (var key in _override.Keys) keys.Add(key);
 
-            foreach (var pair in _multiplier)
+            foreach (var key in keys)
             {
-                if (_additive.ContainsKey(pair.Key))
+                var attribute = attributes.GetOrCreate(key);
+                if (_override.TryGetValue(key, out var overrideValue))
                 {
+                    attribute.SetCurrentValue(overrideValue);
                     continue;
                 }
 
-                var attribute = attributes.GetOrCreate(pair.Key);
-                attribute.Recalculate(0f, pair.Value);
+                var add = _additive.TryGetValue(key, out var a) ? a : 0f;
+                var mul = _multiplier.TryGetValue(key, out var m) ? m : 1f;
+                attribute.Recalculate(add, mul);
             }
         }
     }
@@ -149,5 +150,9 @@ namespace Framework.GAS.Attributes
                 attribute.Recalculate(0f, 1f);
             }
         }
+
+        /// <summary>枚举所有已创建属性。</summary>
+        /// <returns>属性名 → 属性实例。</returns>
+        public IEnumerable<KeyValuePair<string, GameplayAttribute>> GetAllAttributes() => _attributes;
     }
 }

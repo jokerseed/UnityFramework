@@ -5,7 +5,7 @@ using Framework.ECS;
 using Framework.ECS.Components;
 using Framework.GAS.Combat;
 
-namespace Framework.Bridge
+namespace Framework.GamePlay
 {
     /// <summary>每 Tick 将命令缓冲刷入 ECS / GAS，替代热路径 EventBus 订阅。</summary>
     public sealed class BattleCommandProcessor

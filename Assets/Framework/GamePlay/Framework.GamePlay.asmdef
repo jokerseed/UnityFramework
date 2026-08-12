@@ -1,0 +1,23 @@
+{
+    "name": "Framework.GamePlay",
+    "rootNamespace": "Framework.GamePlay",
+    "references": [
+        "Framework.Bootstrap",
+        "Framework.Core",
+        "Framework.Events",
+        "Framework.GAS",
+        "Framework.ECS",
+        "Framework.Logging",
+        "Framework.Config",
+        "Generated.Luban"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

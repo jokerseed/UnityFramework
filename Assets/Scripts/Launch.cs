@@ -1,5 +1,7 @@
 using Framework.Bootstrap;
+using Framework.Config;
 using Framework.Coroutine;
+using Framework.GamePlay;
 using Framework.Logging;
 using Framework.MemoryPool;
 using Framework.ObjectPool;
@@ -24,6 +26,8 @@ public sealed class Launch : MonoBehaviour
             new MemoryPoolModule(),
             new ObjectPoolModule(),
             new ResourceModule(),
+            new ConfigModule(),
+            new GamePlayModule(),
         });
         launch.StateChanged += OnGroupStateChanged;
         launch.Ready += OnGroupReady;

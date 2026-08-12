@@ -82,4 +82,28 @@ namespace Framework.GAS.Events
         /// <summary>触发方向（已归一化）。</summary>
         public Vector3 Direction;
     }
+
+    /// <summary>GameplayEffect 被移除。</summary>
+    public struct GameplayEffectRemovedEvent
+    {
+        /// <summary>归属 Actor。</summary>
+        public ActorId Actor;
+        /// <summary>效果 ID。</summary>
+        public string EffectId;
+        /// <summary>活跃效果句柄。</summary>
+        public Effects.GameplayEffectHandle Handle;
+    }
+
+    /// <summary>GameplayEvent 数据（被动触发、AbilityTask 等待）。</summary>
+    public struct GameplayEventData
+    {
+        /// <summary>事件 Tag。</summary>
+        public string EventTag;
+        /// <summary>发起者。</summary>
+        public ActorId Instigator;
+        /// <summary>目标。</summary>
+        public ActorId Target;
+        /// <summary>可选目标位置。</summary>
+        public Vector3 TargetLocation;
+    }
 }

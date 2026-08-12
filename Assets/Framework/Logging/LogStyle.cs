@@ -150,8 +150,10 @@ namespace Framework.Logging
                     return "#FF7043";
                 case LogCategories.Ecs:
                     return "#AB47BC";
-                case LogCategories.Bridge:
+                case LogCategories.GamePlay:
                     return "#42A5F5";
+                case LogCategories.Config:
+                    return "#78909C";
                 case LogCategories.Editor:
                     return "#90A4AE";
                 default:

@@ -28,7 +28,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.Events` | 事件总线契约与实现（`IEventBus`、`ZeroGcEventBus`、`GameEvent`） | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性） |
 | `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据） |
-| `Framework.Bridge` | `BattleFramework` 入口 |
+| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口 |
+| `Framework.Config` | Luban 加载、Ability/Effect 工厂 |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时资源加载唯一入口** |
 | `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
 | `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |

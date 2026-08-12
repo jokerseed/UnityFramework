@@ -1,11 +1,15 @@
 {
-    "name": "Framework.Bridge",
-    "rootNamespace": "Framework.Bridge",
+    "name": "Framework.Config",
+    "rootNamespace": "Framework.Config",
     "references": [
+        "Framework.Bootstrap",
         "Framework.Core",
-        "Framework.Events",
         "Framework.GAS",
-        "Framework.ECS"
+        "Framework.Res",
+        "Framework.Logging",
+        "Framework.Events",
+        "Generated.Luban",
+        "Luban.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

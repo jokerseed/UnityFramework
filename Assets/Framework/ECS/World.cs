@@ -8,7 +8,7 @@ namespace Framework.ECS
 {
     /// <summary>
     /// ECS 世界，负责实体的生命周期、组件存储和系统调度。
-    /// 每个战斗实例对应一个 World，由 <see cref="Framework.Bridge.BattleFramework"/> 持有。
+    /// 每个战斗实例对应一个 World，由 <see cref="Framework.GamePlay.GamePlayFramework"/> 持有。
     /// </summary>
     public sealed class World : ITickable
     {

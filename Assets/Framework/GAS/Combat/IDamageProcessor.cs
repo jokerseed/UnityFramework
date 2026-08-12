@@ -30,7 +30,9 @@ namespace Framework.GAS.Combat
             }
 
             var defense = target.Attributes.GetCurrentValue(Core.BattleConstants.Defense);
-            var final = context.RawDamage - defense;
+            var attack = source?.Attributes.GetCurrentValue(Core.BattleConstants.Attack) ?? context.RawDamage;
+            var raw = context.RawDamage > 0f ? context.RawDamage : attack;
+            var final = raw - defense;
             if (final < 0f)
             {
                 final = 0f;

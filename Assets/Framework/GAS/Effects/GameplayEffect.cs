@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Framework.Core;
-using Framework.GAS.Attributes;
+using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 
 namespace Framework.GAS.Effects
@@ -26,26 +26,34 @@ namespace Framework.GAS.Effects
         Add,
 
         /// <summary>在当前值上乘以修改系数。</summary>
-        Multiply
+        Multiply,
+
+        /// <summary>覆盖当前值。</summary>
+        Override
     }
 
     /// <summary>描述单条属性修改规则（目标属性、运算方式、幅度）。</summary>
     public readonly struct EffectModifier
     {
-        /// <summary>被修改的属性名称（对应 <see cref="GameplayAttribute.Name"/>）。</summary>
+        /// <summary>被修改的属性名称。</summary>
         public string AttributeName { get; }
 
-        /// <summary>修改运算方式（加法或乘法）。</summary>
+        /// <summary>修改运算方式。</summary>
         public EffectModifierOperation Operation { get; }
 
-        /// <summary>修改幅度；加法时为加量，乘法时为系数。</summary>
-        public float Magnitude { get; }
+        /// <summary>修改幅度。</summary>
+        public ModifierMagnitude Magnitude { get; }
+
+        /// <summary>构造属性修改规则（常量幅度，兼容旧 API）。</summary>
+        public EffectModifier(string attributeName, EffectModifierOperation operation, float magnitude)
+        {
+            AttributeName = attributeName;
+            Operation = operation;
+            Magnitude = ModifierMagnitude.Constant(magnitude);
+        }
 
         /// <summary>构造属性修改规则。</summary>
-        /// <param name="attributeName">目标属性名称。</param>
-        /// <param name="operation">运算方式。</param>
-        /// <param name="magnitude">修改幅度。</param>
-        public EffectModifier(string attributeName, EffectModifierOperation operation, float magnitude)
+        public EffectModifier(string attributeName, EffectModifierOperation operation, ModifierMagnitude magnitude)
         {
             AttributeName = attributeName;
             Operation = operation;
@@ -53,42 +61,63 @@ namespace Framework.GAS.Effects
         }
     }
 
-    /// <summary>GameplayEffect 的不可变描述数据，包含持续时间策略、叠加策略、属性修改器与 Tag 列表。</summary>
+    /// <summary>GameplayEffect 运行时 Spec。</summary>
     public sealed class GameplayEffectSpec
     {
-        /// <summary>效果唯一标识符，用于叠加判断。</summary>
+        static int s_nextHandle = 1;
+
+        /// <summary>运行时 Spec 句柄（Apply 时分配）。</summary>
+        public int RuntimeId { get; }
+
+        /// <summary>效果唯一标识符。</summary>
         public string EffectId { get; }
 
-        /// <summary>持续时间策略（瞬时 / 持续 / 永久）。</summary>
+        /// <summary>持续时间策略。</summary>
         public EffectDurationPolicy DurationPolicy { get; }
 
-        /// <summary>同 ID 效果的叠加策略。</summary>
+        /// <summary>叠加策略。</summary>
         public EffectStackingPolicy StackingPolicy { get; }
 
-        /// <summary>持续时长（秒）；仅 <see cref="EffectDurationPolicy.Duration"/> 模式下有效。</summary>
+        /// <summary>持续时长（秒）。</summary>
         public float Duration { get; }
 
-        /// <summary>属性修改器列表；瞬时与持续效果均会应用。</summary>
+        /// <summary>周期（秒）。</summary>
+        public float Period { get; }
+
+        /// <summary>属性修改器列表。</summary>
         public IReadOnlyList<EffectModifier> Modifiers { get; }
 
-        /// <summary>效果激活时授予目标的 Tag 列表；效果结束时移除。</summary>
+        /// <summary>授予 Tag 列表。</summary>
         public IReadOnlyList<GameplayTag> GrantedTags { get; }
 
-        /// <summary>应用前提标签：目标必须持有所有标签，否则拒绝应用。</summary>
+        /// <summary>应用前提 Tag。</summary>
         public IReadOnlyList<GameplayTag> ApplicationRequiredTags { get; }
 
-        /// <summary>应用阻断标签：目标持有任意标签时拒绝应用。</summary>
+        /// <summary>应用阻断 Tag。</summary>
         public IReadOnlyList<GameplayTag> ApplicationBlockedTags { get; }
 
-        /// <summary>构造 GameplayEffect 描述数据。</summary>
-        /// <param name="effectId">效果唯一 ID；不可为 null 或空。</param>
-        /// <param name="durationPolicy">持续时间策略。</param>
-        /// <param name="duration">持续时长（秒）；Instant/Infinite 可传 0。</param>
-        /// <param name="modifiers">属性修改器列表；为 null 时视为空列表。</param>
-        /// <param name="grantedTags">授予 Tag 列表；为 null 时视为空列表。</param>
-        /// <param name="stackingPolicy">叠加策略；默认 <see cref="EffectStackingPolicy.None"/>。</param>
-        /// <param name="applicationRequiredTags">应用前提标签；为 null 时视为空列表。</param>
-        /// <param name="applicationBlockedTags">应用阻断标签；为 null 时视为空列表。</param>
+        /// <summary>免疫 Tag。</summary>
+        public IReadOnlyList<GameplayTag> ImmunityTags { get; }
+
+        /// <summary>授予技能定义。</summary>
+        public IReadOnlyList<GameplayAbilityDef> GrantedAbilityDefs { get; }
+
+        /// <summary>Execution 列表。</summary>
+        public IReadOnlyList<GameplayEffectExecution> Executions { get; }
+
+        /// <summary>施加 Cue Tag。</summary>
+        public IReadOnlyList<string> CueTagsOnApply { get; }
+
+        /// <summary>移除 Cue Tag。</summary>
+        public IReadOnlyList<string> CueTagsOnRemove { get; }
+
+        /// <summary>Cost 属性消耗。</summary>
+        public IReadOnlyDictionary<string, float> CostAttributes { get; }
+
+        /// <summary>Apply 时的 SetByCaller。</summary>
+        public IReadOnlyDictionary<string, float> SetByCaller { get; }
+
+        /// <summary>从 Def 构造运行时 Spec（兼容旧构造函数）。</summary>
         public GameplayEffectSpec(
             string effectId,
             EffectDurationPolicy durationPolicy,
@@ -98,44 +127,78 @@ namespace Framework.GAS.Effects
             EffectStackingPolicy stackingPolicy = EffectStackingPolicy.None,
             IReadOnlyList<GameplayTag> applicationRequiredTags = null,
             IReadOnlyList<GameplayTag> applicationBlockedTags = null)
+            : this(new GameplayEffectDef(
+                effectId,
+                durationPolicy,
+                duration,
+                modifiers,
+                grantedTags,
+                stackingPolicy,
+                applicationRequiredTags,
+                applicationBlockedTags))
         {
-            EffectId = effectId;
-            DurationPolicy = durationPolicy;
-            Duration = duration;
-            Modifiers = modifiers ?? Array.Empty<EffectModifier>();
-            GrantedTags = grantedTags ?? Array.Empty<GameplayTag>();
-            StackingPolicy = stackingPolicy;
-            ApplicationRequiredTags = applicationRequiredTags ?? Array.Empty<GameplayTag>();
-            ApplicationBlockedTags = applicationBlockedTags ?? Array.Empty<GameplayTag>();
+        }
+
+        /// <summary>从 Def 构造运行时 Spec。</summary>
+        public GameplayEffectSpec(GameplayEffectDef def, IReadOnlyDictionary<string, float> setByCaller = null)
+        {
+            RuntimeId = s_nextHandle++;
+            EffectId = def.EffectId;
+            DurationPolicy = def.DurationPolicy;
+            Duration = def.Duration;
+            StackingPolicy = def.StackingPolicy;
+            Period = def.Period;
+            Modifiers = def.Modifiers;
+            GrantedTags = def.GrantedTags;
+            ApplicationRequiredTags = def.ApplicationRequiredTags;
+            ApplicationBlockedTags = def.ApplicationBlockedTags;
+            ImmunityTags = def.ImmunityTags;
+            GrantedAbilityDefs = def.GrantedAbilityDefs;
+            Executions = def.Executions;
+            CueTagsOnApply = def.CueTagsOnApply;
+            CueTagsOnRemove = def.CueTagsOnRemove;
+            CostAttributes = def.CostAttributes;
+            SetByCaller = setByCaller;
         }
     }
 
-    /// <summary>运行时活跃的 GameplayEffect 实例，跟踪剩余时间与叠加层数。</summary>
+    /// <summary>运行时活跃的 GameplayEffect 实例。</summary>
     public sealed class ActiveGameplayEffect
     {
-        /// <summary>对应的效果描述数据。</summary>
+        static int s_nextHandle = 1;
+
+        /// <summary>活跃效果句柄。</summary>
+        public GameplayEffectHandle Handle { get; }
+
+        /// <summary>效果 Spec。</summary>
         public GameplayEffectSpec Spec { get; }
 
-        /// <summary>施加该效果的来源单位标识符。</summary>
+        /// <summary>来源 Actor。</summary>
         public ActorId Source { get; }
 
-        /// <summary>剩余持续时间（秒）；每帧由 ASC Tick 递减。</summary>
+        /// <summary>剩余持续时间。</summary>
         public float RemainingTime { get; set; }
 
-        /// <summary>当前叠加层数；<see cref="EffectStackingPolicy.StackCount"/> 模式下递增。</summary>
+        /// <summary>周期计时器。</summary>
+        public float PeriodTimer { get; set; }
+
+        /// <summary>叠加层数。</summary>
         public int StackCount { get; set; } = 1;
 
-        /// <summary>创建活跃效果实例。</summary>
-        /// <param name="spec">效果描述数据；不可为 null。</param>
-        /// <param name="source">来源单位标识符。</param>
+        /// <summary>本效果授予的技能 Spec 句柄。</summary>
+        public List<GameplayAbilitySpecHandle> GrantedAbilityHandles { get; } = new List<GameplayAbilitySpecHandle>();
+
+        /// <summary>创建活跃效果。</summary>
         public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source)
         {
+            Handle = new GameplayEffectHandle(s_nextHandle++);
             Spec = spec;
             Source = source;
             RemainingTime = spec.Duration;
+            PeriodTimer = spec.Period;
         }
 
-        /// <summary>效果是否已过期（仅限 <see cref="EffectDurationPolicy.Duration"/> 策略）。</summary>
+        /// <summary>是否已过期。</summary>
         public bool IsExpired =>
             Spec.DurationPolicy == EffectDurationPolicy.Duration && RemainingTime <= 0f;
     }

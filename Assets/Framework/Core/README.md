@@ -32,7 +32,7 @@ Core/
 | `BattleCommandBuffer` | 模拟热路径命令批量刷写（生成投射物、结算伤害） |
 | `BattleContext` | 将 `Commands` + `Presentation`（`IEventBus`）打包，供 GAS 使用 |
 | `ActorId` | 逻辑层 Actor 标识，与 ECS `Entity` 解耦 |
-| `ITickable` | `BattleFramework`、`World` 的统一 Tick 契约 |
+| `ITickable` | `GamePlayFramework`、`World` 的统一 Tick 契约 |
 | `PersistentSingleton<T>` | 懒加载 + `DontDestroyOnLoad` 常驻单例 |
 
 ## PersistentSingleton 用法
@@ -61,7 +61,7 @@ AudioManager.DestroyInstance();
 |------|------|
 | `Framework.GAS` | ASC 通过 `BattleContext` 发命令和事件 |
 | `Framework.ECS` | `World` 消费 `BattleCommandBuffer` |
-| `Framework.Bridge` | 创建 `BattleContext` 并驱动 Tick |
+| `Framework.GamePlay` | 创建 `BattleContext` 并驱动 Tick |
 
 ## 说明
 
