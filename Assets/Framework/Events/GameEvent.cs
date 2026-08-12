@@ -1,5 +1,4 @@
 using System;
-using Framework.Core.Events;
 
 namespace Framework.Events
 {

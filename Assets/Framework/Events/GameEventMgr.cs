@@ -1,5 +1,3 @@
-using Framework.Core.Events;
-
 namespace Framework.Events
 {
     /// <summary>全局事件管理器（参考 TEngine EventMgr）。</summary>

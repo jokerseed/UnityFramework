@@ -1,6 +1,6 @@
 using Framework.Core;
 using Framework.Core.Commands;
-using Framework.Core.Events;
+using Framework.Events;
 using Framework.ECS;
 using Framework.ECS.Components;
 using Framework.GAS.Combat;

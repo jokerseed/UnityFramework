@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
-using Framework.Core.Events;
+using Framework.Events;
 using Framework.GAS.Abilities;
 using Framework.GAS.Attributes;
 using Framework.GAS.Combat;
 using Framework.GAS.Effects;
+using Framework.GAS.Events;
 using Framework.GAS.Tags;
 
 namespace Framework.GAS

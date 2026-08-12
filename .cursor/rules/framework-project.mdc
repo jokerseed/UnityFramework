@@ -24,8 +24,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | 程序集 | 职责 |
 |--------|------|
 | `Framework.Bootstrap` | `GameBootstrap` 多组模块编排（Host，非 IGameModule） |
-| `Framework.Core` | CommandBuffer、EventBus、`PersistentSingleton<T>` |
-| `Framework.Events` | 零 GC 事件系统（`ZeroGcEventBus`、`GameEvent`） | [Events/README.md](Events/README.md) |
+| `Framework.Core` | CommandBuffer、`PersistentSingleton<T>`、`BattleContext` |
+| `Framework.Events` | 事件总线契约与实现（`IEventBus`、`ZeroGcEventBus`、`GameEvent`） | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性） |
 | `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据） |
 | `Framework.Bridge` | `BattleFramework` 入口 |
@@ -46,7 +46,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 ## 设计原则
 
 - GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` 等模拟数据
-- 热路径走 `BattleCommandBuffer`，表现走 `EventBus`
+- 热路径走 `BattleCommandBuffer`，表现走 `IEventBus`（`ZeroGcEventBus` / `GameEvent`）
 - Tick 顺序：`GAS → Flush Spawn → ECS → Flush Damage → Sync Positions`
 - 常驻 Mono 单例用 `PersistentSingleton<T>`，不要重复造轮子
 - **运行时资源加载只能走 `Framework.Res`**（详见 `framework-res.mdc`）

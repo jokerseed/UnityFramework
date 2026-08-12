@@ -1,7 +1,7 @@
 using Framework.Core;
 using Framework.Core.Commands;
-using Framework.Core.Events;
 using Framework.GAS.Abilities;
+using Framework.GAS.Events;
 using Framework.GAS.Targeting;
 using UnityEngine;
 

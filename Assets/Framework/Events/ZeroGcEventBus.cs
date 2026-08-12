@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Framework.Core.Events;
 
 namespace Framework.Events
 {

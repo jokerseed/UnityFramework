@@ -5,7 +5,7 @@
 | 原则 | 实现 |
 |------|------|
 | 单一数据源 | GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` |
-| 热路径命令化 | `BattleCommandBuffer` 批量刷；表现走 `EventBus` |
+| 热路径命令化 | `BattleCommandBuffer` 批量刷；表现走 `IEventBus`（`ZeroGcEventBus`） |
 | 配置驱动 | Luban 导表 → `AbilityFactory` / `EffectFactory` |
 | 资源管线 | YooAsset 打包加载；配置表走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
@@ -16,7 +16,8 @@
 | 程序集 | 职责 | 文档 |
 |--------|------|------|
 | `Framework.Bootstrap` | 模块启动编排（Host + `IGameModule`） | [Bootstrap/README.md](Bootstrap/README.md) |
-| `Framework.Core` | CommandBuffer、BattleContext、事件 | [Core/README.md](Core/README.md) |
+| `Framework.Core` | CommandBuffer、BattleContext、标识符 | [Core/README.md](Core/README.md) |
+| `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
 | `Framework.ECS` | World、System、空间哈希 | [ECS/README.md](ECS/README.md) |
 | `Framework.Bridge` | `BattleFramework` 入口 | [Bridge/README.md](Bridge/README.md) |

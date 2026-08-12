@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Framework.Core;
-using Framework.Core.Events;
 using Framework.ECS;
 using Framework.ECS.Components;
 using Framework.GAS;

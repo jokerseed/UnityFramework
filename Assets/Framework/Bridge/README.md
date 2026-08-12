@@ -60,8 +60,8 @@ framework.Tick(Time.deltaTime);
 using Framework.Bridge;
 using Framework.Config;
 using Framework.Core;
-using Framework.Core.Events;
 using Framework.GAS.Abilities;
+using Framework.GAS.Events;
 using UnityEngine;
 
 public sealed class BattleDemo : MonoBehaviour

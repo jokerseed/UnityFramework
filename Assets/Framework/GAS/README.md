@@ -28,6 +28,8 @@ GAS/
 │   └── GameplayTag.cs            标签容器
 ├── Combat/
 │   └── IDamageProcessor.cs       伤害计算接口
+├── Events/
+│   └── GasEvents.cs              技能/伤害/属性/Tag/Cue 表现事件
 └── Targeting/
     └── ITargetSelector.cs        目标选择
 ```
@@ -42,6 +44,17 @@ GAS/
 | `GameplayAttributeSet` | 属性集（Health、Attack、Defense 等） |
 | `GameplayTagContainer` | 状态标签（眩晕、无敌等） |
 | `DefaultDamageProcessor` | 默认伤害公式 |
+
+## 表现事件（`Framework.GAS.Events`）
+
+| 事件 | 触发时机 |
+|------|----------|
+| `AbilityActivatedEvent` | 技能激活 |
+| `DamageDealtEvent` | 伤害结算完成 |
+| `DamageBlockedEvent` | 伤害被格挡/免疫 |
+| `AttributeChangedEvent` | 属性值变化 |
+| `TagChangedEvent` | GameplayTag 增删 |
+| `GameplayCueEvent` | 表现 Cue（特效、音效） |
 
 ## 与 ECS 的分工
 
@@ -72,7 +85,9 @@ asc.ApplyEffect(effect, sourceId, battleContext.Presentation);
 ### 伤害结算
 
 ```csharp
-var bus = new EventBus();
+using Framework.Events;
+
+IEventBus bus = new ZeroGcEventBus();
 var asc = new AbilitySystemComponent(new ActorId(1));
 asc.InitializeHealth(100f);
 

@@ -2,7 +2,8 @@
     "name": "Framework.GAS",
     "rootNamespace": "Framework.GAS",
     "references": [
-        "Framework.Core"
+        "Framework.Core",
+        "Framework.Events"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

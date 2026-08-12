@@ -19,7 +19,6 @@ YooAsset 资源管线封装，提供配置表与通用资源的同步/异步加�
 | `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host） |
 | `ResourceAddresses` | 寻址规则（如 `bundles/configs/{表名}.unity3d`） |
 | `ResourceAssetHandle` | 资源句柄封装，支持 Dispose |
-| `ResourceBootstrap` | 旧版 MonoBehaviour 启动方式（已被 `ResourceModule` 取代） |
 
 ## 运行模式
 

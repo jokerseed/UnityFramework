@@ -1,9 +1,7 @@
 {
     "name": "Framework.Events",
     "rootNamespace": "Framework.Events",
-    "references": [
-        "Framework.Core"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

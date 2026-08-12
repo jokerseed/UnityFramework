@@ -1,5 +1,5 @@
 using Framework.Core.Commands;
-using Framework.Core.Events;
+using Framework.Events;
 
 namespace Framework.Core
 {

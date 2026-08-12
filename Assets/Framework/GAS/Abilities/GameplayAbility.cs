@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Framework.Core;
-using Framework.Core.Events;
 using Framework.GAS.Tags;
 using UnityEngine;
 
