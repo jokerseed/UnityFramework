@@ -143,12 +143,23 @@ namespace Framework.GamePlay
                 return ActorId.Invalid;
             }
 
+            var grid = _world.GetSingleton<SpatialHashGrid>();
+            if (grid == null)
+            {
+                return ActorId.Invalid;
+            }
+
             ActorId best = ActorId.Invalid;
             var bestDistance = float.MaxValue;
+            var candidates = grid.QueryNearby(origin, range);
 
-            foreach (var pair in _actors)
+            for (var i = 0; i < candidates.Count; i++)
             {
-                var target = pair.Value;
+                if (!TryResolveActor(candidates[i], out var target, out var position))
+                {
+                    continue;
+                }
+
                 if (target.TeamId == sourceActor.TeamId || target.ActorId == source)
                 {
                     continue;
@@ -159,7 +170,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var distance = Vector3.Distance(origin, target.Position);
+                var distance = Vector3.Distance(origin, position);
                 if (distance > range || distance >= bestDistance)
                 {
                     continue;
@@ -185,9 +196,20 @@ namespace Framework.GamePlay
                 return;
             }
 
-            foreach (var pair in _actors)
+            var grid = _world.GetSingleton<SpatialHashGrid>();
+            if (grid == null)
             {
-                var target = pair.Value;
+                return;
+            }
+
+            var candidates = grid.QueryNearby(origin, radius);
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (!TryResolveActor(candidates[i], out var target, out var position))
+                {
+                    continue;
+                }
+
                 if (target.ActorId == filter.Source)
                 {
                     continue;
@@ -203,7 +225,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var distance = Vector3.Distance(origin, target.Position);
+                var distance = Vector3.Distance(origin, position);
                 if (distance > radius)
                 {
                     continue;
@@ -233,10 +255,22 @@ namespace Framework.GamePlay
                 return;
             }
 
-            var forward = direction.sqrMagnitude > 0f ? direction.normalized : Vector3.forward;
-            foreach (var pair in _actors)
+            var grid = _world.GetSingleton<SpatialHashGrid>();
+            if (grid == null)
             {
-                var target = pair.Value;
+                return;
+            }
+
+            var forward = direction.sqrMagnitude > 0f ? direction.normalized : Vector3.forward;
+            var candidates = grid.QueryNearby(origin, range);
+
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (!TryResolveActor(candidates[i], out var target, out var position))
+                {
+                    continue;
+                }
+
                 if (target.ActorId == filter.Source)
                 {
                     continue;
@@ -252,7 +286,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var toTarget = target.Position - origin;
+                var toTarget = position - origin;
                 var distance = toTarget.magnitude;
                 if (distance > range || distance <= 0.001f)
                 {
@@ -267,6 +301,34 @@ namespace Framework.GamePlay
 
                 results.Add(target.ActorId);
             }
+        }
+
+        /// <summary>从 ECS 实体 ID 解析 <see cref="BattleActor"/> 与世界坐标。</summary>
+        bool TryResolveActor(uint entityId, out BattleActor actor, out Vector3 position)
+        {
+            actor = null;
+            position = default;
+
+            if (!_world.TryGetComponent(entityId, out ActorLinkComponent link))
+            {
+                return false;
+            }
+
+            if (!_actors.TryGetValue(link.ActorId, out actor))
+            {
+                return false;
+            }
+
+            if (_world.TryGetComponent(entityId, out TransformComponent transform))
+            {
+                position = transform.Position;
+            }
+            else
+            {
+                position = actor.Position;
+            }
+
+            return true;
         }
 
         /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.Position"/>，每帧 Tick 末尾调用。</summary>

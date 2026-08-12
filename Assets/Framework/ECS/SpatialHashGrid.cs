@@ -3,12 +3,13 @@ using UnityEngine;
 
 namespace Framework.ECS
 {
-    /// <summary>简易空间哈希，降低弹道碰撞查询复杂度。</summary>
+    /// <summary>简易空间哈希，降低弹道碰撞与目标查询复杂度。</summary>
     public sealed class SpatialHashGrid
     {
         readonly float _cellSize;
-        readonly Dictionary<long, List<uint>> _cells = new Dictionary<long, List<uint>>();
+        readonly Dictionary<long, HashSet<uint>> _cells = new Dictionary<long, HashSet<uint>>();
         readonly List<uint> _queryScratch = new List<uint>(32);
+        readonly HashSet<uint> _queryDedup = new HashSet<uint>();
 
         /// <summary>创建空间哈希网格。</summary>
         /// <param name="cellSize">单格边长（世界单位）；值越大每格容纳实体越多，查询精度越低。</param>
@@ -20,22 +21,19 @@ namespace Framework.ECS
         /// <summary>清空所有格子中的实体数据，通常在每帧 Tick 开始时调用。</summary>
         public void Clear() => _cells.Clear();
 
-        /// <summary>将实体插入对应空间格子。若该实体已在格中则忽略。</summary>
+        /// <summary>将实体插入对应空间格子；同一格内同一实体只存一份。</summary>
         /// <param name="entityId">要插入的实体 ID。</param>
         /// <param name="position">实体的世界坐标；仅使用 X/Z 轴计算格子索引。</param>
         public void Insert(uint entityId, Vector3 position)
         {
             var key = Hash(position);
-            if (!_cells.TryGetValue(key, out var list))
+            if (!_cells.TryGetValue(key, out var set))
             {
-                list = new List<uint>(4);
-                _cells[key] = list;
+                set = new HashSet<uint>();
+                _cells[key] = set;
             }
 
-            if (!list.Contains(entityId))
-            {
-                list.Add(entityId);
-            }
+            set.Add(entityId);
         }
 
         /// <summary>查询指定位置半径范围内的候选实体 ID 列表。</summary>
@@ -45,6 +43,7 @@ namespace Framework.ECS
         public IReadOnlyList<uint> QueryNearby(Vector3 position, float radius)
         {
             _queryScratch.Clear();
+            _queryDedup.Clear();
             var cellRadius = Mathf.CeilToInt(radius / _cellSize);
             var center = Cell(position);
 
@@ -53,15 +52,14 @@ namespace Framework.ECS
                 for (var z = center.y - cellRadius; z <= center.y + cellRadius; z++)
                 {
                     var key = Pack(x, z);
-                    if (!_cells.TryGetValue(key, out var list))
+                    if (!_cells.TryGetValue(key, out var set))
                     {
                         continue;
                     }
 
-                    for (var i = 0; i < list.Count; i++)
+                    foreach (var id in set)
                     {
-                        var id = list[i];
-                        if (!_queryScratch.Contains(id))
+                        if (_queryDedup.Add(id))
                         {
                             _queryScratch.Add(id);
                         }

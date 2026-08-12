@@ -7,55 +7,48 @@ using UnityEngine;
 namespace Framework.ECS.Systems
 {
     /// <summary>
-    /// 空间索引系统，每帧将所有 Actor 实体的位置写入 <see cref="SpatialHashGrid"/>，
-    /// 供 <see cref="ProjectileCollisionSystem"/> 等系统进行近邻查询。
+    /// 空间索引系统，在 Movement 之后重建 Actor 空间索引，
+    /// 供 <see cref="ProjectileCollisionSystem"/> 进行 broadphase 查询。
     /// </summary>
     public sealed class SpatialIndexSystem : ISystem
     {
         SpatialHashGrid _grid;
 
-        /// <summary>系统创建时初始化 <see cref="SpatialHashGrid"/> 并存入 <see cref="World.UserData"/>。</summary>
+        /// <inheritdoc/>
+        public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
+
+        /// <summary>系统创建时初始化 <see cref="SpatialHashGrid"/> 并注册为 World 单例。</summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
         public void OnCreate(World world)
         {
             _grid = new SpatialHashGrid(BattleConstants.SpatialCellSize);
-            world.UserData = _grid;
+            world.RegisterSingleton(_grid);
         }
 
-        /// <summary>系统销毁时的清理回调（当前无需清理）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
         public void OnDestroy(World world) { }
 
-        /// <summary>每帧清空并重建空间索引，将所有 Actor 实体的当前位置写入网格。</summary>
+        /// <summary>Movement 之后重建 Actor 空间索引。</summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
         /// <param name="deltaTime">距上一帧的时间间隔（秒）；本系统未使用。</param>
         public void Update(World world, float deltaTime)
         {
-            _grid.Clear();
-            var transforms = world.GetStorage<TransformComponent>();
-            var actors = world.GetStorage<ActorLinkComponent>();
-
-            foreach (var pair in actors.All)
-            {
-                if (transforms.TryGet(pair.Key, out var transform))
-                {
-                    _grid.Insert(pair.Key, transform.Position);
-                }
-            }
+            SpatialIndexService.RebuildActors(world, _grid);
         }
     }
 
     /// <summary>
-    /// 移动系统，根据 <see cref="VelocityComponent"/> 每帧更新所有实体的 <see cref="TransformComponent.Position"/>。
+    /// 移动系统，根据 <see cref="VelocityComponent"/> 每帧更新实体的 <see cref="TransformComponent.Position"/>。
     /// </summary>
     public sealed class MovementSystem : ISystem
     {
-        /// <summary>系统创建回调（当前无需初始化）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
+        public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
+
+        /// <inheritdoc/>
         public void OnCreate(World world) { }
 
-        /// <summary>系统销毁回调（当前无需清理）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
         public void OnDestroy(World world) { }
 
         /// <summary>遍历所有具有速度组件的实体，按 deltaTime 更新其位置。</summary>
@@ -63,20 +56,11 @@ namespace Framework.ECS.Systems
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Update(World world, float deltaTime)
         {
-            var transforms = world.GetStorage<TransformComponent>();
-            var velocities = world.GetStorage<VelocityComponent>();
-
-            foreach (var pair in transforms.All)
+            world.ForEach<VelocityComponent, TransformComponent>((entityId, velocity, transform) =>
             {
-                if (!velocities.TryGet(pair.Key, out var velocity))
-                {
-                    continue;
-                }
-
-                var transform = pair.Value;
                 transform.Position += velocity.Value * deltaTime;
-                transforms.Add(pair.Key, transform);
-            }
+                world.GetStorage<TransformComponent>().Add(entityId, transform);
+            });
         }
     }
 
@@ -88,12 +72,13 @@ namespace Framework.ECS.Systems
     {
         readonly List<uint> _toDestroy = new List<uint>(16);
 
-        /// <summary>系统创建回调（当前无需初始化）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
+        public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
+
+        /// <inheritdoc/>
         public void OnCreate(World world) { }
 
-        /// <summary>系统销毁回调（当前无需清理）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
         public void OnDestroy(World world) { }
 
         /// <summary>遍历所有投射物，递减剩余生命时间并销毁已到期的实体。</summary>
@@ -131,23 +116,25 @@ namespace Framework.ECS.Systems
     {
         readonly List<uint> _hits = new List<uint>(16);
 
-        /// <summary>系统创建回调（当前无需初始化）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
+        public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
+
+        /// <inheritdoc/>
         public void OnCreate(World world) { }
 
-        /// <summary>系统销毁回调（当前无需清理）。</summary>
-        /// <param name="world">拥有该系统的 ECS 世界。</param>
+        /// <inheritdoc/>
         public void OnDestroy(World world) { }
 
         /// <summary>
         /// 每帧检测所有投射物与存活 Actor 之间的碰撞；
         /// 命中（非友方、非自身、距离在半径之内）时入队伤害指令并摧毁投射物。
         /// </summary>
-        /// <param name="world">拥有该系统的 ECS 世界；<see cref="World.UserData"/> 须为 <see cref="SpatialHashGrid"/>。</param>
+        /// <param name="world">拥有该系统的 ECS 世界。</param>
         /// <param name="deltaTime">距上一帧的时间间隔（秒）；本系统未使用。</param>
         public void Update(World world, float deltaTime)
         {
-            if (world.UserData is not SpatialHashGrid grid || world.Commands == null)
+            var grid = world.GetSingleton<SpatialHashGrid>();
+            if (grid == null || world.Commands == null)
             {
                 return;
             }

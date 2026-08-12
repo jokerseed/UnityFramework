@@ -5,6 +5,16 @@ namespace Framework.ECS
     /// <summary>ECS 组件的标记接口，所有组件结构体须实现此接口。</summary>
     public interface IComponent { }
 
+    /// <summary>系统执行阶段，<see cref="World.Tick"/> 按 Simulate → Cleanup 顺序驱动。</summary>
+    public enum EcsSystemPhase
+    {
+        /// <summary>模拟阶段：位移、空间索引、碰撞、生命周期。</summary>
+        Simulate,
+
+        /// <summary>清理阶段（预留）。</summary>
+        Cleanup,
+    }
+
     /// <summary>组件存储的非泛型接口，供 <see cref="World"/> 统一管理各类型存储。</summary>
     public interface IComponentStorage
     {
@@ -19,6 +29,9 @@ namespace Framework.ECS
     /// <summary>ECS 系统接口，所有战斗系统须实现此接口并注册到 <see cref="World"/>。</summary>
     public interface ISystem
     {
+        /// <summary>系统所属执行阶段。</summary>
+        EcsSystemPhase Phase { get; }
+
         /// <summary>系统被添加到 World 时调用，用于初始化系统内部状态。</summary>
         /// <param name="world">拥有该系统的 ECS 世界实例。</param>
         void OnCreate(World world);

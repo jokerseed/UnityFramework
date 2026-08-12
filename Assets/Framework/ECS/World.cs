@@ -1,8 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
 using Framework.Core.Tick;
-using Framework.ECS.Components;
 
 namespace Framework.ECS
 {
@@ -12,20 +12,55 @@ namespace Framework.ECS
     /// </summary>
     public sealed class World : ITickable
     {
+        static readonly EcsSystemPhase[] s_phaseOrder =
+        {
+            EcsSystemPhase.Simulate,
+            EcsSystemPhase.Cleanup,
+        };
+
         uint _nextEntityId = 1;
         readonly List<ISystem> _systems = new List<ISystem>();
         readonly Dictionary<uint, Entity> _entities = new Dictionary<uint, Entity>();
-        readonly Dictionary<System.Type, IComponentStorage> _storages = new Dictionary<System.Type, IComponentStorage>();
+        readonly Dictionary<Type, IComponentStorage> _storages = new Dictionary<Type, IComponentStorage>();
+        readonly Dictionary<Type, object> _singletons = new Dictionary<Type, object>();
 
         /// <summary>本帧命令缓冲，系统可向其写入伤害/生成等延迟指令；由外部注入。</summary>
         public BattleCommandBuffer Commands { get; set; }
 
-        /// <summary>用户自定义数据槽，供系统间共享任意对象（如 <see cref="SpatialHashGrid"/>）；不由 World 管理其生命周期。</summary>
-        public object UserData { get; set; }
-
         /// <summary>创建一个空的 ECS 世界。</summary>
         public World()
         {
+        }
+
+        /// <summary>注册类型单例（用于需自定义构造的对象，如 <see cref="SpatialHashGrid"/>）。</summary>
+        /// <typeparam name="T">单例类型。</typeparam>
+        /// <param name="instance">单例实例。</param>
+        public void RegisterSingleton<T>(T instance) where T : class
+        {
+            _singletons[typeof(T)] = instance;
+        }
+
+        /// <summary>获取或创建类型单例，供系统间共享。</summary>
+        /// <typeparam name="T">单例类型，须有无参构造函数。</typeparam>
+        /// <returns>World 内唯一实例。</returns>
+        public T GetOrCreateSingleton<T>() where T : class, new()
+        {
+            var type = typeof(T);
+            if (!_singletons.TryGetValue(type, out var instance))
+            {
+                instance = new T();
+                _singletons[type] = instance;
+            }
+
+            return (T)instance;
+        }
+
+        /// <summary>尝试获取已注册的类型单例。</summary>
+        /// <typeparam name="T">单例类型。</typeparam>
+        /// <returns>已注册时返回实例，否则为 null。</returns>
+        public T GetSingleton<T>() where T : class
+        {
+            return _singletons.TryGetValue(typeof(T), out var instance) ? (T)instance : null;
         }
 
         /// <summary>创建新实体并返回其引用，实体 ID 自增且不复用。</summary>
@@ -106,6 +141,16 @@ namespace Framework.ECS
             return entity != null && entity.IsAlive && GetStorage<T>().TryGet(entity.Id, out component);
         }
 
+        /// <summary>按实体 ID 尝试获取组件数据。</summary>
+        /// <typeparam name="T">组件类型。</typeparam>
+        /// <param name="entityId">实体 ID。</param>
+        /// <param name="component">输出组件值。</param>
+        /// <returns>存在该组件时返回 <c>true</c>。</returns>
+        public bool TryGetComponent<T>(uint entityId, out T component) where T : struct, IComponent
+        {
+            return GetStorage<T>().TryGet(entityId, out component);
+        }
+
         /// <summary>向世界注册系统，并立即调用其 <see cref="ISystem.OnCreate"/>。</summary>
         /// <param name="system">要注册的系统实例；不可为 null。</param>
         public void AddSystem(ISystem system)
@@ -114,13 +159,20 @@ namespace Framework.ECS
             system.OnCreate(this);
         }
 
-        /// <summary>按注册顺序依次驱动所有系统执行一帧逻辑。</summary>
+        /// <summary>按 Phase 顺序驱动所有已注册系统执行一帧逻辑。</summary>
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Tick(float deltaTime)
         {
-            for (var i = 0; i < _systems.Count; i++)
+            for (var p = 0; p < s_phaseOrder.Length; p++)
             {
-                _systems[i].Update(this, deltaTime);
+                var phase = s_phaseOrder[p];
+                for (var i = 0; i < _systems.Count; i++)
+                {
+                    if (_systems[i].Phase == phase)
+                    {
+                        _systems[i].Update(this, deltaTime);
+                    }
+                }
             }
         }
 
@@ -134,6 +186,7 @@ namespace Framework.ECS
 
             _systems.Clear();
             _entities.Clear();
+            _singletons.Clear();
 
             foreach (var storage in _storages.Values)
             {

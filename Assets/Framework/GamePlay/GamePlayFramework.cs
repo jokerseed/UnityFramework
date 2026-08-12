@@ -57,8 +57,8 @@ namespace Framework.GamePlay
             _commandProcessor = new BattleCommandProcessor(_world, _registry);
             _cueManager = new EventBusGameplayCueManager(_presentationBus);
 
-            _world.AddSystem(new SpatialIndexSystem());
             _world.AddSystem(new MovementSystem());
+            _world.AddSystem(new SpatialIndexSystem());
             _world.AddSystem(new ProjectileCollisionSystem());
             _world.AddSystem(new ProjectileLifetimeSystem());
         }
@@ -226,6 +226,12 @@ namespace Framework.GamePlay
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Tick(float deltaTime)
         {
+            var grid = _world.GetSingleton<SpatialHashGrid>();
+            if (grid != null)
+            {
+                SpatialIndexService.RebuildActors(_world, grid);
+            }
+
             foreach (var pair in _registry.Actors)
             {
                 pair.Value.AbilitySystem.Tick(deltaTime, _presentationBus);
