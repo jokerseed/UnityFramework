@@ -1,0 +1,21 @@
+{
+    "name": "Framework.UI",
+    "rootNamespace": "Framework.UI",
+    "references": [
+        "Framework.Core",
+        "Framework.Bootstrap",
+        "Framework.Logging",
+        "Framework.Res",
+        "Framework.Coroutine",
+        "Framework.Events"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

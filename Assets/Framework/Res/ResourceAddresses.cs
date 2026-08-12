@@ -6,6 +6,9 @@ namespace Framework.Res
         /// <summary>配置表资源根路径（对应 YooAsset Collector 中的 Assets/Bundles/Configs）。</summary>
         public const string ConfigsRoot = "Bundles/Configs";
 
+        /// <summary>首页 Prefab 寻址路径。</summary>
+        public const string MainPrefab = "bundles/prefabs/main.unity3d";
+
         /// <summary>
         /// 将 Luban 表名转换为 YooAsset 寻址字符串（与 AddressByPreImportPath 规则一致）。
         /// 例如：<c>tbability</c> → <c>bundles/configs/tbability.unity3d</c>

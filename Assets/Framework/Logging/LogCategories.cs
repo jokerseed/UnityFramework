@@ -41,5 +41,8 @@ namespace Framework.Logging
 
         /// <summary>配置模块。</summary>
         public const string Config = "Config";
+
+        /// <summary>UI 模块。</summary>
+        public const string UI = "UI";
     }
 }

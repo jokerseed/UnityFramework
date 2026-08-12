@@ -16,6 +16,7 @@ namespace Framework.Editor.YooAsset
     {
         const string PackageName = "DefaultPackage";
         const string ConfigsRoot = "Assets/Bundles/Configs";
+        const string PrefabsRoot = "Assets/Bundles/Prefabs";
 
         /// <summary>Collector 打包粒度。</summary>
         enum PackMode
@@ -121,6 +122,11 @@ namespace Framework.Editor.YooAsset
 
             // Luban 二进制：根目录下每个 .bytes 单独打包
             rules.Add(new FolderRule(ConfigsRoot, PackMode.PerFile, "Configs"));
+
+            if (AssetDatabase.IsValidFolder(PrefabsRoot))
+            {
+                rules.Add(new FolderRule(PrefabsRoot, PackMode.PerFile, "Prefabs"));
+            }
 
             // 子目录按文件夹打包（后续扩展 battle/item 等模块时使用）
             var absoluteRoot = Path.Combine(Application.dataPath, "Bundles/Configs");

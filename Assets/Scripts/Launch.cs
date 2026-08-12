@@ -6,6 +6,7 @@ using Framework.Logging;
 using Framework.MemoryPool;
 using Framework.ObjectPool;
 using Framework.Res;
+using Framework.UI;
 using UnityEngine;
 
 /// <summary>
@@ -26,6 +27,7 @@ public sealed class Launch : MonoBehaviour
             new MemoryPoolModule(),
             new ObjectPoolModule(),
             new ResourceModule(),
+            new UIModule(),
             new ConfigModule(),
             new GamePlayModule(),
         });
@@ -50,6 +52,18 @@ public sealed class Launch : MonoBehaviour
     static void OnGroupReady(ModuleGroup group)
     {
         GameLog.Info(LogCategories.Launch, $"Group {LogStyle.Name(group.Name)} {LogStyle.Ok("ready")}");
+        if (group.Name != "launch")
+        {
+            return;
+        }
+
+        ShowMainPage();
+    }
+
+    static void ShowMainPage()
+    {
+        UIManager.Instance.Show<MainUIWindow>();
+        GameLog.Info(LogCategories.Launch, "Main page shown");
     }
 
     static void OnGroupFailed(ModuleGroup group, System.Exception error)
