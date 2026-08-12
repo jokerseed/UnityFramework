@@ -1,0 +1,16 @@
+{
+    "name": "Generated.Luban",
+    "rootNamespace": "",
+    "references": [
+        "Luban.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
