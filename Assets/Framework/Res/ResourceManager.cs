@@ -8,6 +8,10 @@ using YooAsset;
 
 namespace Framework.Res
 {
+    /// <summary>
+    /// 运行时资源包管理器，封装 YooAsset 的初始化与加载流程。
+    /// 是运行时唯一合法的 Asset / 配置字节加载入口；通过 <see cref="ResourceModule"/> 驱动初始化。
+    /// </summary>
     public sealed class ResourceManager : PersistentSingleton<ResourceManager>
     {
         readonly Dictionary<string, ResourceAssetHandle> _syncCache = new Dictionary<string, ResourceAssetHandle>();
@@ -16,9 +20,16 @@ namespace Framework.Res
         ResourceInitOptions _options;
         bool _initialized;
 
+        /// <summary>是否已完成初始化。</summary>
         public bool IsInitialized => _initialized;
+
+        /// <summary>当前使用的资源包名称。</summary>
         public string PackageName => _options != null ? _options.PackageName : ResourceInitOptions.DefaultPackageName;
 
+        /// <summary>异步初始化资源包（请求版本号 + 加载 Manifest）。</summary>
+        /// <param name="options">初始化选项；不可为 null。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="options"/> 为 null。</exception>
+        /// <exception cref="InvalidOperationException">包初始化、版本请求或 Manifest 加载任一步骤失败。</exception>
         public IEnumerator InitializeAsync(ResourceInitOptions options)
         {
             if (options == null)
@@ -64,6 +75,11 @@ namespace Framework.Res
             GameLog.Info(LogCategories.Resource, $"Package ready: {options.PackageName}, version={versionOperation.PackageVersion}");
         }
 
+        /// <summary>同步加载指定寻址的资源，返回封装句柄。</summary>
+        /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
+        /// <param name="location">YooAsset 寻址字符串，建议通过 <see cref="ResourceAddresses"/> 生成。</param>
+        /// <returns>资源句柄；使用完毕须调用 <see cref="ResourceAssetHandle.Dispose"/> 或通过 using 释放。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
         public ResourceAssetHandle LoadAssetSync<T>(string location) where T : UnityEngine.Object
         {
             EnsureInitialized();
@@ -71,6 +87,11 @@ namespace Framework.Res
             return new ResourceAssetHandle(handle);
         }
 
+        /// <summary>异步加载指定寻址的资源，完成后通过回调返回句柄。</summary>
+        /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
+        /// <param name="location">YooAsset 寻址字符串。</param>
+        /// <param name="onComplete">加载完成后的回调；参数为已包装的资源句柄；可为 null。</param>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
         public IEnumerator LoadAssetAsync<T>(string location, Action<ResourceAssetHandle> onComplete) where T : UnityEngine.Object
         {
             EnsureInitialized();
@@ -82,6 +103,10 @@ namespace Framework.Res
             onComplete?.Invoke(wrapped);
         }
 
+        /// <summary>同步加载配置表原始字节（不缓存），加载完成后立即释放句柄。</summary>
+        /// <param name="tableName">Luban 表名（如 <c>tbability</c>），内部自动生成寻址路径。</param>
+        /// <returns>配置表原始字节；若 Asset 为 null 则返回空数组。</returns>
+        /// <exception cref="InvalidOperationException">加载失败时。</exception>
         public byte[] LoadConfigBytes(string tableName)
         {
             var location = ResourceAddresses.ConfigTable(tableName);
@@ -98,6 +123,10 @@ namespace Framework.Res
             }
         }
 
+        /// <summary>同步加载配置表字节并缓存句柄；重复调用不重复加载。须调用 <see cref="ReleaseCache"/> 释放。</summary>
+        /// <param name="tableName">Luban 表名（如 <c>tbability</c>）。</param>
+        /// <returns>配置表原始字节；若 Asset 为 null 则返回空数组。</returns>
+        /// <exception cref="InvalidOperationException">加载失败时。</exception>
         public byte[] LoadConfigBytesCached(string tableName)
         {
             var location = ResourceAddresses.ConfigTable(tableName);
@@ -120,6 +149,7 @@ namespace Framework.Res
             return asset != null ? asset.bytes : Array.Empty<byte>();
         }
 
+        /// <summary>释放所有通过 <see cref="LoadConfigBytesCached"/> 缓存的资源句柄。</summary>
         public void ReleaseCache()
         {
             foreach (var pair in _syncCache)
@@ -130,6 +160,7 @@ namespace Framework.Res
             _syncCache.Clear();
         }
 
+        /// <summary>释放缓存并重置管理器状态；由 <see cref="ResourceModule"/> 在 Shutdown 阶段调用。</summary>
         public void Shutdown()
         {
             ReleaseCache();

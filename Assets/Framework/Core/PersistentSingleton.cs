@@ -11,8 +11,13 @@ namespace Framework.Core
         static readonly object Lock = new object();
         static bool _applicationQuitting;
 
+        /// <summary>获取单例是否已被创建（不触发懒加载）。</summary>
         public static bool HasInstance => _instance != null;
 
+        /// <summary>
+        /// 获取单例实例；若尚未创建则自动创建并标记为 DontDestroyOnLoad。
+        /// 应用退出阶段返回现有实例（可能为 null），不再新建。
+        /// </summary>
         public static T Instance
         {
             get
@@ -43,6 +48,7 @@ namespace Framework.Core
             }
         }
 
+        /// <summary>销毁单例的 GameObject，并将内部引用置 null。</summary>
         public static void DestroyInstance()
         {
             if (_instance == null)
@@ -58,6 +64,7 @@ namespace Framework.Core
             }
         }
 
+        /// <summary>Unity 生命周期：检测重复实例并注册 DontDestroyOnLoad。</summary>
         protected virtual void Awake()
         {
             if (_instance != null && _instance != this)
@@ -70,6 +77,7 @@ namespace Framework.Core
             DontDestroyOnLoad(gameObject);
         }
 
+        /// <summary>Unity 生命周期：实例被销毁时清除静态引用。</summary>
         protected virtual void OnDestroy()
         {
             if (_instance == this)
@@ -78,6 +86,7 @@ namespace Framework.Core
             }
         }
 
+        /// <summary>Unity 生命周期：应用退出时设置标志，防止退出阶段重建单例。</summary>
         protected virtual void OnApplicationQuit()
         {
             _applicationQuitting = true;

@@ -1,6 +1,8 @@
 using System.Collections;
 using Framework.Bootstrap;
 using Framework.Logging;
+using Framework.MemoryPool;
+using Framework.ObjectPool;
 using Framework.Res;
 using UnityEngine;
 
@@ -12,6 +14,7 @@ public sealed class Launch : MonoBehaviour
 {
     [SerializeField] LogInitOptions _logOptions = new LogInitOptions();
     [SerializeField] ResourceInitOptions _resourceOptions = new ResourceInitOptions();
+    [SerializeField] bool _memoryPoolStrictCheck = true;
 
     void Awake()
     {
@@ -20,13 +23,16 @@ public sealed class Launch : MonoBehaviour
         var launch = bootstrap.SetModules("launch", new IGameModule[]
         {
             new LoggingModule(_logOptions),
+            new MemoryPoolModule(_memoryPoolStrictCheck),
+            new ObjectPoolModule(),
             new ResourceModule(_resourceOptions),
         });
         launch.StateChanged += OnGroupStateChanged;
         launch.Ready += OnGroupReady;
         launch.Failed += OnGroupFailed;
         launch.ProgressChanged += (group, current, total) =>
-            GameLog.Debug(LogCategories.Launch, $"{group.Name} progress {current}/{total}");    }
+            GameLog.Debug(LogCategories.Launch, $"{group.Name} progress {current}/{total}");
+    }
 
     void Start()
     {

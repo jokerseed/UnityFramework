@@ -8,14 +8,31 @@ using UnityEngine;
 
 namespace Framework.Bridge
 {
+    /// <summary>
+    /// 战斗 Actor 的运行时数据容器，聚合 Actor ID、GAS 组件、ECS 实体及队伍信息。
+    /// 由 <see cref="ActorRegistry"/> 创建和管理。
+    /// </summary>
     public sealed class BattleActor
     {
+        /// <summary>Actor 的全局唯一 ID。</summary>
         public ActorId ActorId { get; }
+
+        /// <summary>该 Actor 的 GAS 能力系统组件，负责属性、技能与标签管理。</summary>
         public AbilitySystemComponent AbilitySystem { get; }
+
+        /// <summary>该 Actor 在 ECS 世界中对应的实体；由 <see cref="ActorRegistry"/> 创建后写入。</summary>
         public Entity EcsEntity { get; internal set; }
+
+        /// <summary>Actor 所属队伍编号；同队视为友方，不同队视为敌方。</summary>
         public int TeamId { get; }
+
+        /// <summary>Actor 在世界空间的当前位置，由 <see cref="ActorRegistry.SyncPositionsFromEcs"/> 每帧更新。</summary>
         public Vector3 Position { get; internal set; }
 
+        /// <summary>创建一个 BattleActor 数据容器。</summary>
+        /// <param name="actorId">Actor 唯一 ID。</param>
+        /// <param name="abilitySystem">已初始化的 GAS 组件；不可为 null。</param>
+        /// <param name="teamId">所属队伍编号。</param>
         public BattleActor(ActorId actorId, AbilitySystemComponent abilitySystem, int teamId)
         {
             ActorId = actorId;
@@ -30,13 +47,26 @@ namespace Framework.Bridge
         readonly Dictionary<ActorId, BattleActor> _actors = new Dictionary<ActorId, BattleActor>();
         readonly World _world;
 
+        /// <summary>创建 Actor 注册表。</summary>
+        /// <param name="world">关联的 ECS 世界，用于创建和销毁实体。</param>
         public ActorRegistry(World world)
         {
             _world = world;
         }
 
+        /// <summary>当前所有已注册 Actor 的只读字典，键为 <see cref="ActorId"/>，值为 <see cref="BattleActor"/>。</summary>
         public IReadOnlyDictionary<ActorId, BattleActor> Actors => _actors;
 
+        /// <summary>
+        /// 创建一个新 Actor：初始化 <see cref="BattleActor"/> 并在 ECS 世界中生成对应实体与组件。
+        /// </summary>
+        /// <param name="actorId">Actor 唯一 ID；同一 ID 不可重复注册。</param>
+        /// <param name="position">Actor 的初始世界坐标。</param>
+        /// <param name="maxHealth">最大生命值，用于初始化 GAS 属性。</param>
+        /// <param name="teamId">所属队伍编号。</param>
+        /// <param name="asc">已初始化的 GAS 组件；不可为 null。</param>
+        /// <returns>创建成功的 <see cref="BattleActor"/> 实例。</returns>
+        /// <exception cref="InvalidOperationException">指定 <paramref name="actorId"/> 已存在时抛出。</exception>
         public BattleActor Create(
             ActorId actorId,
             Vector3 position,
@@ -67,8 +97,16 @@ namespace Framework.Bridge
             return actor;
         }
 
+        /// <summary>尝试按 ID 获取 Actor。</summary>
+        /// <param name="actorId">目标 Actor ID。</param>
+        /// <param name="actor">获取成功时输出对应的 <see cref="BattleActor"/>；失败时为 <c>null</c>。</param>
+        /// <returns>Actor 存在时返回 <c>true</c>，否则返回 <c>false</c>。</returns>
         public bool TryGet(ActorId actorId, out BattleActor actor) => _actors.TryGetValue(actorId, out actor);
 
+        /// <summary>尝试获取 Actor 对应的 ECS 实体。</summary>
+        /// <param name="actorId">目标 Actor ID。</param>
+        /// <param name="entity">获取成功时输出 ECS 实体；失败时为 <c>null</c>。</param>
+        /// <returns>Actor 存在且已绑定 ECS 实体时返回 <c>true</c>，否则返回 <c>false</c>。</returns>
         public bool TryGetEntity(ActorId actorId, out Entity entity)
         {
             if (_actors.TryGetValue(actorId, out var actor) && actor.EcsEntity != null)
@@ -81,6 +119,8 @@ namespace Framework.Bridge
             return false;
         }
 
+        /// <summary>将指定 Actor 的 ECS 战斗状态标记为死亡（<see cref="CombatStateComponent.IsAlive"/> = false）。</summary>
+        /// <param name="actorId">目标 Actor ID；若 Actor 或其 ECS 实体不存在则静默忽略。</param>
         public void MarkDead(ActorId actorId)
         {
             if (!TryGetEntity(actorId, out var entity))
@@ -91,6 +131,11 @@ namespace Framework.Bridge
             _world.AddComponent(entity, new CombatStateComponent { IsAlive = false });
         }
 
+        /// <summary>在指定范围内查询距 origin 最近的异队存活 Actor ID。</summary>
+        /// <param name="source">发起查询的 Actor ID；结果排除自身及同队 Actor。</param>
+        /// <param name="origin">查询中心的世界坐标。</param>
+        /// <param name="range">查询范围半径（世界单位）；超出范围的 Actor 不会被返回。</param>
+        /// <returns>范围内最近敌方的 <see cref="ActorId"/>；无有效目标时返回 <see cref="ActorId.Invalid"/>。</returns>
         public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, float range)
         {
             if (!_actors.TryGetValue(source, out var sourceActor))
@@ -127,6 +172,7 @@ namespace Framework.Bridge
             return best;
         }
 
+        /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.Position"/>，每帧 Tick 末尾调用。</summary>
         public void SyncPositionsFromEcs()
         {
             foreach (var pair in _actors)
@@ -144,6 +190,8 @@ namespace Framework.Bridge
             }
         }
 
+        /// <summary>移除指定 Actor：销毁其 ECS 实体并从注册表中删除记录。</summary>
+        /// <param name="actorId">要移除的 Actor ID；若不存在则静默忽略。</param>
         public void Remove(ActorId actorId)
         {
             if (_actors.TryGetValue(actorId, out var actor) && actor.EcsEntity != null)

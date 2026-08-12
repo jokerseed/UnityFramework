@@ -10,13 +10,19 @@ namespace Framework.ECS
         readonly Dictionary<long, List<uint>> _cells = new Dictionary<long, List<uint>>();
         readonly List<uint> _queryScratch = new List<uint>(32);
 
+        /// <summary>创建空间哈希网格。</summary>
+        /// <param name="cellSize">单格边长（世界单位）；值越大每格容纳实体越多，查询精度越低。</param>
         public SpatialHashGrid(float cellSize)
         {
             _cellSize = cellSize;
         }
 
+        /// <summary>清空所有格子中的实体数据，通常在每帧 Tick 开始时调用。</summary>
         public void Clear() => _cells.Clear();
 
+        /// <summary>将实体插入对应空间格子。若该实体已在格中则忽略。</summary>
+        /// <param name="entityId">要插入的实体 ID。</param>
+        /// <param name="position">实体的世界坐标；仅使用 X/Z 轴计算格子索引。</param>
         public void Insert(uint entityId, Vector3 position)
         {
             var key = Hash(position);
@@ -32,6 +38,10 @@ namespace Framework.ECS
             }
         }
 
+        /// <summary>查询指定位置半径范围内的候选实体 ID 列表。</summary>
+        /// <param name="position">查询中心世界坐标；仅使用 X/Z 轴。</param>
+        /// <param name="radius">查询半径（世界单位）；结果为格子级粗筛，可能包含实际超出半径的实体。</param>
+        /// <returns>当前帧内复用的候选实体 ID 只读列表；下次调用前有效。</returns>
         public IReadOnlyList<uint> QueryNearby(Vector3 position, float radius)
         {
             _queryScratch.Clear();

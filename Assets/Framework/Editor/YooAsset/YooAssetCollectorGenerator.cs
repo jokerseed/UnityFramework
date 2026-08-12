@@ -50,6 +50,10 @@ namespace Framework.Editor.YooAsset
             }
         }
 
+        /// <summary>
+        /// 根据 <c>Assets/Bundles/Configs</c> 目录结构生成 YooAsset BundleCollectorSetting，并保存到工程。
+        /// 菜单：<c>Tools/YooAsset/Generate Collector</c>。
+        /// </summary>
         [MenuItem("Tools/YooAsset/Generate Collector")]
         public static void Generate()
         {

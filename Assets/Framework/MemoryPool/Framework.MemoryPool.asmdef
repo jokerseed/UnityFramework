@@ -1,0 +1,17 @@
+{
+    "name": "Framework.MemoryPool",
+    "rootNamespace": "Framework.MemoryPool",
+    "references": [
+        "Framework.Bootstrap",
+        "Framework.Logging"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

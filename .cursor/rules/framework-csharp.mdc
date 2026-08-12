@@ -6,6 +6,49 @@ alwaysApply: false
 
 # C# 编码规范
 
+## 对外 API 注释（强制）
+
+`Assets/Framework/**` 下各模块**对外暴露**的类型与成员，必须使用 XML 文档注释（`///`），且**精确到每个参数 / 返回值 / 泛型参数 / 异常（若会抛）**。
+
+### 范围（必须写）
+
+| 可见性 | 要求 |
+|--------|------|
+| `public` 类型（class / struct / interface / enum） | 类型本身有 `<summary>` |
+| `public` / `protected` 方法、属性、索引器、事件、字段（含公开常量） | 有 `<summary>`；方法另见下表 |
+| `public` 枚举成员 | 每个成员有 `<summary>`（与下方枚举节一致） |
+
+`internal` / `private`、仅程序集内实现细节：建议写，不强制。
+
+### 方法 / 委托签名（必须写全）
+
+| 标签 | 何时 |
+|------|------|
+| `<summary>` | 始终 |
+| `<typeparam name="T">` | 每个泛型参数 |
+| `<param name="x">` | **每一个**参数（含可选参数；说明含义与约定，如可否为 null） |
+| `<returns>` | 非 `void` 返回值 |
+| `<exception cref="...">` | 文档化的、调用方应知晓的抛出（如参数非法） |
+
+```csharp
+/// <summary>从池中获取对象；池空则新建。</summary>
+/// <typeparam name="T">实现 <see cref="IMemory"/> 且可无参构造的类型。</typeparam>
+/// <returns>可复用的内存对象实例。</returns>
+public static T Acquire<T>() where T : class, IMemory, new() { /* ... */ }
+
+/// <summary>归还对象到内存池；会先调用 <see cref="IMemory.Clear"/>。</summary>
+/// <param name="memory">要归还的对象；不可为 null；归还后禁止再访问。</param>
+/// <exception cref="ArgumentNullException"><paramref name="memory"/> 为 null。</exception>
+/// <exception cref="InvalidOperationException">开启严格检查且存在重复 Release。</exception>
+public static void Release(IMemory memory) { /* ... */ }
+```
+
+### 新增 / 修改时
+
+- **新增**对外 API：同一改动内必须带齐注释，禁止先合代码后补文档
+- **修改**参数含义、空值约定、抛错行为：同步更新对应 `<param>` / `<exception>` / `<summary>`
+- Luban 等 **Generated** 代码可例外；手写 Framework 代码必须遵守
+
 ## 枚举（enum）
 
 - **每个枚举类型**必须有 `/// <summary>` 说明用途

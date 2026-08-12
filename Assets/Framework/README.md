@@ -23,6 +23,8 @@
 | `Framework.Bridge` | `BattleFramework` 入口 | [Bridge/README.md](Bridge/README.md) |
 | `Framework.Config` | Luban 加载、Ability/Effect 工厂 | [Config/README.md](Config/README.md) |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
+| `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |
+| `Framework.ObjectPool` | 对象池（`ObjectBase` / 容量过期） | [ObjectPool/README.md](ObjectPool/README.md) |
 | `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
 | `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
 
@@ -39,6 +41,9 @@
 ```
 Bootstrap (Host)
     │
+    ├── Logging (LoggingModule)       Infrastructure
+    ├── MemoryPool (MemoryPoolModule) Infrastructure
+    ├── ObjectPool (ObjectPoolModule) Infrastructure（依赖 MemoryPool）
     ├── Res (ResourceModule)          Infrastructure
     │       └── Config (ConfigModule) Data
     │               └── Bridge        Gameplay

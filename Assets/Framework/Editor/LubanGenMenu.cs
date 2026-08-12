@@ -7,10 +7,12 @@ using UnityEngine;
 
 namespace Framework.Editor
 {
+    /// <summary>Luban 打表 Editor 菜单，提供 <c>Tools/Luban/Generate Client Config</c> 快捷入口。</summary>
     public static class LubanGenMenu
     {
         const string MenuPath = "Tools/Luban/Generate Client Config";
 
+        /// <summary>执行 Luban 客户端配置表生成（调用 <c>Config/Luban/gen_client.bat</c>）。</summary>
         [MenuItem(MenuPath)]
         public static void GenerateClientConfig()
         {
@@ -43,6 +45,8 @@ namespace Framework.Editor
             }
         }
 
+        /// <summary>菜单可用性验证：编译中或播放模式下禁用该菜单项。</summary>
+        /// <returns>可执行时返回 true。</returns>
         [MenuItem(MenuPath, true)]
         public static bool GenerateClientConfigValidate()
         {

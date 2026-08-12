@@ -7,6 +7,10 @@ using UnityEngine;
 
 namespace Framework.Bootstrap
 {
+    /// <summary>
+    /// 游戏启动引导器：管理多组 <see cref="IGameModule"/>，按依赖顺序（拓扑排序波次）驱动初始化与关闭。
+    /// 继承 <see cref="PersistentSingleton{T}"/>，跨场景常驻；不实现 <see cref="IGameModule"/>（Host 角色）。
+    /// </summary>
     [DefaultExecutionOrder(-100)]
     public sealed class GameBootstrap : PersistentSingleton<GameBootstrap>
     {
@@ -17,6 +21,15 @@ namespace Framework.Bootstrap
 
         readonly Dictionary<string, ModuleGroup> _groups = new Dictionary<string, ModuleGroup>();
 
+        /// <summary>
+        /// 注册或替换指定组的模块列表；组不存在时自动创建。
+        /// 组处于 <see cref="ModuleGroupState.Ready"/> 时禁止重新配置，需先调用 <see cref="ResetGroup"/>。
+        /// </summary>
+        /// <param name="groupName">组名，不可为空白字符串。</param>
+        /// <param name="modules">要注册的模块集合；顺序无强制要求，由拓扑排序决定初始化顺序。</param>
+        /// <returns>对应的 <see cref="ModuleGroup"/> 实例，可用于监听事件。</returns>
+        /// <exception cref="ArgumentException"><paramref name="groupName"/> 为空或空白。</exception>
+        /// <exception cref="InvalidOperationException">该组已处于 Ready 状态。</exception>
         public ModuleGroup SetModules(string groupName, IEnumerable<IGameModule> modules)
         {
             if (string.IsNullOrWhiteSpace(groupName))
@@ -40,6 +53,10 @@ namespace Framework.Bootstrap
             return group;
         }
 
+        /// <summary>获取已注册的模块组。</summary>
+        /// <param name="groupName">组名。</param>
+        /// <returns>对应的 <see cref="ModuleGroup"/> 实例。</returns>
+        /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public ModuleGroup GetGroup(string groupName)
         {
             if (!_groups.TryGetValue(groupName, out var group))
@@ -50,16 +67,33 @@ namespace Framework.Bootstrap
             return group;
         }
 
+        /// <summary>尝试获取已注册的模块组，不存在时不抛异常。</summary>
+        /// <param name="groupName">组名。</param>
+        /// <param name="group">找到时输出对应的 <see cref="ModuleGroup"/>；否则为 null。</param>
+        /// <returns>找到返回 <see langword="true"/>，否则 <see langword="false"/>。</returns>
         public bool TryGetGroup(string groupName, out ModuleGroup group)
         {
             return _groups.TryGetValue(groupName, out group);
         }
 
+        /// <summary>
+        /// 启动指定组的异步初始化协程（内部调用 <see cref="RunAsync"/>）。
+        /// 若组已在运行则等待其完成；已就绪则立即返回。
+        /// </summary>
+        /// <param name="groupName">要启动的组名。</param>
+        /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public void Run(string groupName)
         {
             StartCoroutine(RunAsync(groupName));
         }
 
+        /// <summary>
+        /// 异步初始化指定模块组的协程。
+        /// 若组已在运行则等待其完成；已就绪则立即 yield break。
+        /// </summary>
+        /// <param name="groupName">要启动的组名。</param>
+        /// <returns>可被 StartCoroutine 驱动的协程枚举器。</returns>
+        /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public IEnumerator RunAsync(string groupName)
         {
             var group = GetGroup(groupName);
@@ -81,6 +115,11 @@ namespace Framework.Bootstrap
             yield return RunGroup(group);
         }
 
+        /// <summary>
+        /// 关闭并重置指定模块组：逆序调用所有已初始化模块的 Shutdown，清空模块列表，并将组状态置回 Idle。
+        /// </summary>
+        /// <param name="groupName">要重置的组名。</param>
+        /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public void ResetGroup(string groupName)
         {
             var group = GetGroup(groupName);

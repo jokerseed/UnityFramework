@@ -1,0 +1,19 @@
+{
+    "name": "Framework.ObjectPool",
+    "rootNamespace": "Framework.ObjectPool",
+    "references": [
+        "Framework.Core",
+        "Framework.Bootstrap",
+        "Framework.Logging",
+        "Framework.MemoryPool"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

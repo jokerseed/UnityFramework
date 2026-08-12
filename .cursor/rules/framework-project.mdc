@@ -31,6 +31,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.Bridge` | `BattleFramework` 入口 |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时资源加载唯一入口** |
 | `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
+| `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
+| `Framework.ObjectPool` | `ObjectBase` 对象池（容量/过期） | [ObjectPool/README.md](ObjectPool/README.md) |
 | `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
 
 ## 启动与模块
@@ -68,6 +70,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - **无明确改动请求时不改任何文件**（见上文 Agent 行为）
 - 最小改动范围，匹配现有命名与 asmdef 边界
 - **枚举必须加注释**：枚举类型与每个成员都要有 `/// <summary>`（详见 `framework-csharp.mdc`）
+- **对外 API 必须加 XML 注释**：`public`/`protected` 类型与成员须有 `///`，方法精确到每个 `<param>` / `<typeparam>` / `<returns>`（详见 `framework-csharp.mdc`）
 - 未经明确要求不提交 git、不新建无关文档
 - 回复使用简体中文
 

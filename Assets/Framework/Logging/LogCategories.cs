@@ -29,5 +29,11 @@ namespace Framework.Logging
 
         /// <summary>YooAsset 资源管线。</summary>
         public const string YooAsset = "YooAsset";
+
+        /// <summary>内存池。</summary>
+        public const string MemoryPool = "MemoryPool";
+
+        /// <summary>对象池。</summary>
+        public const string ObjectPool = "ObjectPool";
     }
 }

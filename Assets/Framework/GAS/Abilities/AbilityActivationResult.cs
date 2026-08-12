@@ -28,9 +28,13 @@ namespace Framework.GAS.Abilities
         CustomBlocked
     }
 
+    /// <summary>技能激活结果，包含成功标志与失败原因。</summary>
     public readonly struct AbilityActivationResult
     {
+        /// <summary>技能是否成功激活。</summary>
         public bool Success { get; }
+
+        /// <summary>失败原因；激活成功时为 <see cref="AbilityActivationFailureReason.None"/>。</summary>
         public AbilityActivationFailureReason FailureReason { get; }
 
         AbilityActivationResult(bool success, AbilityActivationFailureReason reason)
@@ -39,9 +43,14 @@ namespace Framework.GAS.Abilities
             FailureReason = reason;
         }
 
+        /// <summary>创建表示成功激活的结果。</summary>
+        /// <returns>成功结果实例。</returns>
         public static AbilityActivationResult Succeeded() =>
             new AbilityActivationResult(true, AbilityActivationFailureReason.None);
 
+        /// <summary>创建表示激活失败的结果。</summary>
+        /// <param name="reason">具体失败原因。</param>
+        /// <returns>携带失败原因的结果实例。</returns>
         public static AbilityActivationResult Failed(AbilityActivationFailureReason reason) =>
             new AbilityActivationResult(false, reason);
     }

@@ -11,6 +11,9 @@ namespace Framework.Events
     {
         readonly Dictionary<Type, IEventChannel> _channels = new Dictionary<Type, IEventChannel>(8);
 
+        /// <summary>发布一个事件，调用该类型所有已注册的处理器。</summary>
+        /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
+        /// <param name="evt">要发布的事件实例。</param>
         public void Publish<TEvent>(TEvent evt) where TEvent : struct
         {
             if (_channels.TryGetValue(typeof(TEvent), out var channel))
@@ -19,12 +22,19 @@ namespace Framework.Events
             }
         }
 
+        /// <summary>订阅指定事件类型，返回可用于取消订阅的凭证。</summary>
+        /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
+        /// <param name="handler">事件处理委托，不可为 null。</param>
+        /// <returns>订阅凭证；调用 Dispose 时自动取消订阅。</returns>
         public IDisposable Subscribe<TEvent>(Action<TEvent> handler) where TEvent : struct
         {
             GetOrCreateHandlers<TEvent>().Add(handler);
             return new Subscription<TEvent>(this, handler);
         }
 
+        /// <summary>取消订阅指定事件类型的处理器。</summary>
+        /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
+        /// <param name="handler">要移除的处理委托；为 null 时忽略。</param>
         public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : struct
         {
             if (handler == null)
@@ -38,6 +48,7 @@ namespace Framework.Events
             }
         }
 
+        /// <summary>清空所有事件通道及其订阅。</summary>
         public void Clear()
         {
             foreach (var channel in _channels.Values)

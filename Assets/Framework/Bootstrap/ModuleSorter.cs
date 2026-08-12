@@ -3,8 +3,15 @@ using System.Collections.Generic;
 
 namespace Framework.Bootstrap
 {
+    /// <summary>模块拓扑排序工具：按依赖关系将模块排列为有序波次（Kahn 算法）。</summary>
     public static class ModuleSorter
     {
+        /// <summary>
+        /// 将模块列表按依赖关系拓扑排序，返回可顺序初始化的平铺列表。
+        /// </summary>
+        /// <param name="modules">待排序的模块列表，不可含重复类型。</param>
+        /// <returns>拓扑排序后的有序模块列表；输入为空时返回空数组。</returns>
+        /// <exception cref="InvalidOperationException">存在循环依赖、重复注册或依赖模块未注册。</exception>
         public static IReadOnlyList<IGameModule> Sort(IReadOnlyList<IGameModule> modules)
         {
             var waves = SortIntoWaves(modules);
@@ -22,6 +29,13 @@ namespace Framework.Bootstrap
             return ordered;
         }
 
+        /// <summary>
+        /// 将模块列表按依赖关系拓扑排序，返回可并发执行的波次列表。
+        /// 同一波次内的模块互无依赖，可并发初始化。
+        /// </summary>
+        /// <param name="modules">待排序的模块列表，不可含重复类型；可为 null 或空。</param>
+        /// <returns>波次列表，每个波次为可并发执行的模块子集；输入为空时返回空数组。</returns>
+        /// <exception cref="InvalidOperationException">存在循环依赖、重复注册或依赖模块未注册。</exception>
         public static IReadOnlyList<IReadOnlyList<IGameModule>> SortIntoWaves(IReadOnlyList<IGameModule> modules)
         {
             if (modules == null || modules.Count == 0)
