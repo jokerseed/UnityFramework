@@ -1,0 +1,16 @@
+{
+    "name": "Framework.BehaviourTree",
+    "rootNamespace": "Framework.BehaviourTree",
+    "references": [
+        "Framework.FixedMath"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
