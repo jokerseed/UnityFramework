@@ -54,3 +54,4 @@ Editor/
 - 此程序集**不会**进入运行时构建（`includePlatforms: Editor`）
 - 运行时模块（Res、Config 等）不应引用 `Framework.Editor`
 - 新增编辑器工具时，在此程序集中添加并注册 `[MenuItem]`
+- **自研顶栏菜单统一挂在 `Tools/{模块}/...` 下**，禁止新建独立顶栏根菜单（见 `.cursor/rules/framework-editor-menu.mdc`）

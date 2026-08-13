@@ -64,43 +64,22 @@ framework.Tick(Time.deltaTime);
 
 ## 完整示例（战斗演示）
 
+进 Battle 场景后由业务入口接管，见 `Assets/Scripts/BattleBootstrap.cs`：
+
 ```csharp
 using Framework.Config;
 using Framework.Core;
 using Framework.GamePlay;
 using Framework.GamePlay.Data;
-using Framework.GAS.Events;
-using UnityEngine;
 
-public sealed class BattleDemo : MonoBehaviour
-{
-    GamePlayFramework _framework;
-    readonly ActorId _player = new ActorId(1);
-    readonly ActorId _enemy = new ActorId(2);
+var framework = GamePlayModule.Instance.Framework;
+framework.CreateActor(heroId, heroPos, 100f, teamId: 1);
+framework.CreateActor(monsterId, monsterPos, 100f, teamId: 2);
+framework.RegisterActorAbilities(heroId, 1, new[] { "Fireball", "Slash" }, ConfigService.Tables);
+framework.RegisterActorAbilities(monsterId, 2, new[] { "Slash" }, ConfigService.Tables);
 
-    void Start()
-    {
-        _framework = GamePlayModule.Instance?.Framework ?? new GamePlayFramework();
-
-        var tables = ConfigService.Tables;
-        if (tables == null)
-        {
-            throw new System.InvalidOperationException("Initialize ConfigModule before running battle demo.");
-        }
-        _framework.CreateActor(_player, Vector3.zero, 100f, teamId: 1);
-        _framework.CreateActor(_enemy, new Vector3(5f, 0f, 0f), 100f, teamId: 2);
-
-        _framework.RegisterActorAbilities(
-            _player, teamId: 1,
-            abilityIds: new[] { "Fireball", "Slash" }, tables);
-
-        _framework.EventBus.Subscribe<DamageDealtEvent>(e =>
-            Debug.Log($"[Combat] {e.Source.Value} → {e.Target.Value}, Final={e.FinalDamage:F1}"));
-    }
-
-    void Update() => _framework?.Tick(Time.deltaTime);
-    void OnDestroy() => _framework?.Dispose();
-}
+void Update() => framework.Tick(Time.deltaTime);
+// 场景退出：DestroyActor + Unsubscribe；不要 Dispose 模块持有的 Framework
 ```
 
 ## 依赖关系

@@ -35,6 +35,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | `ObjectBase` 对象池（容量/过期） | [ObjectPool/README.md](ObjectPool/README.md) |
 | `Framework.Coroutine` | 协程生命周期（Global/Scene/GameObject） | [Coroutine/README.md](Coroutine/README.md) |
+| `Framework.FixedMath` | 确定性定点数（自 Client TrueSync Math 迁移，非 IGameModule） |
 | `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
 
 ## 启动与模块
@@ -67,6 +68,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 打表：`Config/Luban/gen_client.bat` 或 **Tools → Luban → Generate Client Config**
 - 资源：**Tools → YooAsset → Generate Collector**
 - 配置寻址：`bundles/configs/{表名}.unity3d`
+- **自研 Editor 顶栏菜单必须挂在 `Tools/` 下**（见 `framework-editor-menu.mdc`）
 
 ## 编码要求
 

@@ -26,6 +26,7 @@
 | `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | 对象池（`ObjectBase` / 容量过期） | [ObjectPool/README.md](ObjectPool/README.md) |
 | `Framework.Coroutine` | 协程（Global / Scene / GameObject） | [Coroutine/README.md](Coroutine/README.md) |
+| `Framework.FixedMath` | 确定性定点数（自 Client TrueSync Math 迁移） | [FixedMath/README.md](FixedMath/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
 | `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
 | `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
@@ -55,6 +56,7 @@ Bootstrap (Host)
     │                       └── ECS
     │                               └── Core
     │
+    ├── FixedMath（纯数学库，按需引用，非 IGameModule）
     └── Editor (Editor only)
 ```
 
