@@ -19,6 +19,7 @@ YooAsset 资源管线封装：加载、释放、反序列化统一入口。
 | `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host） |
 | `ResourceAddresses` | 寻址规则（如 `bundles/configs/{表名}.unity3d`、`bundles/scenes/{场景}.unity3d`） |
 | `ResourceAssetHandle` | 资源句柄封装，支持 `Dispose` / `InstantiateSync` |
+| `ResourceSceneHandle` | 场景句柄封装，支持状态查询 / `UnloadAsync` |
 
 ## 加载 API（推荐用法）
 
@@ -37,6 +38,9 @@ byte[] raw = res.LoadBytes("bundles/data/foo.unity3d");
 // Unity 资源
 using var handle = res.LoadAssetSync<GameObject>("bundles/prefabs/player");
 var prefab = handle.GetAsset<GameObject>();
+
+// 场景（协程）
+yield return res.LoadSceneAsync(ResourceAddresses.BattleScene);
 ```
 
 ## 生命周期与释放

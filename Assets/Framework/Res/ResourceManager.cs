@@ -6,6 +6,7 @@ using Framework.Core;
 using Framework.Logging;
 using Luban;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using YooAsset;
 
 namespace Framework.Res
@@ -121,6 +122,33 @@ namespace Framework.Res
             yield return handle;
 
             var wrapped = new ResourceAssetHandle(handle);
+            onComplete?.Invoke(wrapped);
+        }
+
+        /// <summary>异步加载指定寻址的场景，完成后通过回调返回句柄。</summary>
+        /// <param name="location">YooAsset 场景寻址字符串，建议通过 <see cref="ResourceAddresses.Scene"/> 生成。</param>
+        /// <param name="sceneMode">场景加载模式；默认 <see cref="LoadSceneMode.Single"/>。</param>
+        /// <param name="onComplete">加载完成后的回调；参数为已包装的场景句柄；可为 null。</param>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化，或场景加载失败。</exception>
+        public IEnumerator LoadSceneAsync(
+            string location,
+            LoadSceneMode sceneMode = LoadSceneMode.Single,
+            Action<ResourceSceneHandle> onComplete = null)
+        {
+            EnsureInitialized();
+
+            var handle = _package.LoadSceneAsync(location, sceneMode);
+            yield return handle;
+
+            var wrapped = new ResourceSceneHandle(handle);
+            if (!wrapped.IsValid || !wrapped.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    $"[Resource] Load scene failed: location={location}, error={wrapped.Error}");
+            }
+
+            GameLog.Info(LogCategories.Resource,
+                $"Scene {LogStyle.Ok("loaded")}: {LogStyle.Name(wrapped.SceneName)}  location={LogStyle.Value(location)}");
             onComplete?.Invoke(wrapped);
         }
 

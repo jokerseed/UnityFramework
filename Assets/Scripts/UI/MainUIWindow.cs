@@ -1,10 +1,12 @@
+using System.Collections;
+using Framework.Coroutine;
 using Framework.Logging;
 using Framework.Res;
 using Framework.UI;
 using UnityEngine.UI;
 
 /// <summary>
-/// 首页窗口：展示「进入游戏」按钮，点击后关闭首页并启动战斗演示。
+/// 首页窗口：展示「进入游戏」按钮，点击后关闭首页并加载战斗场景。
 /// </summary>
 [UIWindow(UILayer.UI, fullScreen: true, location: ResourceAddresses.MainPrefab)]
 public sealed class MainUIWindow : UIWindow
@@ -25,6 +27,15 @@ public sealed class MainUIWindow : UIWindow
     {
         GameLog.Info(LogCategories.Launch, "Enter game clicked");
         Manager.Close<MainUIWindow>();
+        // 窗口关闭后实例会销毁，场景加载须走全局协程。
+        GameCoroutine.StartGlobal(LoadBattleScene());
+    }
+
+    static IEnumerator LoadBattleScene()
+    {
+        GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
+        yield return ResourceManager.Instance.LoadSceneAsync(ResourceAddresses.BattleScene);
+        GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
     }
 
     /// <inheritdoc/>

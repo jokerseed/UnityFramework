@@ -18,6 +18,15 @@ namespace Framework.Res
         /// <summary>启动场景寻址路径（Assets/Bundles/Scenes/Launch.unity）。</summary>
         public const string LaunchScene = "bundles/scenes/launch.unity3d";
 
+        /// <summary>战斗场景寻址路径（Assets/Bundles/Scenes/Battle.unity）。</summary>
+        public const string BattleScene = "bundles/scenes/battle.unity3d";
+
+        /// <summary>男剑士模型 Prefab 寻址路径（Assets/Bundles/Prefabs/Model/Male_Sword_01.prefab）。</summary>
+        public const string MaleSword01Prefab = "bundles/prefabs/model/male_sword_01.unity3d";
+
+        /// <summary>斧骑士模型 Prefab 寻址路径（Assets/Bundles/Prefabs/Model/AxeKnight.prefab）。</summary>
+        public const string AxeKnightPrefab = "bundles/prefabs/model/axeknight.unity3d";
+
         /// <summary>
         /// 将 Luban 表名转换为 YooAsset 寻址字符串（与 AddressByPreImportPath 规则一致）。
         /// 例如：<c>tbability</c> → <c>bundles/configs/tbability.unity3d</c>

@@ -16,6 +16,7 @@ alwaysApply: false
 | 包初始化 | `ResourceModule.InitializeAsync` → `ResourceManager.InitializeAsync`（业务代码不得自行 `YooAssets.Initialize`） |
 | 同步加载 Asset | `ResourceManager.Instance.LoadAssetSync<T>(location)` → `ResourceAssetHandle` |
 | 异步加载 Asset | `ResourceManager.Instance.LoadAssetAsync<T>(location, onComplete)` |
+| 异步加载场景 | `ResourceManager.Instance.LoadSceneAsync(location, sceneMode)` → `ResourceSceneHandle` |
 | 配置 Luban 全表 | `LoadLubanTables()`（推荐，一次调用） |
 | 任意二进制 | `LoadBytes(location)` / `LoadBinary<T>(location, deserialize)` |
 | 配置单表 bytes | `LoadConfigBytes(tableName)` / `LoadConfigBytesCached(tableName)` |
