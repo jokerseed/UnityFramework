@@ -1,0 +1,67 @@
+---
+description: Luban 配置表加载、缓存与释放必须走 Framework.Config（ConfigManager）
+globs: Assets/**/*.cs
+alwaysApply: false
+---
+
+# 配置表加载与释放规范
+
+## 职责边界
+
+| 程序集 | 职责 |
+|--------|------|
+| `Framework.Res` | **通用**资源加载/释放（Asset、Scene、bytes）；**不含** Luban / 配置表专用 API |
+| `Framework.Config` | Luban 配置表加载、<see cref="CfgTables"/> 缓存、配置 TextAsset 句柄缓存 |
+
+配置表 Bundle 寻址仍使用 `ResourceAddresses.ConfigTable(tableName)`（定义在 Res，供 Config 引用）。
+
+## 唯一入口（运行时）
+
+| 场景 | 用法 |
+|------|------|
+| 按需加载全表并缓存 | `ConfigManager.Instance.LoadTables()` |
+| 仅要 CfgTables 对象、不走 Manager 缓存 | `ConfigManager.Instance.LoadLubanTables()` |
+| 单表原始字节 | `ConfigManager.Instance.LoadConfigBytes(tableName, cache: false)` |
+| 单表字节 + 缓存 TextAsset 句柄 | `ConfigManager.Instance.LoadConfigBytes(tableName, cache: true)` |
+| 丢弃 CfgTables 对象缓存 | `ConfigManager.UnloadTables()` |
+| 释放配置 TextAsset 句柄 | `ConfigManager.ReleaseTableAssetCache()` 或 `Shutdown()` |
+| 模块关闭 | `ConfigModule.Shutdown()` → `ConfigManager.Shutdown()` |
+
+底层 **必须** 通过 `ResourceManager.LoadAssetSync<TextAsset>` / `LoadBytes` 等通用 API 读 Bundle，**禁止**在 Config 外重复实现 Luban 加载逻辑。
+
+## 禁止（运行时业务代码）
+
+- 在 `ResourceManager` 或业务模块新增 `LoadLubanTables` / `LoadConfigBytes` 等配置专用 API
+- 绕过 `ConfigManager` 直接 `ResourceManager.LoadBytes(ResourceAddresses.ConfigTable(...))` 加载 Luban 表（除非正在扩展 `Framework.Config` 本身）
+- 为读配置而直接 `File.ReadAllBytes`（Editor 调试例外见下）
+
+## Editor 调试例外
+
+- `ConfigLoader.LoadDefault()` / `LoadBinaryFromDirectory`：仅 Editor 未打 Bundle 时本地调试
+- `ConfigManager.LoadEditorDefault()`：同上，并写入 Manager 缓存
+- **正式 Player 运行时**：必须使用 `ConfigManager.LoadTables()` 或 `LoadLubanTables()`
+
+## Bootstrap
+
+```
+ResourceModule → ConfigModule → GamePlayModule
+```
+
+`ConfigModule.Initialize` 不读表；业务首次需要时再 `LoadTables()`。
+
+## 示例
+
+```csharp
+// ✅ GOOD — 运行时读表
+var tables = ConfigManager.Instance.LoadTables();
+var ability = tables.CfgTbAbility.Get(1001);
+
+// ✅ GOOD — 单表 bytes（不缓存句柄）
+var bytes = ConfigManager.Instance.LoadConfigBytes("tbability");
+
+// ❌ BAD — 在 Res 层加载 Luban（已移除，勿恢复）
+// ResourceManager.Instance.LoadLubanTables();
+
+// ❌ BAD — 业务散落读配置 Bundle
+var raw = ResourceManager.Instance.LoadBytes(ResourceAddresses.ConfigTable("tbability"));
+```

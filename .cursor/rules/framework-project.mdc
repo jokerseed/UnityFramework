@@ -29,8 +29,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性） |
 | `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据） |
 | `Framework.GamePlay` | `GamePlayFramework` 玩法主入口；`GamePlay.Data` 负责 Luban→GAS 装配 |
-| `Framework.Config` | Luban 按需加载与 Tables 缓存（`ConfigManager`） |
-| `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时资源加载/释放唯一入口** |
+| `Framework.Config` | Luban 按需加载与 Tables 缓存（`ConfigManager`）；**配置 Bundle 加载归属 Config，Res 仅通用资源** |
+| `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时通用资源加载/释放唯一入口** |
 | `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
 | `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | `ObjectBase` 对象池（容量/过期） | [ObjectPool/README.md](ObjectPool/README.md) |
@@ -57,7 +57,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 热路径走 `BattleCommandBuffer`，表现走 `IEventBus`（`ZeroGcEventBus` / `GameEvent`）
 - Tick 顺序：`GAS → Flush Spawn → ECS → Flush Damage → Sync Positions`
 - 常驻 Mono 单例用 `PersistentSingleton<T>`，不要重复造轮子
-- **运行时资源加载/释放/缓存/包生命周期只能走 `Framework.Res`**（详见 `framework-res.mdc`）
+- **运行时通用资源**加载/释放/缓存/包生命周期只能走 `Framework.Res`**（详见 `framework-res.mdc`）
+- **Luban 配置表**加载/缓存只能走 `Framework.Config` 的 `ConfigManager`（详见 `framework-config.mdc`）
 - **自有代码日志只能走 `Framework.Logging`**（详见 `framework-logging.mdc`）
 - **自有代码协程生命周期只能走 `Framework.Coroutine`**；Unity `StartCoroutine` **仅允许** Coroutine / Bootstrap（详见 `framework-coroutine.mdc`）
 

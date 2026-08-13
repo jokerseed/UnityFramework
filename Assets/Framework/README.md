@@ -11,6 +11,17 @@
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
 | 示例文档化 | 演示与验证用例写在各模块 README，不单独维护 Samples/Tests 程序集 |
 
+## 帧同步与回滚（能力边界）
+
+| 项 | 状态 |
+|----|------|
+| 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
+| 战斗 Demo 锁步权威 Tick | 未接（仍 `deltaTime`） |
+| **预测回滚 / 状态快照** | **未实现** |
+| **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
+
+详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。
+
 ## 程序集与文档
 
 | 程序集 | 职责 | 文档 |
@@ -121,7 +132,8 @@ Collector 规则：
 
 ```csharp
 var tables = ConfigManager.Instance.LoadTables();
-// 或 ResourceManager.Instance.LoadLubanTables()（无 ConfigManager 缓存）
+// 或 ConfigManager.Instance.LoadLubanTables()（无 CfgTables 单例缓存）
+// 单表：ConfigManager.Instance.LoadConfigBytes("tbability", cache: true)
 ```
 
 ## 编辑器工具

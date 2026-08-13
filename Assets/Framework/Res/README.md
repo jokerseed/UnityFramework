@@ -1,6 +1,6 @@
 # Framework.Res
 
-YooAsset 资源管线封装：加载、释放、反序列化统一入口。
+YooAsset 资源管线封装：**通用**加载、释放、反序列化统一入口。Luban 配置表见 `Framework.Config`。
 
 ## 程序集
 
@@ -8,14 +8,14 @@ YooAsset 资源管线封装：加载、释放、反序列化统一入口。
 |---|---|
 | 程序集 | `Framework.Res` |
 | 命名空间 | `Framework.Res` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.Logging`、`Generated.Luban`、`Luban.Runtime`、`YooAsset` |
+| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.Logging`、`YooAsset` |
 
 ## 核心类型
 
 | 类型 | 职责 |
 |------|------|
 | `ResourceModule` | `IGameModule` 实现，初始化 YooAsset 并注册 `ResourceManager` |
-| `ResourceManager` | 常驻单例，包初始化、加载、释放、Luban 表加载 |
+| `ResourceManager` | 常驻单例，包初始化、Asset/Scene/bytes 加载与释放 |
 | `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host） |
 | `ResourceAddresses` | 寻址规则（如 `bundles/configs/{表名}.unity3d`、`bundles/scenes/{场景}.unity3d`） |
 | `ResourceAssetHandle` | 资源句柄封装，支持 `Dispose` / `InstantiateSync` |
@@ -26,15 +26,13 @@ YooAsset 资源管线封装：加载、释放、反序列化统一入口。
 ```csharp
 var res = ResourceManager.Instance;
 
-// Luban 全表：业务侧经 ConfigManager 按需加载（内部调用本接口）
-Tables tables = ConfigManager.Instance.LoadTables();
-// 或直接：
-// Tables tables = res.LoadLubanTables();
+// Luban 全表 — 走 ConfigManager，不在 Res 层加载
+CfgTables tables = ConfigManager.Instance.LoadTables();
 
 // 任意二进制 + 反序列化
 MyData data = res.LoadBinary("bundles/data/foo.unity3d", bytes => MyCodec.Decode(bytes));
 
-// 原始 bytes
+// 原始 bytes（cache=true 时进 ResourceManager 通用缓存）
 byte[] raw = res.LoadBytes("bundles/data/foo.unity3d");
 
 // Unity 资源
@@ -50,7 +48,8 @@ yield return res.LoadSceneAsync(ResourceAddresses.BattleScene);
 | 操作 | API |
 |------|-----|
 | 单次加载释放 | `using var handle = ...` 或 `handle.Dispose()` |
-| 配置/Luban 缓存释放 | `ResourceManager.Instance.ReleaseCache()` |
+| 通用 bytes 缓存释放 | `ResourceManager.Instance.ReleaseCache()` |
+| 配置 TextAsset 缓存 | `ConfigManager.ReleaseTableAssetCache()`（见 Config README） |
 | 模块/应用关闭 | `ResourceModule.Shutdown()` → `ResourceManager.Shutdown()` |
 
 **禁止**在业务代码中直接调用 YooAsset 的 `Release` / `Destroy` / `Unload`。
@@ -73,5 +72,5 @@ new ResourceModule(),
 
 ## 被谁使用
 
-- `Framework.Config` — `ConfigManager.LoadTables()` 内部调用 `LoadLubanTables()`
+- `Framework.Config` — 底层 `LoadAssetSync<TextAsset>` 读配置 Bundle
 - `Assets/Scripts/Launch.cs` — 注册 `ResourceModule`

@@ -38,11 +38,11 @@ namespace Framework.Config
             }
         }
 #else
-        /// <summary>Editor 直读；Player 请使用 <see cref="Framework.Res.ResourceManager.LoadLubanTables"/>。</summary>
+        /// <summary>Editor 直读；Player 请使用 <see cref="ConfigManager.LoadTables"/>。</summary>
         /// <exception cref="NotSupportedException">非 Editor 环境。</exception>
         public static CfgTables LoadDefault() => throw CreateEditorOnlyException();
 
-        /// <summary>Editor 直读；Player 请使用 <see cref="Framework.Res.ResourceManager.LoadLubanTables"/>。</summary>
+        /// <summary>Editor 直读；Player 请使用 <see cref="ConfigManager.LoadTables"/>。</summary>
         /// <exception cref="NotSupportedException">非 Editor 环境。</exception>
         public static CfgTables LoadBinaryFromDirectory(string binDirectory) => throw CreateEditorOnlyException();
 #endif

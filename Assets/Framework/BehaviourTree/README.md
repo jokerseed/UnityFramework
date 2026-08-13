@@ -118,7 +118,8 @@ public sealed class GamePlayBtRegistry : IBtNodeRegistry
 2. 禁止 `Time.*` / Unity 协程 / async 权威路径  
 3. `WaitTime` 配置为秒，编译为 `FP.FromFloat`  
 4. 随机走 `ctx.Random`（`TSRandom.New(seed)`）  
-5. **一树一 Agent**；本版 **不做回滚快照**
+5. **一树一 Agent**  
+6. **❌ 回滚快照未实现**：Running 进度、等待计数、黑板均不可还原；开预测回滚前勿依赖本模块做权威状态恢复
 
 ## 与 Behavior Designer 的差异
 

@@ -47,7 +47,7 @@
 | 项 | 说明 |
 |----|------|
 | 命名空间 | `TrueSync` → `Framework.FixedMath` |
-| 去掉 Obscured 转换 | 无反作弊依赖；数值路径不变 |
+| 去掉 Obscured 转换 | **刻意**无反作弊依赖；数值路径不变。若业务要内存混淆，在进出 `FP` 边界自行适配（见根 README [反作弊](../../../README.md#反作弊)） |
 | 去掉 `TSMatrix4x4.TransformToMatrix(TSTransform)` | 依赖未迁移的 Unity 组件 |
 | `operator +` 暂存 | 主干曾用 `private static FP result`（多线程危险）；已改为局部变量，**单线程结果与主干一致** |
 

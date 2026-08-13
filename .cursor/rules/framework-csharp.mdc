@@ -128,9 +128,10 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 
 ## 资源加载与释放
 
-- 运行时**只能**通过 `ResourceManager.Instance`（须先 `ResourceModule` 初始化）
-- 加载：`LoadAssetSync` / `LoadAssetAsync` / `LoadLubanTables` / `LoadBytes` / `LoadBinary<T>`
+- 运行时**通用资源**只能通过 `ResourceManager.Instance`（须先 `ResourceModule` 初始化）
+- 加载：`LoadAssetSync` / `LoadAssetAsync` / `LoadBytes` / `LoadBinary<T>` / `LoadSceneAsync`
 - 释放：`ResourceAssetHandle.Dispose()`（或 `using`）、`ReleaseCache()`、模块 `ResourceModule.Shutdown()`
+- **Luban 配置表**走 `ConfigManager`（见 `framework-config.mdc`）；禁止在 Res 层添加配置专用 API
 - 寻址用 `ResourceAddresses`；禁止业务代码直接引用 `YooAsset` 或自行 `YooAssets.Destroy`
 - 详见 `framework-res.mdc`
 

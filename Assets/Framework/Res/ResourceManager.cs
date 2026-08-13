@@ -1,10 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using cfg;
 using Framework.Core;
 using Framework.Logging;
-using Luban;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using YooAsset;
@@ -12,8 +10,8 @@ using YooAsset;
 namespace Framework.Res
 {
     /// <summary>
-    /// 运行时资源包管理器，封装 YooAsset 的初始化与加载流程。
-    /// 是运行时唯一合法的 Asset / 配置字节加载入口；通过 <see cref="ResourceModule"/> 驱动初始化。
+    /// 运行时资源包管理器，封装 YooAsset 的初始化与通用加载/释放流程。
+    /// 是运行时 Asset、Scene、bytes 的合法加载入口；Luban 配置表见 <see cref="Framework.Config.ConfigManager"/>。
     /// </summary>
     [DefaultExecutionOrder(-500)]
     public sealed class ResourceManager : PersistentSingleton<ResourceManager>
@@ -216,66 +214,7 @@ namespace Framework.Res
             return deserialize(bytes);
         }
 
-        /// <summary>加载 Luban 全量配置表（运行时推荐，一次调用完成）。</summary>
-        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄。</param>
-        /// <returns>Luban <see cref="CfgTables"/>。</returns>
-        public CfgTables LoadLubanTables(bool cacheTableAssets = true)
-        {
-            EnsureInitialized();
-            return new CfgTables(file =>
-            {
-                var bytes = cacheTableAssets ? LoadConfigBytesCached(file) : LoadConfigBytes(file);
-                return new ByteBuf(bytes);
-            });
-        }
-
-        /// <summary>同步加载配置表原始字节（不缓存），加载完成后立即释放句柄。</summary>
-        /// <param name="tableName">Luban 表名（如 <c>tbability</c>），内部自动生成寻址路径。</param>
-        /// <returns>配置表原始字节；若 Asset 为 null 则返回空数组。</returns>
-        /// <exception cref="InvalidOperationException">加载失败时。</exception>
-        public byte[] LoadConfigBytes(string tableName)
-        {
-            var location = ResourceAddresses.ConfigTable(tableName);
-            using (var handle = LoadAssetSync<TextAsset>(location))
-            {
-                if (!handle.IsValid || !handle.Succeeded)
-                {
-                    throw new InvalidOperationException(
-                        $"[Resource] Load config failed: {tableName}, location={location}, error={handle.Error}");
-                }
-
-                var asset = handle.GetAsset<TextAsset>();
-                return asset != null ? asset.bytes : Array.Empty<byte>();
-            }
-        }
-
-        /// <summary>同步加载配置表字节并缓存句柄；重复调用不重复加载。须调用 <see cref="ReleaseCache"/> 释放。</summary>
-        /// <param name="tableName">Luban 表名（如 <c>tbability</c>）。</param>
-        /// <returns>配置表原始字节；若 Asset 为 null 则返回空数组。</returns>
-        /// <exception cref="InvalidOperationException">加载失败时。</exception>
-        public byte[] LoadConfigBytesCached(string tableName)
-        {
-            var location = ResourceAddresses.ConfigTable(tableName);
-            if (_syncCache.TryGetValue(location, out var cached) && cached.IsValid)
-            {
-                var cachedAsset = cached.GetAsset<TextAsset>();
-                return cachedAsset != null ? cachedAsset.bytes : Array.Empty<byte>();
-            }
-
-            var handle = LoadAssetSync<TextAsset>(location);
-            if (!handle.IsValid || !handle.Succeeded)
-            {
-                handle.Dispose();
-                throw new InvalidOperationException(
-                    $"[Resource] Load config failed: {tableName}, location={location}, error={handle.Error}");
-            }
-
-            _syncCache[location] = handle;
-            var asset = handle.GetAsset<TextAsset>();
-            return asset != null ? asset.bytes : Array.Empty<byte>();
-        }
-
-        /// <summary>释放所有通过 <see cref="LoadConfigBytesCached"/> 缓存的资源句柄。</summary>
+        /// <summary>释放所有通过 <see cref="LoadBytes(string, bool)"/>（<c>cache=true</c>）缓存的资源句柄。</summary>
         public void ReleaseCache()
         {
             foreach (var pair in _syncCache)

@@ -5,8 +5,6 @@
         "Framework.Bootstrap",
         "Framework.Core",
         "Framework.Logging",
-        "Generated.Luban",
-        "Luban.Runtime",
         "YooAsset"
     ],
     "includePlatforms": [],
