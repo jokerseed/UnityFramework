@@ -35,7 +35,9 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | `ObjectBase` 对象池（容量/过期） | [ObjectPool/README.md](ObjectPool/README.md) |
 | `Framework.Coroutine` | 协程生命周期（Global/Scene/GameObject） | [Coroutine/README.md](Coroutine/README.md) |
-| `Framework.FixedMath` | 确定性定点数（自 Client TrueSync Math 迁移，非 IGameModule） |
+| `Framework.FixedMath` | 确定性定点数（锁步基座，非 IGameModule） |
+| `Framework.Lockstep` | 帧同步调度/输入抽象/回滚核心（非 IGameModule） |
+| `Framework.LockstepPhysics` | 确定性 Jitter/Farseer 物理插件（非 IGameModule） |
 | `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
 
 ## 启动与模块

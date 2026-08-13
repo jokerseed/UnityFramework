@@ -1,6 +1,7 @@
 # Framework.FixedMath
 
-确定性定点数数学库（Q31.32），自 `D:\Client` 主干 TrueSync 数学层迁移。
+确定性定点数数学库（Q31.32），自 `D:\Client` 主干 TrueSync 数学层迁移。  
+本模块为帧同步基座 **A**；调度见 `Framework.Lockstep`，物理见 `Framework.LockstepPhysics`。
 
 > 源路径：`D:\Client\Assets\Script\Core\TrueSync\Engine\Math\`  
 > 命名空间改为 `Framework.FixedMath`；已去掉 Client 侧 `Obscured*` / `IWGames` 依赖。  

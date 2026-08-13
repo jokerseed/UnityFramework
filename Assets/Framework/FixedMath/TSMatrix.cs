@@ -62,7 +62,7 @@ namespace Framework.FixedMath
         /// </summary>
         public FP M33;
 
-        internal static TSMatrix InternalIdentity;
+        public static TSMatrix InternalIdentity;
 
         /// <summary>
         /// Identity matrix.

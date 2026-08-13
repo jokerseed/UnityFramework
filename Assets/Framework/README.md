@@ -26,7 +26,9 @@
 | `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |
 | `Framework.ObjectPool` | 对象池（`ObjectBase` / 容量过期） | [ObjectPool/README.md](ObjectPool/README.md) |
 | `Framework.Coroutine` | 协程（Global / Scene / GameObject） | [Coroutine/README.md](Coroutine/README.md) |
-| `Framework.FixedMath` | 确定性定点数（自 Client TrueSync Math 迁移） | [FixedMath/README.md](FixedMath/README.md) |
+| `Framework.FixedMath` | 确定性定点数（锁步基座 A） | [FixedMath/README.md](FixedMath/README.md) |
+| `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） | [Lockstep/README.md](Lockstep/README.md) |
+| `Framework.LockstepPhysics` | 确定性 2D/3D 物理（基座 D） | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
 | `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
 | `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
@@ -56,7 +58,7 @@ Bootstrap (Host)
     │                       └── ECS
     │                               └── Core
     │
-    ├── FixedMath（纯数学库，按需引用，非 IGameModule）
+    ├── FixedMath / Lockstep / LockstepPhysics（帧同步基座，按需引用，非 IGameModule）
     └── Editor (Editor only)
 ```
 
