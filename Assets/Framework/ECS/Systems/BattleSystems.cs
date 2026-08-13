@@ -70,6 +70,7 @@ namespace Framework.ECS.Systems
     /// </summary>
     public sealed class ProjectileLifetimeSystem : ISystem
     {
+        readonly List<uint> _ids = new List<uint>(32);
         readonly List<uint> _toDestroy = new List<uint>(16);
 
         /// <inheritdoc/>
@@ -87,17 +88,29 @@ namespace Framework.ECS.Systems
         public void Update(World world, float deltaTime)
         {
             _toDestroy.Clear();
+            _ids.Clear();
             var projectiles = world.GetStorage<ProjectileComponent>();
 
+            // Unity/Mono 下 Dictionary 赋值会 bump version，不能边 foreach All 边 Add 同存储。
             foreach (var pair in projectiles.All)
             {
-                var projectile = pair.Value;
+                _ids.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _ids.Count; i++)
+            {
+                var entityId = _ids[i];
+                if (!projectiles.TryGet(entityId, out var projectile))
+                {
+                    continue;
+                }
+
                 projectile.RemainingLifetime -= deltaTime;
-                projectiles.Add(pair.Key, projectile);
+                projectiles.Add(entityId, projectile);
 
                 if (projectile.RemainingLifetime <= 0f)
                 {
-                    _toDestroy.Add(pair.Key);
+                    _toDestroy.Add(entityId);
                 }
             }
 

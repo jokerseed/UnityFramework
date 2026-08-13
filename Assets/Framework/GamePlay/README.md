@@ -78,7 +78,12 @@ framework.CreateActor(monsterId, monsterPos, 100f, teamId: 2);
 framework.RegisterActorAbilities(heroId, 1, new[] { "Fireball", "Slash" }, ConfigManager.Instance.LoadTables());
 framework.RegisterActorAbilities(monsterId, 2, new[] { "Slash" }, ConfigManager.Instance.GetTables());
 
-void Update() => framework.Tick(Time.deltaTime);
+void Update()
+{
+    // Hero 朝 Monster 施放 Fireball（CD 由表驱动）；弹道用简易球体跟 ECS 投射物
+    framework.TryActivateAbility(heroId, "Fireball", new AbilityActivationContext(origin, dir, monsterId));
+    framework.Tick(Time.deltaTime);
+}
 // 场景退出：DestroyActor + Unsubscribe；不要 Dispose 模块持有的 Framework
 ```
 

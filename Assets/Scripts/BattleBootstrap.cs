@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using Framework.Config;
 using Framework.Core;
+using Framework.ECS.Components;
 using Framework.GamePlay;
 using Framework.GamePlay.Data;
+using Framework.GAS.Abilities;
 using Framework.GAS.Events;
 using Framework.Logging;
 using Framework.Res;
@@ -10,6 +13,7 @@ using UnityEngine;
 
 /// <summary>
 /// 战斗场景业务入口：进 Battle 后由 GamePlay 接管——创建 Actor、注册技能、每帧 Tick，并同步模型表现。
+/// Hero 周期施放 Fireball；弹道用简易球体跟随 ECS 投射物。
 /// 挂到 <c>Assets/Bundles/Scenes/Battle.unity</c> 任意常驻节点上。
 /// </summary>
 public sealed class BattleBootstrap : MonoBehaviour
@@ -22,6 +26,9 @@ public sealed class BattleBootstrap : MonoBehaviour
     static readonly ActorId MonsterId = new ActorId(2);
     const int HeroTeamId = 1;
     const int MonsterTeamId = 2;
+    const string FireballAbilityId = "Fireball";
+    const float FireballCastHeight = 1.2f;
+    const float FireballBallMinScale = 0.35f;
 
     GamePlayFramework _framework;
     Action<DamageDealtEvent> _onDamageDealt;
@@ -31,6 +38,10 @@ public sealed class BattleBootstrap : MonoBehaviour
     ResourceAssetHandle _monsterHandle;
     GameObject _heroInstance;
     GameObject _monsterInstance;
+
+    readonly Dictionary<uint, GameObject> _projectileViews = new Dictionary<uint, GameObject>(16);
+    readonly List<uint> _projectileViewRemoveScratch = new List<uint>(16);
+    readonly HashSet<uint> _aliveProjectileIds = new HashSet<uint>();
 
     void Start()
     {
@@ -56,8 +67,10 @@ public sealed class BattleBootstrap : MonoBehaviour
             return;
         }
 
+        TryCastHeroFireball();
         _framework.Tick(Time.deltaTime);
         SyncModelTransforms();
+        SyncProjectileViews();
     }
 
     bool TryBindFramework()
@@ -102,7 +115,7 @@ public sealed class BattleBootstrap : MonoBehaviour
             _framework.RegisterActorAbilities(
                 HeroId,
                 teamId: HeroTeamId,
-                abilityIds: new[] { "Fireball", "Slash" },
+                abilityIds: new[] { FireballAbilityId, "Slash" },
                 tables);
 
             _framework.RegisterActorAbilities(
@@ -119,6 +132,32 @@ public sealed class BattleBootstrap : MonoBehaviour
             CleanupActors();
             return false;
         }
+    }
+
+    void TryCastHeroFireball()
+    {
+        if (!_framework.Registry.TryGet(HeroId, out var hero) ||
+            !_framework.Registry.TryGet(MonsterId, out var monster))
+        {
+            return;
+        }
+
+        var origin = hero.Position + Vector3.up * FireballCastHeight;
+        var toTarget = monster.Position - hero.Position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude < 0.0001f)
+        {
+            toTarget = Vector3.right;
+        }
+
+        var context = new AbilityActivationContext(origin, toTarget, MonsterId);
+        var result = _framework.TryActivateAbility(HeroId, FireballAbilityId, context);
+        if (!result.Success)
+        {
+            return;
+        }
+
+        GameLog.Info(LogCategories.GamePlay, $"Hero cast {LogStyle.Name(FireballAbilityId)}");
     }
 
     void SpawnModels()
@@ -184,6 +223,89 @@ public sealed class BattleBootstrap : MonoBehaviour
         instance.transform.position = actor.Position;
     }
 
+    void SyncProjectileViews()
+    {
+        var world = _framework.EcsWorld;
+        var projectiles = world.GetStorage<ProjectileComponent>();
+        var transforms = world.GetStorage<TransformComponent>();
+
+        _aliveProjectileIds.Clear();
+        foreach (var pair in projectiles.All)
+        {
+            var entityId = pair.Key;
+            if (!transforms.TryGet(entityId, out var transform))
+            {
+                continue;
+            }
+
+            _aliveProjectileIds.Add(entityId);
+            if (!_projectileViews.TryGetValue(entityId, out var view) || view == null)
+            {
+                view = CreateFireballView(entityId, pair.Value.Radius);
+                _projectileViews[entityId] = view;
+            }
+
+            view.transform.position = transform.Position;
+        }
+
+        _projectileViewRemoveScratch.Clear();
+        foreach (var pair in _projectileViews)
+        {
+            if (!_aliveProjectileIds.Contains(pair.Key))
+            {
+                _projectileViewRemoveScratch.Add(pair.Key);
+            }
+        }
+
+        for (var i = 0; i < _projectileViewRemoveScratch.Count; i++)
+        {
+            var id = _projectileViewRemoveScratch[i];
+            if (_projectileViews.TryGetValue(id, out var view) && view != null)
+            {
+                Destroy(view);
+            }
+
+            _projectileViews.Remove(id);
+        }
+    }
+
+    static GameObject CreateFireballView(uint entityId, float radius)
+    {
+        var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        ball.name = $"FireballView_{entityId}";
+        var collider = ball.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+
+        var scale = Mathf.Max(FireballBallMinScale, radius * 2f);
+        ball.transform.localScale = Vector3.one * scale;
+
+        var renderer = ball.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = new Color(1f, 0.35f, 0.08f, 1f);
+        }
+
+        return ball;
+    }
+
+    void ClearProjectileViews()
+    {
+        foreach (var pair in _projectileViews)
+        {
+            if (pair.Value != null)
+            {
+                Destroy(pair.Value);
+            }
+        }
+
+        _projectileViews.Clear();
+        _aliveProjectileIds.Clear();
+        _projectileViewRemoveScratch.Clear();
+    }
+
     static void OnDamageDealt(DamageDealtEvent e)
     {
         GameLog.Info(LogCategories.GamePlay,
@@ -210,6 +332,7 @@ public sealed class BattleBootstrap : MonoBehaviour
     void OnDestroy()
     {
         _battleStarted = false;
+        ClearProjectileViews();
         CleanupActors();
         // Framework 由 GamePlayModule 持有，场景退出时不 Dispose。
 
