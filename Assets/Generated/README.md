@@ -13,17 +13,20 @@
 
 > `Generated.Luban.asmdef` 放在 `Assets/Generated/` 下（不在 `Luban/` 子目录），避免打表时被 Luban 清理掉。
 
-## 命名空间
+## 命名空间与前缀
 
-生成代码命名空间为 `cfg`，入口类 `cfg.Tables`。
+- 命名空间：`cfg`，入口类 `cfg.CfgTables`（manager 与 bean/enum/table 一样带前缀）
+- **全部生成类型名与文件名**须带 `Config/Luban/codegen.json` 中的 `codeTypePrefix`（默认 `Cfg`）
+- 规范：`.cursor/rules/framework-luban.mdc`
 
 ## 加载示例
 
 ```csharp
 using cfg;
 using Framework.Config;
-using Framework.Res;
 
-Tables tables = ResourceManager.Instance.LoadLubanTables();
-var fireball = tables.TbAbility.Get("Fireball");
+var tables = ConfigManager.Instance.LoadTables();
+var fireball = tables.CfgTbAbility.Get("Fireball");
 ```
+
+> 生成类型/文件名须带 `Config/Luban/codegen.json` 的 `codeTypePrefix`（默认 `Cfg`），见 `.cursor/rules/framework-luban.mdc`。

@@ -11,28 +11,28 @@ using Luban;
 
 namespace cfg
 {
-public partial class Tables
+public partial class CfgTables
 {
     /// <summary>
     /// 技能表
     /// </summary>
-    public TbAbility TbAbility {get; }
+    public CfgTbAbility CfgTbAbility {get; }
     /// <summary>
     /// 效果表
     /// </summary>
-    public TbEffect TbEffect {get; }
+    public CfgTbEffect CfgTbEffect {get; }
 
-    public Tables(System.Func<string, ByteBuf> loader)
+    public CfgTables(System.Func<string, ByteBuf> loader)
     {
-        TbAbility = new TbAbility(loader("tbability"));
-        TbEffect = new TbEffect(loader("tbeffect"));
+        CfgTbAbility = new CfgTbAbility(loader("tbability"));
+        CfgTbEffect = new CfgTbEffect(loader("tbeffect"));
         ResolveRef();
     }
     
     private void ResolveRef()
     {
-        TbAbility.ResolveRef(this);
-        TbEffect.ResolveRef(this);
+        CfgTbAbility.ResolveRef(this);
+        CfgTbEffect.ResolveRef(this);
     }
 }
 

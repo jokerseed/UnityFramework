@@ -218,11 +218,11 @@ namespace Framework.Res
 
         /// <summary>加载 Luban 全量配置表（运行时推荐，一次调用完成）。</summary>
         /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄。</param>
-        /// <returns>Luban <see cref="Tables"/>。</returns>
-        public Tables LoadLubanTables(bool cacheTableAssets = true)
+        /// <returns>Luban <see cref="CfgTables"/>。</returns>
+        public CfgTables LoadLubanTables(bool cacheTableAssets = true)
         {
             EnsureInitialized();
-            return new Tables(file =>
+            return new CfgTables(file =>
             {
                 var bytes = cacheTableAssets ? LoadConfigBytesCached(file) : LoadConfigBytes(file);
                 return new ByteBuf(bytes);

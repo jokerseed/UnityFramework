@@ -30,6 +30,11 @@
 
 打表完成后 Unity 会自动刷新资源。
 
+### 生成代码前缀
+
+类型名（及同名 `.cs` 文件）须带统一前缀，配置见 `Config/Luban/codegen.json`（默认 `Cfg`）。  
+打表脚本会调用 `validate_codegen_prefix.py` 校验；细则见 `.cursor/rules/framework-luban.mdc`。
+
 ## YooAsset Collector
 
 `YooAssetCollectorGenerator` 根据 `Assets/Bundles/` 目录结构生成 Collector 配置：

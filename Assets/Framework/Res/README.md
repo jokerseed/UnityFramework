@@ -26,8 +26,10 @@ YooAsset 资源管线封装：加载、释放、反序列化统一入口。
 ```csharp
 var res = ResourceManager.Instance;
 
-// Luban 全表：一次调用（ConfigModule 内部即此接口）
-Tables tables = res.LoadLubanTables();
+// Luban 全表：业务侧经 ConfigManager 按需加载（内部调用本接口）
+Tables tables = ConfigManager.Instance.LoadTables();
+// 或直接：
+// Tables tables = res.LoadLubanTables();
 
 // 任意二进制 + 反序列化
 MyData data = res.LoadBinary("bundles/data/foo.unity3d", bytes => MyCodec.Decode(bytes));
@@ -71,5 +73,5 @@ new ResourceModule(),
 
 ## 被谁使用
 
-- `Framework.Config` — `ConfigModule` 调用 `LoadLubanTables()`
+- `Framework.Config` — `ConfigManager.LoadTables()` 内部调用 `LoadLubanTables()`
 - `Assets/Scripts/Launch.cs` — 注册 `ResourceModule`

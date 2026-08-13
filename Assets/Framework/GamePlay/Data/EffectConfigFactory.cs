@@ -10,7 +10,7 @@ namespace Framework.GamePlay.Data
         /// <summary>创建效果定义。</summary>
         /// <param name="def">Luban 效果行。</param>
         /// <returns>效果定义。</returns>
-        public static GameplayEffectDef CreateDef(EffectDef def)
+        public static GameplayEffectDef CreateDef(CfgEffectDef def)
         {
             var modifiers = new List<EffectModifier>();
             if (!string.IsNullOrEmpty(def.ModAttribute))
@@ -32,27 +32,27 @@ namespace Framework.GamePlay.Data
         /// <summary>创建运行时 Spec（兼容旧 API）。</summary>
         /// <param name="def">Luban 效果行。</param>
         /// <returns>运行时 Spec。</returns>
-        public static GameplayEffectSpec Create(EffectDef def) => CreateDef(def).ToRuntimeSpec();
+        public static GameplayEffectSpec Create(CfgEffectDef def) => CreateDef(def).ToRuntimeSpec();
 
-        static EffectDurationPolicy MapDuration(EffectDurationType type)
+        static EffectDurationPolicy MapDuration(CfgEffectDurationType type)
         {
             switch (type)
             {
-                case EffectDurationType.Instant: return EffectDurationPolicy.Instant;
-                case EffectDurationType.Duration: return EffectDurationPolicy.Duration;
-                case EffectDurationType.Infinite: return EffectDurationPolicy.Infinite;
+                case CfgEffectDurationType.Instant: return EffectDurationPolicy.Instant;
+                case CfgEffectDurationType.Duration: return EffectDurationPolicy.Duration;
+                case CfgEffectDurationType.Infinite: return EffectDurationPolicy.Infinite;
                 default: throw new System.NotSupportedException($"Unknown duration type: {type}");
             }
         }
 
-        static EffectStackingPolicy MapStacking(EffectStackingType type)
+        static EffectStackingPolicy MapStacking(CfgEffectStackingType type)
         {
             switch (type)
             {
-                case EffectStackingType.None: return EffectStackingPolicy.None;
-                case EffectStackingType.RefreshDuration: return EffectStackingPolicy.RefreshDuration;
-                case EffectStackingType.StackCount: return EffectStackingPolicy.StackCount;
-                case EffectStackingType.AggregateBySource: return EffectStackingPolicy.AggregateBySource;
+                case CfgEffectStackingType.None: return EffectStackingPolicy.None;
+                case CfgEffectStackingType.RefreshDuration: return EffectStackingPolicy.RefreshDuration;
+                case CfgEffectStackingType.StackCount: return EffectStackingPolicy.StackCount;
+                case CfgEffectStackingType.AggregateBySource: return EffectStackingPolicy.AggregateBySource;
                 default: throw new System.NotSupportedException($"Unknown stacking type: {type}");
             }
         }

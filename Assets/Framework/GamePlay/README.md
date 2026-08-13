@@ -21,7 +21,7 @@
 
 ## GamePlay.Data（配置装配层）
 
-命名空间 `Framework.GamePlay.Data`：读 `cfg.Tables`，装配到 GAS，**不含 Tick/模拟**。
+命名空间 `Framework.GamePlay.Data`：读 `cfg.CfgTables`，装配到 GAS，**不含 Tick/模拟**。
 
 | 类型 | 职责 |
 |------|------|
@@ -58,7 +58,7 @@ using Framework.GamePlay;
 using Framework.GamePlay.Data;
 
 var framework = new GamePlayFramework();
-framework.RegisterActorAbilities(actorId, teamId: 1, abilityIds, ConfigService.Tables);
+framework.RegisterActorAbilities(actorId, teamId: 1, abilityIds, ConfigManager.Instance.LoadTables());
 framework.Tick(Time.deltaTime);
 ```
 
@@ -75,8 +75,8 @@ using Framework.GamePlay.Data;
 var framework = GamePlayModule.Instance.Framework;
 framework.CreateActor(heroId, heroPos, 100f, teamId: 1);
 framework.CreateActor(monsterId, monsterPos, 100f, teamId: 2);
-framework.RegisterActorAbilities(heroId, 1, new[] { "Fireball", "Slash" }, ConfigService.Tables);
-framework.RegisterActorAbilities(monsterId, 2, new[] { "Slash" }, ConfigService.Tables);
+framework.RegisterActorAbilities(heroId, 1, new[] { "Fireball", "Slash" }, ConfigManager.Instance.LoadTables());
+framework.RegisterActorAbilities(monsterId, 2, new[] { "Slash" }, ConfigManager.Instance.GetTables());
 
 void Update() => framework.Tick(Time.deltaTime);
 // 场景退出：DestroyActor + Unsubscribe；不要 Dispose 模块持有的 Framework

@@ -1,24 +1,18 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using cfg;
 using Framework.Bootstrap;
 using Framework.Logging;
 using Framework.Res;
 
 namespace Framework.Config
 {
-    /// <summary>配置模块：通过 <see cref="ResourceManager"/> 加载并持有 Luban <see cref="Tables"/>。</summary>
+    /// <summary>
+    /// 配置模块：确保 <see cref="ConfigManager"/> 可用；<b>不</b>在初始化时读表。
+    /// 读表请在业务侧调用 <see cref="ConfigManager.LoadTables"/>。
+    /// </summary>
     public sealed class ConfigModule : IGameModule
     {
-        static ConfigModule s_instance;
-
-        /// <summary>当前已初始化的配置模块；未初始化时为 null。</summary>
-        public static ConfigModule Instance => s_instance;
-
-        /// <summary>运行时 Luban 表；<see cref="Initialize"/> 后可用。</summary>
-        public Tables Tables { get; private set; }
-
         /// <inheritdoc/>
         public string Name => "Config";
 
@@ -34,9 +28,8 @@ namespace Framework.Config
         /// <inheritdoc/>
         public void Initialize()
         {
-            s_instance = this;
-            Tables = ResourceManager.Instance.LoadLubanTables();
-            GameLog.Info(LogCategories.Config, $"{LogStyle.Name(Name)} {LogStyle.Ok("ready")}");
+            _ = ConfigManager.Instance;
+            GameLog.Info(LogCategories.Config, $"{LogStyle.Name(Name)} {LogStyle.Ok("ready")} (tables lazy)");
         }
 
         /// <inheritdoc/>
@@ -49,16 +42,9 @@ namespace Framework.Config
         /// <inheritdoc/>
         public void Shutdown()
         {
-            Tables = null;
-
-            if (ResourceManager.HasInstance && ResourceManager.Instance.IsInitialized)
+            if (ConfigManager.HasInstance)
             {
-                ResourceManager.Instance.ReleaseCache();
-            }
-
-            if (s_instance == this)
-            {
-                s_instance = null;
+                ConfigManager.Instance.Shutdown();
             }
         }
     }

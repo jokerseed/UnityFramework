@@ -15,12 +15,12 @@ namespace cfg
 /// <summary>
 /// 技能配置
 /// </summary>
-public sealed partial class AbilityDef : Luban.BeanBase
+public sealed partial class CfgAbilityDef : Luban.BeanBase
 {
-    public AbilityDef(ByteBuf _buf) 
+    public CfgAbilityDef(ByteBuf _buf) 
     {
         Id = _buf.ReadString();
-        Type = (AbilityType)_buf.ReadInt();
+        Type = (CfgAbilityType)_buf.ReadInt();
         Cooldown = _buf.ReadFloat();
         Damage = _buf.ReadFloat();
         Speed = _buf.ReadFloat();
@@ -30,9 +30,9 @@ public sealed partial class AbilityDef : Luban.BeanBase
         CueTag = _buf.ReadString();
     }
 
-    public static AbilityDef DeserializeAbilityDef(ByteBuf _buf)
+    public static CfgAbilityDef DeserializeCfgAbilityDef(ByteBuf _buf)
     {
-        return new AbilityDef(_buf);
+        return new CfgAbilityDef(_buf);
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public sealed partial class AbilityDef : Luban.BeanBase
     /// <summary>
     /// 技能类型
     /// </summary>
-    public readonly AbilityType Type;
+    public readonly CfgAbilityType Type;
     /// <summary>
     /// 冷却(秒)
     /// </summary>
@@ -72,10 +72,10 @@ public sealed partial class AbilityDef : Luban.BeanBase
     /// </summary>
     public readonly string CueTag;
    
-    public const int __ID__ = 1864116891;
+    public const int __ID__ = -734876193;
     public override int GetTypeId() => __ID__;
 
-    public  void ResolveRef(Tables tables)
+    public  void ResolveRef(CfgTables tables)
     {
     }
 

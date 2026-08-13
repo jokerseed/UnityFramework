@@ -14,25 +14,25 @@ namespace Framework.GamePlay.Data
         /// <param name="actorId">Actor ID。</param>
         /// <param name="teamId">队伍 ID。</param>
         /// <param name="abilityIds">技能 ID 列表。</param>
-        /// <param name="tables">Luban 表；为 null 时使用 <see cref="ConfigService.Tables"/>。</param>
+        /// <param name="tables">Luban 表；为 null 时通过 <see cref="ConfigManager.LoadTables"/> 按需加载。</param>
         public static void RegisterActorAbilities(
             this GamePlayFramework framework,
             ActorId actorId,
             int teamId,
             IReadOnlyList<string> abilityIds,
-            Tables tables = null)
+            CfgTables tables = null)
         {
-            tables ??= ConfigService.Tables;
+            tables ??= ConfigManager.Instance.LoadTables();
             if (tables == null)
             {
-                throw new System.InvalidOperationException("Config tables are not loaded. Initialize ConfigModule first.");
+                throw new System.InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables() first.");
             }
 
             var factory = new AbilityConfigFactory(framework.QueryNearestEnemy);
             for (var i = 0; i < abilityIds.Count; i++)
             {
                 var abilityId = abilityIds[i];
-                if (!tables.TbAbility.DataMap.TryGetValue(abilityId, out var def))
+                if (!tables.CfgTbAbility.DataMap.TryGetValue(abilityId, out var def))
                 {
                     throw new KeyNotFoundException($"Ability config not found: {abilityId}");
                 }

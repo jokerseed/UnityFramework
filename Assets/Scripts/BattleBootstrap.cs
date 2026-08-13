@@ -69,9 +69,19 @@ public sealed class BattleBootstrap : MonoBehaviour
             return false;
         }
 
-        if (ConfigService.Tables == null)
+        if (!ConfigManager.HasInstance)
         {
-            GameLog.Error(LogCategories.GamePlay, "Config tables are not loaded; cannot register abilities.");
+            GameLog.Error(LogCategories.GamePlay, "ConfigManager is not ready; cannot register abilities.");
+            return false;
+        }
+
+        try
+        {
+            ConfigManager.Instance.LoadTables();
+        }
+        catch (Exception ex)
+        {
+            GameLog.Error(LogCategories.GamePlay, $"Load config tables failed: {ex.Message}");
             return false;
         }
 
@@ -84,6 +94,8 @@ public sealed class BattleBootstrap : MonoBehaviour
     {
         try
         {
+            var tables = ConfigManager.Instance.GetTables();
+
             _framework.CreateActor(HeroId, HeroPosition, maxHealth: 100f, teamId: HeroTeamId);
             _framework.CreateActor(MonsterId, MonsterPosition, maxHealth: 100f, teamId: MonsterTeamId);
 
@@ -91,13 +103,13 @@ public sealed class BattleBootstrap : MonoBehaviour
                 HeroId,
                 teamId: HeroTeamId,
                 abilityIds: new[] { "Fireball", "Slash" },
-                ConfigService.Tables);
+                tables);
 
             _framework.RegisterActorAbilities(
                 MonsterId,
                 teamId: MonsterTeamId,
                 abilityIds: new[] { "Slash" },
-                ConfigService.Tables);
+                tables);
 
             return true;
         }

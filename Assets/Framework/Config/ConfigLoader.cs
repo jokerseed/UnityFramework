@@ -10,17 +10,17 @@ namespace Framework.Config
     public static class ConfigLoader
     {
 #if UNITY_EDITOR
-        /// <summary>Editor 直读默认 bin 目录加载 Tables。</summary>
-        /// <returns>Luban Tables。</returns>
-        public static Tables LoadDefault()
+        /// <summary>Editor 直读默认 bin 目录加载 <see cref="CfgTables"/>。</summary>
+        /// <returns>Luban <see cref="CfgTables"/>。</returns>
+        public static CfgTables LoadDefault()
         {
             return LoadBinaryFromDirectory(ConfigPaths.GetBinDirectory());
         }
 
-        /// <summary>从指定 bin 目录加载 Tables。</summary>
+        /// <summary>从指定 bin 目录加载 <see cref="CfgTables"/>。</summary>
         /// <param name="binDirectory">含 <c>*.bytes</c> 的目录。</param>
-        /// <returns>Luban Tables。</returns>
-        public static Tables LoadBinaryFromDirectory(string binDirectory)
+        /// <returns>Luban <see cref="CfgTables"/>。</returns>
+        public static CfgTables LoadBinaryFromDirectory(string binDirectory)
         {
             if (!Directory.Exists(binDirectory))
             {
@@ -29,7 +29,7 @@ namespace Framework.Config
 
             try
             {
-                return new Tables(file => new ByteBuf(File.ReadAllBytes(Path.Combine(binDirectory, file + ".bytes"))));
+                return new CfgTables(file => new ByteBuf(File.ReadAllBytes(Path.Combine(binDirectory, file + ".bytes"))));
             }
             catch (Exception ex)
             {
@@ -40,14 +40,14 @@ namespace Framework.Config
 #else
         /// <summary>Editor 直读；Player 请使用 <see cref="Framework.Res.ResourceManager.LoadLubanTables"/>。</summary>
         /// <exception cref="NotSupportedException">非 Editor 环境。</exception>
-        public static Tables LoadDefault() => throw CreateEditorOnlyException();
+        public static CfgTables LoadDefault() => throw CreateEditorOnlyException();
 
         /// <summary>Editor 直读；Player 请使用 <see cref="Framework.Res.ResourceManager.LoadLubanTables"/>。</summary>
         /// <exception cref="NotSupportedException">非 Editor 环境。</exception>
-        public static Tables LoadBinaryFromDirectory(string binDirectory) => throw CreateEditorOnlyException();
+        public static CfgTables LoadBinaryFromDirectory(string binDirectory) => throw CreateEditorOnlyException();
 #endif
 
         static NotSupportedException CreateEditorOnlyException() =>
-            new NotSupportedException("Editor-only config load. Use ResourceManager.Instance.LoadLubanTables() at runtime.");
+            new NotSupportedException("Editor-only config load. Use ConfigManager.Instance.LoadTables() at runtime.");
     }
 }

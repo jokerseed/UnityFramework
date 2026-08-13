@@ -15,28 +15,28 @@ namespace cfg
 /// <summary>
 /// 效果配置
 /// </summary>
-public sealed partial class EffectDef : Luban.BeanBase
+public sealed partial class CfgEffectDef : Luban.BeanBase
 {
-    public EffectDef(ByteBuf _buf) 
+    public CfgEffectDef(ByteBuf _buf) 
     {
         Id = _buf.ReadString();
-        DurationType = (EffectDurationType)_buf.ReadInt();
+        DurationType = (CfgEffectDurationType)_buf.ReadInt();
         Duration = _buf.ReadFloat();
-        Stacking = (EffectStackingType)_buf.ReadInt();
+        Stacking = (CfgEffectStackingType)_buf.ReadInt();
         ModAttribute = _buf.ReadString();
         ModOperation = _buf.ReadInt();
         ModMagnitude = _buf.ReadFloat();
     }
 
-    public static EffectDef DeserializeEffectDef(ByteBuf _buf)
+    public static CfgEffectDef DeserializeCfgEffectDef(ByteBuf _buf)
     {
-        return new EffectDef(_buf);
+        return new CfgEffectDef(_buf);
     }
 
     public readonly string Id;
-    public readonly EffectDurationType DurationType;
+    public readonly CfgEffectDurationType DurationType;
     public readonly float Duration;
-    public readonly EffectStackingType Stacking;
+    public readonly CfgEffectStackingType Stacking;
     /// <summary>
     /// 修改属性名
     /// </summary>
@@ -47,10 +47,10 @@ public sealed partial class EffectDef : Luban.BeanBase
     public readonly int ModOperation;
     public readonly float ModMagnitude;
    
-    public const int __ID__ = 535280788;
+    public const int __ID__ = -1072578352;
     public override int GetTypeId() => __ID__;
 
-    public  void ResolveRef(Tables tables)
+    public  void ResolveRef(CfgTables tables)
     {
     }
 

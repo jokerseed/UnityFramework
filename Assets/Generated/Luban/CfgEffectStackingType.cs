@@ -11,7 +11,7 @@
 
 namespace cfg
 { 
-    public enum EffectStackingType
+    public enum CfgEffectStackingType
     {
         None = 0,
         RefreshDuration = 1,

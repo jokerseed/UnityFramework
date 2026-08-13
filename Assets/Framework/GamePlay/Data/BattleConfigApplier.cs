@@ -18,10 +18,10 @@ namespace Framework.GamePlay.Data
             AbilitySystemComponent asc,
             string effectId,
             ActorId source,
-            Tables tables,
+            CfgTables tables,
             BattleContext battle)
         {
-            if (!tables.TbEffect.DataMap.TryGetValue(effectId, out var def))
+            if (!tables.CfgTbEffect.DataMap.TryGetValue(effectId, out var def))
             {
                 throw new KeyNotFoundException($"Effect config not found: {effectId}");
             }

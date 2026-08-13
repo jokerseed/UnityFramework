@@ -11,7 +11,7 @@
 
 namespace cfg
 { 
-    public enum AbilityType
+    public enum CfgAbilityType
     {
         /// <summary>
         /// 弹道

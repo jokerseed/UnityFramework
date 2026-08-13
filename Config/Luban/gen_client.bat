@@ -35,6 +35,10 @@ dotnet "%LUBAN_DLL%" ^
     -x "outputDataDir=%OUTPUT_BIN%"
 if errorlevel 1 exit /b 1
 
+echo [1b] Validate generated code file prefix (Config/Luban/codegen.json) ...
+python "%CONF_ROOT%validate_codegen_prefix.py"
+if errorlevel 1 exit /b 1
+
 echo [2/2] Export JSON for debug ...
 dotnet "%LUBAN_DLL%" ^
     -t client ^
@@ -46,9 +50,10 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo [Luban] Done.
-echo   Code : %OUTPUT_CODE%
-echo   Bin  : %OUTPUT_BIN%
-echo   JSON : %OUTPUT_JSON%
+echo   Code   : %OUTPUT_CODE%
+echo   Bin    : %OUTPUT_BIN%
+echo   JSON   : %OUTPUT_JSON%
+echo   Prefix : see Config/Luban/codegen.json
 
 endlocal
 exit /b 0

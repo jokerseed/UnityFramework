@@ -22,7 +22,7 @@ namespace Framework.GamePlay.Data
         /// <param name="def">Luban 技能行。</param>
         /// <param name="teamId">队伍 ID。</param>
         /// <returns>技能定义。</returns>
-        public GameplayAbilityDef CreateDef(AbilityDef def, int teamId)
+        public GameplayAbilityDef CreateDef(CfgAbilityDef def, int teamId)
         {
             return new GameplayAbilityDef(
                 def.Id,
@@ -34,11 +34,11 @@ namespace Framework.GamePlay.Data
         /// <param name="def">Luban 技能行。</param>
         /// <param name="teamId">队伍 ID。</param>
         /// <returns>技能实例。</returns>
-        public GameplayAbility Create(AbilityDef def, int teamId)
+        public GameplayAbility Create(CfgAbilityDef def, int teamId)
         {
             switch (def.Type)
             {
-                case AbilityType.Projectile:
+                case CfgAbilityType.Projectile:
                     return new ProjectileAbility(
                         def.Id,
                         def.Cooldown,
@@ -47,7 +47,7 @@ namespace Framework.GamePlay.Data
                         def.Lifetime,
                         def.Damage,
                         teamId);
-                case AbilityType.Melee:
+                case CfgAbilityType.Melee:
                     return new MeleeStrikeAbility(
                         def.Id,
                         def.Cooldown,

@@ -52,7 +52,7 @@ yield return bootstrap.RunAsync("launch");
 bootstrap.Run("battle"); // 或 yield return RunAsync("battle")
 
 // 各组初始化完成后，从各模块自己的入口取用（非 Bootstrap 职责）
-var tables = ConfigService.Tables;
+var tables = ConfigManager.Instance.LoadTables();
 var manager = ResourceManager.Instance;
 ```
 

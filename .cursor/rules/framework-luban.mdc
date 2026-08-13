@@ -1,0 +1,59 @@
+---
+description: Assets/Generated/Luban 配置生成代码的统一可配置类名/文件名前缀
+globs: Config/Luban/**/*,Assets/Generated/Luban/**/*.cs,Assets/Framework/Config/**/*.cs,Assets/Framework/Editor/**/*Luban*,Assets/Framework/GamePlay/Data/**/*.cs
+alwaysApply: false
+---
+
+# Luban 生成代码命名前缀（识别配置类）
+
+## 目标
+
+`Assets/Generated/Luban/` 下 **全部生成的 `.cs` 文件名** 与 **其中的类型名（class/enum）** 使用同一可配置前缀，一眼区分「配置代码」与业务/GAS 运行时类型（如 `GameplayAbilityDef`）。含 bean、enum、table，以及 Luban 附带生成的 **manager（原 Tables）**。
+
+前缀配置（唯一真相源）：
+
+```text
+Config/Luban/codegen.json → codeTypePrefix
+```
+
+默认：`Cfg`。改前缀后必须同步改 `Config/Luban/Defines/**`、`luban.conf` 的 `manager`，并重新打表。
+
+## 规则
+
+| 项 | 要求 |
+|----|------|
+| bean / enum / table | Defines 中 `name` 必须以 `codeTypePrefix` 开头 |
+| manager | `luban.conf` → `targets[].manager` 必须以 `codeTypePrefix` 开头（默认 `CfgTables`） |
+| 生成文件 | `Assets/Generated/Luban/{TypeName}.cs`（与类型名一致） |
+| 数据文件 `.bytes` | 可用 table 的 `output="tbability"` 固定寻址名，**不必**随类名改 |
+
+## 正确示例（前缀 = `Cfg`）
+
+```xml
+<bean name="CfgAbilityDef" ... />
+<enum name="CfgAbilityType" ... />
+<table name="CfgTbAbility" value="CfgAbilityDef" input="..." output="tbability" />
+```
+
+```json
+{ "name": "client", "manager": "CfgTables", "groups": ["c"], "topModule": "cfg" }
+```
+
+```text
+Assets/Generated/Luban/CfgAbilityDef.cs      → public class CfgAbilityDef
+Assets/Generated/Luban/CfgAbilityType.cs     → public enum CfgAbilityType
+Assets/Generated/Luban/CfgTbAbility.cs       → public class CfgTbAbility
+Assets/Generated/Luban/CfgTables.cs          → public class CfgTables
+```
+
+业务引用：`cfg.CfgAbilityDef`、`cfg.CfgTables`、`tables.CfgTbAbility`。
+
+## 禁止
+
+- 在 `Assets/Generated/Luban` 新增无前缀的配置类型（含 manager）
+- 只改文件名不改 Defines / `luban.conf` / 类名
+- 给 GAS 运行时类型（`GameplayAbilityDef` 等）套同一前缀规则
+
+## 打表
+
+`gen_client.bat` / **Tools → Luban → Generate Client Config** 会跑 `validate_codegen_prefix.py`；`enforceOnGenerate: true` 时校验失败中断。

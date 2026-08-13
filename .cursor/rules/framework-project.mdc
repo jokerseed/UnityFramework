@@ -29,7 +29,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性） |
 | `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据） |
 | `Framework.GamePlay` | `GamePlayFramework` 玩法主入口；`GamePlay.Data` 负责 Luban→GAS 装配 |
-| `Framework.Config` | Luban 加载与 Tables 缓存 |
+| `Framework.Config` | Luban 按需加载与 Tables 缓存（`ConfigManager`） |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时资源加载/释放唯一入口** |
 | `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
 | `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
@@ -69,6 +69,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 资源：**Tools → YooAsset → Generate Collector**
 - 配置寻址：`bundles/configs/{表名}.unity3d`
 - **自研 Editor 顶栏菜单必须挂在 `Tools/` 下**（见 `framework-editor-menu.mdc`）
+- **Luban 生成代码类型/文件名须带可配置前缀**（`Config/Luban/codegen.json`，见 `framework-luban.mdc`）
 
 ## 编码要求
 

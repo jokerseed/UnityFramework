@@ -117,8 +117,8 @@ Collector 规则：
 ## 运行时加载配置
 
 ```csharp
-var tables = ConfigService.Tables;
-// 或 ResourceManager.Instance.LoadLubanTables()
+var tables = ConfigManager.Instance.LoadTables();
+// 或 ResourceManager.Instance.LoadLubanTables()（无 ConfigManager 缓存）
 ```
 
 ## 编辑器工具

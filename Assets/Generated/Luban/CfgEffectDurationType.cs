@@ -11,7 +11,7 @@
 
 namespace cfg
 { 
-    public enum EffectDurationType
+    public enum CfgEffectDurationType
     {
         /// <summary>
         /// 即时
