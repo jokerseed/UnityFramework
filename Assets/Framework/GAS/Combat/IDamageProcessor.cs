@@ -1,4 +1,5 @@
 using Framework.GAS;
+using UnityEngine;
 
 namespace Framework.GAS.Combat
 {
@@ -13,10 +14,10 @@ namespace Framework.GAS.Combat
         DamageContext Process(DamageContext context, AbilitySystemComponent source, AbilitySystemComponent target);
     }
 
-    /// <summary>默认伤害管线：免疫 → 护甲减免 → 下限 0。</summary>
+    /// <summary>默认伤害管线：免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击。</summary>
     public sealed class DefaultDamageProcessor : IDamageProcessor
     {
-        /// <summary>按顺序检查免疫标签、减去护甲值并钳制到 0，返回最终伤害上下文。</summary>
+        /// <summary>按顺序检查免疫、护盾、护甲并可选暴击，返回最终伤害上下文。</summary>
         /// <param name="context">原始伤害上下文。</param>
         /// <param name="source">来源单位的 ASC；可为 null。</param>
         /// <param name="target">目标单位的 ASC；不可为 null。</param>
@@ -26,19 +27,63 @@ namespace Framework.GAS.Combat
             if (target.Tags.HasTag(new Tags.GameplayTag(Core.BattleConstants.TagImmuneDamage)) ||
                 target.Tags.HasTag(new Tags.GameplayTag(Core.BattleConstants.TagDead)))
             {
-                return context.WithFinalDamage(0f);
+                return context.WithPipelineResult(0f, false, 0f);
             }
 
-            var defense = target.Attributes.GetCurrentValue(Core.BattleConstants.Defense);
-            var attack = source?.Attributes.GetCurrentValue(Core.BattleConstants.Attack) ?? context.RawDamage;
-            var raw = context.RawDamage > 0f ? context.RawDamage : attack;
-            var final = raw - defense;
-            if (final < 0f)
+            var remaining = context.RawDamage > 0f
+                ? context.RawDamage
+                : source?.Attributes.GetCurrentValue(Core.BattleConstants.Attack) ?? 0f;
+
+            var shield = target.Attributes.GetCurrentValue(Core.BattleConstants.Shield);
+            var absorbed = 0f;
+            if (shield > 0f && remaining > 0f)
             {
-                final = 0f;
+                absorbed = remaining < shield ? remaining : shield;
+                remaining -= absorbed;
+                var shieldAttr = target.Attributes.GetOrCreate(Core.BattleConstants.Shield);
+                shieldAttr.SetCurrentValue(shield - absorbed);
             }
 
-            return context.WithFinalDamage(final);
+            var resistName = context.DamageType == Core.BattleDamageType.Magical
+                ? Core.BattleConstants.MagicDefense
+                : Core.BattleConstants.Defense;
+            var resist = target.Attributes.GetCurrentValue(resistName);
+            remaining -= resist;
+            if (remaining < 0f)
+            {
+                remaining = 0f;
+            }
+
+            if (remaining > 0f)
+            {
+                var takenMul = 1f;
+                if (target.Attributes.TryGet(Core.BattleConstants.IncomingDamageMultiplier, out var takenAttr))
+                {
+                    takenMul = takenAttr.CurrentValue;
+                    if (takenMul < 0f)
+                    {
+                        takenMul = 0f;
+                    }
+                }
+
+                remaining *= takenMul;
+            }
+
+            var isCrit = false;
+            var critChance = source?.Attributes.GetCurrentValue(Core.BattleConstants.CritChance) ?? 0f;
+            if (critChance > 0f && remaining > 0f && Random.value < critChance)
+            {
+                var multiplier = source.Attributes.GetCurrentValue(Core.BattleConstants.CritMultiplier);
+                if (multiplier <= 0f)
+                {
+                    multiplier = Core.BattleConstants.DefaultCritMultiplier;
+                }
+
+                remaining *= multiplier;
+                isCrit = true;
+            }
+
+            return context.WithPipelineResult(remaining, isCrit, absorbed);
         }
     }
 }

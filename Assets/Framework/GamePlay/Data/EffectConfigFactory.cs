@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
 using cfg;
+using Framework.Config;
+using Framework.Core;
 using Framework.GAS.Effects;
+using Framework.GAS.Tags;
 
 namespace Framework.GamePlay.Data
 {
@@ -21,12 +25,58 @@ namespace Framework.GamePlay.Data
                     def.ModMagnitude));
             }
 
+            if (def.ShieldValue > 0f)
+            {
+                modifiers.Add(new EffectModifier(
+                    BattleConstants.Shield,
+                    EffectModifierOperation.Add,
+                    def.ShieldValue));
+            }
+
+            var executions = new List<GameplayEffectExecution>();
+            switch (def.ExecutionType)
+            {
+                case CfgEffectExecutionType.Damage:
+                    executions.Add(new DamageExecution());
+                    break;
+                case CfgEffectExecutionType.Heal:
+                    executions.Add(new HealExecution(ModifierMagnitude.Constant(def.ModMagnitude)));
+                    break;
+                case CfgEffectExecutionType.ApplyEffect:
+                    if (!string.IsNullOrEmpty(def.ExecutionEffectId) &&
+                        def.ExecutionEffectId != def.Id &&
+                        ConfigManager.HasInstance)
+                    {
+                        var tables = ConfigManager.Instance.GetTables();
+                        if (tables != null &&
+                            tables.CfgTbEffect.DataMap.TryGetValue(def.ExecutionEffectId, out var nested))
+                        {
+                            executions.Add(new ApplyGameplayEffectExecution(CreateDef(nested)));
+                        }
+                    }
+                    break;
+            }
+
+            var cost = string.IsNullOrEmpty(def.CostAttribute) || def.CostAmount <= 0f
+                ? null
+                : new Dictionary<string, float> { [def.CostAttribute] = def.CostAmount };
+
             return new GameplayEffectDef(
                 def.Id,
                 MapDuration(def.DurationType),
                 def.Duration,
                 modifiers,
-                stackingPolicy: MapStacking(def.Stacking));
+                ParseTags(def.GrantedTags),
+                MapStacking(def.Stacking),
+                ParseTags(def.RequiredTags),
+                ParseTags(def.BlockedTags),
+                ParseTags(def.ImmunityTags),
+                executions: executions,
+                period: def.Period,
+                cueTagsOnApply: ParseCue(def.CueApply),
+                cueTagsOnRemove: ParseCue(def.CueRemove),
+                costAttributes: cost,
+                maxStacks: def.MaxStacks);
         }
 
         /// <summary>创建运行时 Spec（兼容旧 API）。</summary>
@@ -41,7 +91,7 @@ namespace Framework.GamePlay.Data
                 case CfgEffectDurationType.Instant: return EffectDurationPolicy.Instant;
                 case CfgEffectDurationType.Duration: return EffectDurationPolicy.Duration;
                 case CfgEffectDurationType.Infinite: return EffectDurationPolicy.Infinite;
-                default: throw new System.NotSupportedException($"Unknown duration type: {type}");
+                default: throw new NotSupportedException($"Unknown duration type: {type}");
             }
         }
 
@@ -53,8 +103,39 @@ namespace Framework.GamePlay.Data
                 case CfgEffectStackingType.RefreshDuration: return EffectStackingPolicy.RefreshDuration;
                 case CfgEffectStackingType.StackCount: return EffectStackingPolicy.StackCount;
                 case CfgEffectStackingType.AggregateBySource: return EffectStackingPolicy.AggregateBySource;
-                default: throw new System.NotSupportedException($"Unknown stacking type: {type}");
+                default: throw new NotSupportedException($"Unknown stacking type: {type}");
             }
+        }
+
+        static IReadOnlyList<GameplayTag> ParseTags(string csv)
+        {
+            if (string.IsNullOrEmpty(csv))
+            {
+                return Array.Empty<GameplayTag>();
+            }
+
+            var parts = csv.Split(',');
+            var list = new List<GameplayTag>(parts.Length);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var name = parts[i].Trim();
+                if (name.Length > 0)
+                {
+                    list.Add(new GameplayTag(name));
+                }
+            }
+
+            return list;
+        }
+
+        static IReadOnlyList<string> ParseCue(string cue)
+        {
+            if (string.IsNullOrEmpty(cue))
+            {
+                return Array.Empty<string>();
+            }
+
+            return new[] { cue };
         }
     }
 }

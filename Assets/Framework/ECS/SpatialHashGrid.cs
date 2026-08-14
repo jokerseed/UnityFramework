@@ -11,6 +11,8 @@ namespace Framework.ECS
         readonly List<uint> _queryScratch = new List<uint>(32);
         readonly HashSet<uint> _queryDedup = new HashSet<uint>();
 
+        readonly Stack<HashSet<uint>> _setPool = new Stack<HashSet<uint>>(64);
+
         /// <summary>创建空间哈希网格。</summary>
         /// <param name="cellSize">单格边长（世界单位）；值越大每格容纳实体越多，查询精度越低。</param>
         public SpatialHashGrid(float cellSize)
@@ -18,8 +20,17 @@ namespace Framework.ECS
             _cellSize = cellSize;
         }
 
-        /// <summary>清空所有格子中的实体数据，通常在每帧 Tick 开始时调用。</summary>
-        public void Clear() => _cells.Clear();
+        /// <summary>清空格子内容并回收 HashSet，避免每帧 new。</summary>
+        public void Clear()
+        {
+            foreach (var pair in _cells)
+            {
+                pair.Value.Clear();
+                _setPool.Push(pair.Value);
+            }
+
+            _cells.Clear();
+        }
 
         /// <summary>将实体插入对应空间格子；同一格内同一实体只存一份。</summary>
         /// <param name="entityId">要插入的实体 ID。</param>
@@ -29,7 +40,7 @@ namespace Framework.ECS
             var key = Hash(position);
             if (!_cells.TryGetValue(key, out var set))
             {
-                set = new HashSet<uint>();
+                set = _setPool.Count > 0 ? _setPool.Pop() : new HashSet<uint>();
                 _cells[key] = set;
             }
 

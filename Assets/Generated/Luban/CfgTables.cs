@@ -21,11 +21,16 @@ public partial class CfgTables
     /// 效果表
     /// </summary>
     public CfgTbEffect CfgTbEffect {get; }
+    /// <summary>
+    /// Cue表现表
+    /// </summary>
+    public CfgTbCue CfgTbCue {get; }
 
     public CfgTables(System.Func<string, ByteBuf> loader)
     {
         CfgTbAbility = new CfgTbAbility(loader("tbability"));
         CfgTbEffect = new CfgTbEffect(loader("tbeffect"));
+        CfgTbCue = new CfgTbCue(loader("tbcue"));
         ResolveRef();
     }
     
@@ -33,6 +38,7 @@ public partial class CfgTables
     {
         CfgTbAbility.ResolveRef(this);
         CfgTbEffect.ResolveRef(this);
+        CfgTbCue.ResolveRef(this);
     }
 }
 

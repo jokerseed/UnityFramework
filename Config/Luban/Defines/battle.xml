@@ -2,6 +2,11 @@
     <enum name="CfgAbilityType">
         <var name="Projectile" alias="弹道" value="0"/>
         <var name="Melee" alias="近战" value="1"/>
+        <var name="AoeCircle" alias="圆形AOE" value="2"/>
+        <var name="AoeCone" alias="扇形AOE" value="3"/>
+        <var name="PierceProjectile" alias="穿透弹" value="4"/>
+        <var name="ExplodeProjectile" alias="爆炸弹" value="5"/>
+        <var name="Dash" alias="闪避冲刺" value="6"/>
     </enum>
 
     <enum name="CfgEffectDurationType">
@@ -17,16 +22,45 @@
         <var name="AggregateBySource" value="3"/>
     </enum>
 
+    <enum name="CfgDamageType">
+        <var name="Physical" alias="物理" value="0"/>
+        <var name="Magical" alias="法术" value="1"/>
+    </enum>
+
+    <enum name="CfgEffectExecutionType">
+        <var name="None" alias="无" value="0"/>
+        <var name="Damage" alias="伤害" value="1"/>
+        <var name="Heal" alias="治疗" value="2"/>
+        <var name="ApplyEffect" alias="施加效果" value="3"/>
+    </enum>
+
     <bean name="CfgAbilityDef" comment="技能配置">
         <var name="id" type="string" comment="技能ID"/>
         <var name="type" type="CfgAbilityType" comment="技能类型"/>
         <var name="cooldown" type="float" comment="冷却(秒)"/>
         <var name="damage" type="float" comment="伤害"/>
         <var name="speed" type="float" comment="弹道速度"/>
-        <var name="radius" type="float" comment="碰撞半径"/>
+        <var name="radius" type="float" comment="碰撞或AOE半径"/>
         <var name="lifetime" type="float" comment="弹道存活时间"/>
-        <var name="range" type="float" comment="近战范围"/>
+        <var name="range" type="float" comment="近战/扇形距离"/>
         <var name="cue_tag" type="string" comment="GameplayCue"/>
+        <var name="cost_attribute" type="string" comment="消耗属性名"/>
+        <var name="cost_amount" type="float" comment="消耗量"/>
+        <var name="required_tags" type="string" comment="所需Tag逗号分隔"/>
+        <var name="blocked_tags" type="string" comment="阻断Tag逗号分隔"/>
+        <var name="damage_type" type="CfgDamageType" comment="伤害类型"/>
+        <var name="half_angle" type="float" comment="扇形半角"/>
+        <var name="pierce_count" type="int" comment="穿透次数"/>
+        <var name="explode_radius" type="float" comment="爆炸半径"/>
+        <var name="hit_effect_id" type="string" comment="命中施加效果ID"/>
+        <var name="channel_time" type="float" comment="引导时间"/>
+        <var name="cooldown_group" type="string" comment="共享冷却键，空则用技能ID"/>
+        <var name="asset_tags" type="string" comment="技能身份Tag逗号分隔"/>
+        <var name="owned_tags" type="string" comment="激活期间授予Tag"/>
+        <var name="cancel_tags" type="string" comment="激活时取消的技能Tag"/>
+        <var name="recovery_time" type="float" comment="近战后摇"/>
+        <var name="knockback" type="float" comment="击退距离"/>
+        <var name="combo_effect_id" type="string" comment="后摇时自身连招窗口效果"/>
     </bean>
 
     <bean name="CfgEffectDef" comment="效果配置">
@@ -35,11 +69,33 @@
         <var name="duration" type="float"/>
         <var name="stacking" type="CfgEffectStackingType"/>
         <var name="mod_attribute" type="string" comment="修改属性名"/>
-        <var name="mod_operation" type="int" comment="0=Add 1=Multiply"/>
+        <var name="mod_operation" type="int" comment="0=Add 1=Multiply 2=Override"/>
         <var name="mod_magnitude" type="float"/>
+        <var name="granted_tags" type="string" comment="授予Tag逗号分隔"/>
+        <var name="required_tags" type="string" comment="应用前置Tag"/>
+        <var name="blocked_tags" type="string" comment="应用阻断Tag"/>
+        <var name="immunity_tags" type="string" comment="免疫Tag"/>
+        <var name="period" type="float" comment="周期秒"/>
+        <var name="max_stacks" type="int" comment="叠层上限"/>
+        <var name="cost_attribute" type="string"/>
+        <var name="cost_amount" type="float"/>
+        <var name="execution_type" type="CfgEffectExecutionType"/>
+        <var name="execution_effect_id" type="string" comment="ApplyGE 目标效果"/>
+        <var name="cue_apply" type="string"/>
+        <var name="cue_remove" type="string"/>
+        <var name="shield_value" type="float" comment="护盾附加值"/>
     </bean>
 
-    <!-- output 固定数据文件名，避免改表类名后打断 bundles/configs 寻址 -->
+    <bean name="CfgCueDef" comment="GameplayCue 表现">
+        <var name="id" type="string" comment="Cue Tag"/>
+        <var name="duration" type="float" comment="表现时长"/>
+        <var name="scale" type="float" comment="球体缩放"/>
+        <var name="color_r" type="float"/>
+        <var name="color_g" type="float"/>
+        <var name="color_b" type="float"/>
+    </bean>
+
     <table name="CfgTbAbility" value="CfgAbilityDef" input="battle/ability.xlsx" output="tbability" comment="技能表"/>
     <table name="CfgTbEffect" value="CfgEffectDef" input="battle/effect.xlsx" output="tbeffect" comment="效果表"/>
+    <table name="CfgTbCue" value="CfgCueDef" input="battle/cue.xlsx" output="tbcue" comment="Cue表现表"/>
 </module>

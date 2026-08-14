@@ -54,14 +54,20 @@ namespace Framework.GAS.Effects
     {
         readonly float _attackScale;
         readonly string _setByCallerKey;
+        readonly BattleDamageType _damageType;
 
         /// <summary>构造伤害 Execution。</summary>
         /// <param name="attackScale">攻击力缩放系数。</param>
         /// <param name="setByCallerKey">优先使用的 SetByCaller 键；为 null 时使用 Attack 属性。</param>
-        public DamageExecution(float attackScale = 1f, string setByCallerKey = "Damage")
+        /// <param name="damageType">伤害类型。</param>
+        public DamageExecution(
+            float attackScale = 1f,
+            string setByCallerKey = "Damage",
+            BattleDamageType damageType = BattleDamageType.Physical)
         {
             _attackScale = attackScale;
             _setByCallerKey = setByCallerKey;
+            _damageType = damageType;
         }
 
         /// <inheritdoc/>
@@ -83,7 +89,8 @@ namespace Framework.GAS.Effects
                 context.Source?.ActorId ?? ActorId.Invalid,
                 context.Target.ActorId,
                 raw,
-                context.Spec?.EffectId ?? "Execution");
+                context.Spec?.EffectId ?? "Execution",
+                damageType: _damageType);
 
             context.Target.ApplyDamage(damageContext, context.EventBus, context.Source);
         }
@@ -135,7 +142,12 @@ namespace Framework.GAS.Effects
                 return;
             }
 
-            context.Target.ApplyEffect(_effectDef, context.Source?.ActorId ?? ActorId.Invalid, context.EventBus, context.SetByCaller);
+            context.Target.ApplyEffect(
+                _effectDef,
+                context.Source?.ActorId ?? ActorId.Invalid,
+                context.EventBus,
+                context.SetByCaller,
+                context.Source);
         }
     }
 }

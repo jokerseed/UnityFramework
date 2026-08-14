@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Framework.Core;
 
 namespace Framework.GAS.Attributes
 {
@@ -52,6 +53,7 @@ namespace Framework.GAS.Attributes
         readonly Dictionary<string, float> _additive = new Dictionary<string, float>();
         readonly Dictionary<string, float> _multiplier = new Dictionary<string, float>();
         readonly Dictionary<string, float> _override = new Dictionary<string, float>();
+        readonly HashSet<string> _keys = new HashSet<string>();
 
         /// <summary>清空本轮汇总数据，以便下一次重算前重新填入。</summary>
         public void Clear()
@@ -59,9 +61,14 @@ namespace Framework.GAS.Attributes
             _additive.Clear();
             _multiplier.Clear();
             _override.Clear();
+            _keys.Clear();
         }
 
         /// <summary>将单个修改器的贡献量累加到对应属性桶中。</summary>
+        /// <param name="attributeName">属性名。</param>
+        /// <param name="magnitude">单层幅度。</param>
+        /// <param name="operation">运算方式。</param>
+        /// <param name="stackCount">叠层；幅度会乘以该值。</param>
         public void Add(string attributeName, float magnitude, Effects.EffectModifierOperation operation, int stackCount = 1)
         {
             var scaled = magnitude * stackCount;
@@ -79,16 +86,33 @@ namespace Framework.GAS.Attributes
             }
         }
 
-        /// <summary>将汇总后的修改量应用到属性集合。</summary>
+        /// <summary>将汇总后的修改量应用到属性集合。跳过 Health / Mana / Shield 等资源属性。</summary>
+        /// <param name="attributes">属性集合。</param>
         public void ApplyTo(GameplayAttributeSet attributes)
         {
-            var keys = new HashSet<string>();
-            foreach (var key in _additive.Keys) keys.Add(key);
-            foreach (var key in _multiplier.Keys) keys.Add(key);
-            foreach (var key in _override.Keys) keys.Add(key);
-
-            foreach (var key in keys)
+            _keys.Clear();
+            foreach (var key in _additive.Keys)
             {
+                _keys.Add(key);
+            }
+
+            foreach (var key in _multiplier.Keys)
+            {
+                _keys.Add(key);
+            }
+
+            foreach (var key in _override.Keys)
+            {
+                _keys.Add(key);
+            }
+
+            foreach (var key in _keys)
+            {
+                if (BattleConstants.IsResourceAttribute(key))
+                {
+                    continue;
+                }
+
                 var attribute = attributes.GetOrCreate(key);
                 if (_override.TryGetValue(key, out var overrideValue))
                 {
@@ -100,6 +124,31 @@ namespace Framework.GAS.Attributes
                 var mul = _multiplier.TryGetValue(key, out var m) ? m : 1f;
                 attribute.Recalculate(add, mul);
             }
+        }
+
+        /// <summary>按当前汇总计算属性结果（含资源属性，供护盾上限使用）。</summary>
+        /// <param name="attributeName">属性名。</param>
+        /// <param name="baseValue">基础值。</param>
+        /// <param name="result">计算结果。</param>
+        /// <returns>存在该属性的修改器时返回 true；否则 <paramref name="result"/> 为基础值。</returns>
+        public bool TryEvaluate(string attributeName, float baseValue, out float result)
+        {
+            if (_override.TryGetValue(attributeName, out var overrideValue))
+            {
+                result = overrideValue;
+                return true;
+            }
+
+            var hasAdd = _additive.TryGetValue(attributeName, out var add);
+            var hasMul = _multiplier.TryGetValue(attributeName, out var mul);
+            if (!hasAdd && !hasMul)
+            {
+                result = baseValue;
+                return false;
+            }
+
+            result = (baseValue + (hasAdd ? add : 0f)) * (hasMul ? mul : 1f);
+            return true;
         }
     }
 
@@ -142,11 +191,19 @@ namespace Framework.GAS.Attributes
         public float GetBaseValue(string name) =>
             _attributes.TryGetValue(name, out var attribute) ? attribute.BaseValue : 0f;
 
-        /// <summary>将所有属性重置为"无修改器"状态（加量 0、系数 1），通常在重算前调用。</summary>
+        /// <summary>
+        /// 将非资源属性重置为无修改器状态（加量 0、系数 1）。
+        /// Health / Mana / Shield 的当前值由伤害与消耗维护，不会被覆盖。
+        /// </summary>
         public void RecalculateAll()
         {
             foreach (var attribute in _attributes.Values)
             {
+                if (BattleConstants.IsResourceAttribute(attribute.Name))
+                {
+                    continue;
+                }
+
                 attribute.Recalculate(0f, 1f);
             }
         }

@@ -25,6 +25,13 @@ if not exist "%LUBAN_DLL%" (
     )
 )
 
+echo [0/3] Ensure Excel source files exist...
+python "%CONF_ROOT%create_excel.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] create_excel.py failed. Install Python + openpyxl.
+    exit /b %ERRORLEVEL%
+)
+
 echo [1/2] Generate C# code + binary (.bytes) ...
 dotnet "%LUBAN_DLL%" ^
     -t client ^

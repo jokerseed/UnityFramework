@@ -66,13 +66,13 @@ namespace Framework.GAS.Tags
         }
     }
 
-    /// <summary>GameplayTag 容器，管理单个单位持有的所有标签，支持层级查询。</summary>
+    /// <summary>GameplayTag 容器，管理单个单位持有的所有标签，支持层级查询与引用计数。</summary>
     public sealed class GameplayTagContainer
     {
-        readonly HashSet<string> _tags = new HashSet<string>();
+        readonly Dictionary<string, int> _counts = new Dictionary<string, int>();
 
-        /// <summary>当前持有的所有标签名称集合（只读视图）。</summary>
-        public IReadOnlyCollection<string> Tags => _tags;
+        /// <summary>当前持有的所有标签名称集合（只读视图，计数大于 0 的键）。</summary>
+        public IReadOnlyCollection<string> Tags => _counts.Keys;
 
         /// <summary>检查容器是否持有与 <paramref name="tag"/> 匹配的标签（支持层级前缀匹配）。</summary>
         /// <param name="tag">要查询的标签；无效标签始终返回 false。</param>
@@ -84,7 +84,7 @@ namespace Framework.GAS.Tags
                 return false;
             }
 
-            foreach (var owned in _tags)
+            foreach (var owned in _counts.Keys)
             {
                 if (GameplayTagMatcher.Matches(new GameplayTag(owned), tag))
                 {
@@ -100,6 +100,11 @@ namespace Framework.GAS.Tags
         /// <returns>持有任意一个则返回 true。</returns>
         public bool HasAny(IEnumerable<GameplayTag> tags)
         {
+            if (tags == null)
+            {
+                return false;
+            }
+
             foreach (var tag in tags)
             {
                 if (HasTag(tag))
@@ -116,6 +121,11 @@ namespace Framework.GAS.Tags
         /// <returns>全部匹配则返回 true。</returns>
         public bool HasAll(IEnumerable<GameplayTag> required)
         {
+            if (required == null)
+            {
+                return true;
+            }
+
             foreach (var tag in required)
             {
                 if (!HasTag(tag))
@@ -127,9 +137,9 @@ namespace Framework.GAS.Tags
             return true;
         }
 
-        /// <summary>向容器添加标签。</summary>
+        /// <summary>增加标签引用计数；从 0 变为 1 时视为新增。</summary>
         /// <param name="tag">要添加的标签；无效标签将被忽略。</param>
-        /// <returns>标签为新增时返回 true；已存在或无效则返回 false。</returns>
+        /// <returns>标签为新增（计数 0→1）时返回 true；仅增加计数或无效则返回 false。</returns>
         public bool AddTag(GameplayTag tag)
         {
             if (!tag.IsValid)
@@ -137,23 +147,37 @@ namespace Framework.GAS.Tags
                 return false;
             }
 
-            return _tags.Add(tag.Name);
+            if (_counts.TryGetValue(tag.Name, out var count))
+            {
+                _counts[tag.Name] = count + 1;
+                return false;
+            }
+
+            _counts[tag.Name] = 1;
+            return true;
         }
 
-        /// <summary>从容器移除标签。</summary>
+        /// <summary>减少标签引用计数；减到 0 时真正移除。</summary>
         /// <param name="tag">要移除的标签；无效标签将被忽略。</param>
-        /// <returns>成功移除返回 true；不存在或无效则返回 false。</returns>
+        /// <returns>计数降为 0 并移除时返回 true；仅减少计数或不存在则返回 false。</returns>
         public bool RemoveTag(GameplayTag tag)
         {
-            if (!tag.IsValid)
+            if (!tag.IsValid || !_counts.TryGetValue(tag.Name, out var count))
             {
                 return false;
             }
 
-            return _tags.Remove(tag.Name);
+            if (count > 1)
+            {
+                _counts[tag.Name] = count - 1;
+                return false;
+            }
+
+            _counts.Remove(tag.Name);
+            return true;
         }
 
-        /// <summary>清空容器中所有标签。</summary>
-        public void Clear() => _tags.Clear();
+        /// <summary>清空容器中所有标签及计数。</summary>
+        public void Clear() => _counts.Clear();
     }
 }

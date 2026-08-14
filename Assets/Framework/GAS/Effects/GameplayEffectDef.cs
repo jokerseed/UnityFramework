@@ -53,6 +53,9 @@ namespace Framework.GAS.Effects
         /// <summary>作为技能 Cost 的属性消耗（属性名 → 量）。</summary>
         public IReadOnlyDictionary<string, float> CostAttributes { get; }
 
+        /// <summary>叠层上限；≤0 表示不限制。</summary>
+        public int MaxStacks { get; }
+
         /// <summary>构造效果定义。</summary>
         public GameplayEffectDef(
             string effectId,
@@ -69,7 +72,8 @@ namespace Framework.GAS.Effects
             float period = 0f,
             IReadOnlyList<string> cueTagsOnApply = null,
             IReadOnlyList<string> cueTagsOnRemove = null,
-            IReadOnlyDictionary<string, float> costAttributes = null)
+            IReadOnlyDictionary<string, float> costAttributes = null,
+            int maxStacks = 0)
         {
             EffectId = effectId;
             DurationPolicy = durationPolicy;
@@ -86,6 +90,7 @@ namespace Framework.GAS.Effects
             CueTagsOnApply = cueTagsOnApply ?? Array.Empty<string>();
             CueTagsOnRemove = cueTagsOnRemove ?? Array.Empty<string>();
             CostAttributes = costAttributes ?? new Dictionary<string, float>();
+            MaxStacks = maxStacks;
         }
 
         /// <summary>从现有 Spec 包装为 Def（兼容旧 API）。</summary>
@@ -107,6 +112,7 @@ namespace Framework.GAS.Effects
             CueTagsOnApply = spec.CueTagsOnApply;
             CueTagsOnRemove = spec.CueTagsOnRemove;
             CostAttributes = spec.CostAttributes;
+            MaxStacks = spec.MaxStacks;
         }
 
         /// <summary>转为运行时 Spec。</summary>

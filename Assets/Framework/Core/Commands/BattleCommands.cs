@@ -31,6 +31,18 @@ namespace Framework.Core.Commands
 
         /// <summary>发射者所属队伍 ID，用于友伤判定。</summary>
         public int TeamId;
+
+        /// <summary>可穿透的额外命中次数；0 表示命中即销毁。</summary>
+        public int PierceCount;
+
+        /// <summary>命中后对目标施加的效果 ID；空则不施加。</summary>
+        public string HitEffectId;
+
+        /// <summary>命中爆炸半径；≤0 表示不爆炸。</summary>
+        public float ExplodeRadius;
+
+        /// <summary>伤害类型。</summary>
+        public BattleDamageType DamageType;
     }
 
     /// <summary>对目标施加伤害的命令，由碰撞/技能系统写入 <see cref="BattleCommandBuffer"/>，GAS 系统消费。</summary>
@@ -47,5 +59,78 @@ namespace Framework.Core.Commands
 
         /// <summary>触发伤害的技能 ID，用于 GAS 效果查表。</summary>
         public string AbilityId;
+
+        /// <summary>伤害类型。</summary>
+        public BattleDamageType DamageType;
+    }
+
+    /// <summary>对目标施加治疗。</summary>
+    public struct ApplyHealCommand
+    {
+        /// <summary>治疗来源。</summary>
+        public ActorId Source;
+
+        /// <summary>治疗目标。</summary>
+        public ActorId Target;
+
+        /// <summary>治疗量。</summary>
+        public float Amount;
+    }
+
+    /// <summary>对目标施加 GameplayEffect（由 GamePlay 按 EffectId 装配）。</summary>
+    public struct ApplyEffectCommand
+    {
+        /// <summary>效果来源。</summary>
+        public ActorId Source;
+
+        /// <summary>效果目标。</summary>
+        public ActorId Target;
+
+        /// <summary>效果配置 ID。</summary>
+        public string EffectId;
+    }
+
+    /// <summary>对目标施加位移（击退）。</summary>
+    public struct ApplyDisplaceCommand
+    {
+        /// <summary>位移目标。</summary>
+        public ActorId Target;
+
+        /// <summary>世界空间位移向量。</summary>
+        public Vector3 Offset;
+    }
+
+    /// <summary>范围伤害/效果，由投射物爆炸或技能写入。</summary>
+    public struct ApplyAreaEffectCommand
+    {
+        /// <summary>来源 Actor。</summary>
+        public ActorId Source;
+
+        /// <summary>圆心。</summary>
+        public Vector3 Origin;
+
+        /// <summary>半径。</summary>
+        public float Radius;
+
+        /// <summary>对每个目标的伤害；0 表示只施加效果。</summary>
+        public float Damage;
+
+        /// <summary>技能 ID。</summary>
+        public string AbilityId;
+
+        /// <summary>对每个目标施加的效果 ID；空则不施加。</summary>
+        public string EffectId;
+
+        /// <summary>来源队伍，用于敌对过滤。</summary>
+        public int TeamId;
+
+        /// <summary>伤害类型。</summary>
+        public BattleDamageType DamageType;
+
+        /// <summary>扇形半角（度）；≤0 表示圆形范围。</summary>
+        public float HalfAngleDegrees;
+
+        /// <summary>扇形朝向；圆形时可忽略。</summary>
+        public Vector3 Direction;
     }
 }

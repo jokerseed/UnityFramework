@@ -69,5 +69,21 @@ namespace Framework.GAS.Abilities
 
             _tasks.Clear();
         }
+
+        /// <summary>将 GameplayEvent 分发给尚未结束的任务。</summary>
+        /// <param name="eventData">事件数据。</param>
+        public void HandleGameplayEvent(in Framework.GAS.Events.GameplayEventData eventData)
+        {
+            for (var i = 0; i < _tasks.Count; i++)
+            {
+                var task = _tasks[i];
+                if (task.IsDone || task.IsCancelled)
+                {
+                    continue;
+                }
+
+                task.HandleGameplayEvent(eventData);
+            }
+        }
     }
 }

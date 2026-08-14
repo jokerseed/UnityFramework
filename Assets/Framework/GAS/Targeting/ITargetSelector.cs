@@ -5,6 +5,21 @@ using UnityEngine;
 
 namespace Framework.GAS.Targeting
 {
+    /// <summary>扇形敌对目标查询（由 GamePlay 注入，GAS 不引用空间索引）。</summary>
+    /// <param name="source">施法者。</param>
+    /// <param name="origin">扇形顶点。</param>
+    /// <param name="direction">朝向。</param>
+    /// <param name="halfAngleDegrees">半角（度）。</param>
+    /// <param name="range">半径（米）。</param>
+    /// <param name="results">输出列表；查询前会被清空。</param>
+    public delegate void ConeEnemyQuery(
+        ActorId source,
+        Vector3 origin,
+        Vector3 direction,
+        float halfAngleDegrees,
+        float range,
+        List<ActorId> results);
+
     /// <summary>目标选择器接口，为技能提供灵活可替换的目标查询策略。</summary>
     public interface ITargetSelector
     {

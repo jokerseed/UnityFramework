@@ -67,9 +67,8 @@ Bootstrap (Host)
     │       ├── UI (UIModule)             Presentation（依赖 Resource + Coroutine）
     │       └── Config (ConfigModule)     Data
     │               └── GamePlay (GamePlayModule)  Gameplay
-    │                       ├── GAS
-    │                       └── ECS
-    │                               └── Core
+    │                       ├── GAS / ECS
+    │                       └── BehaviourTree（AI Agent，非 IGameModule）
     │
     ├── FixedMath / Lockstep / LockstepPhysics / BehaviourTree（帧同步与 AI 基座，按需引用，非 IGameModule）
     └── Editor (Editor only)
@@ -89,7 +88,7 @@ Launch.Awake
 ## Tick 顺序
 
 ```
-GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
+GAS Tick → Flush Spawn → ECS Tick → Flush Damage/Heal/GE/Displace → SyncDeath → Sync Positions
 ```
 
 ## Luban 配置表

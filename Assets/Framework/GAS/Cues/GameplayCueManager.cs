@@ -49,24 +49,25 @@ namespace Framework.GAS.Cues
 
         /// <inheritdoc/>
         public void ExecuteCue(string cueTag, in GameplayCueParameters parameters) =>
-            Publish(cueTag, parameters);
+            Publish(cueTag, parameters, GameplayCueAction.Execute);
 
         /// <inheritdoc/>
         public void AddCue(string cueTag, in GameplayCueParameters parameters) =>
-            Publish(cueTag, parameters);
+            Publish(cueTag, parameters, GameplayCueAction.Add);
 
         /// <inheritdoc/>
         public void RemoveCue(string cueTag, in GameplayCueParameters parameters) =>
-            Publish(cueTag, parameters);
+            Publish(cueTag, parameters, GameplayCueAction.Remove);
 
-        void Publish(string cueTag, in GameplayCueParameters parameters)
+        void Publish(string cueTag, in GameplayCueParameters parameters, GameplayCueAction action)
         {
             _eventBus.Publish(new GameplayCueEvent
             {
                 Actor = parameters.Actor,
                 CueTag = cueTag,
                 Position = parameters.Location,
-                Direction = parameters.Direction
+                Direction = parameters.Direction,
+                Action = action
             });
         }
     }

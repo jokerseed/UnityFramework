@@ -4,6 +4,8 @@ using Framework.Core;
 using Framework.ECS;
 using Framework.ECS.Components;
 using Framework.GAS;
+using Framework.GAS.Tags;
+using Framework.GAS.Targeting;
 using UnityEngine;
 
 namespace Framework.GamePlay
@@ -92,6 +94,7 @@ namespace Framework.GamePlay
             _world.AddComponent(entity, new CombatStateComponent { IsAlive = true });
             _world.AddComponent(entity, new TeamComponent { TeamId = teamId });
             _world.AddComponent(entity, new CollisionComponent { Radius = BattleConstants.DefaultActorCollisionRadius });
+            _world.AddComponent(entity, new VelocityComponent { Value = Vector3.zero });
 
             _actors[actorId] = actor;
             return actor;
@@ -123,12 +126,53 @@ namespace Framework.GamePlay
         /// <param name="actorId">目标 Actor ID；若 Actor 或其 ECS 实体不存在则静默忽略。</param>
         public void MarkDead(ActorId actorId)
         {
+            SetCombatAlive(actorId, false);
+        }
+
+        /// <summary>将指定 Actor 的 ECS 战斗状态标记为存活。</summary>
+        /// <param name="actorId">目标 Actor ID；若 Actor 或其 ECS 实体不存在则静默忽略。</param>
+        public void MarkAlive(ActorId actorId) => SetCombatAlive(actorId, true);
+
+        void SetCombatAlive(ActorId actorId, bool isAlive)
+        {
             if (!TryGetEntity(actorId, out var entity))
             {
                 return;
             }
 
-            _world.AddComponent(entity, new CombatStateComponent { IsAlive = false });
+            _world.AddComponent(entity, new CombatStateComponent { IsAlive = isAlive });
+        }
+
+        /// <summary>写入 Actor 世界坐标（同时更新 ECS 与 <see cref="BattleActor.Position"/>）。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="position">世界坐标。</param>
+        public void SetPosition(ActorId actorId, Vector3 position)
+        {
+            if (!_actors.TryGetValue(actorId, out var actor) || !TryGetEntity(actorId, out var entity))
+            {
+                return;
+            }
+
+            if (!_world.TryGetComponent(entity, out TransformComponent transform))
+            {
+                transform = new TransformComponent { Forward = Vector3.forward };
+            }
+
+            transform.Position = position;
+            _world.AddComponent(entity, transform);
+            actor.Position = position;
+        }
+
+        /// <summary>移除击退冲量。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        public void ClearKnockback(ActorId actorId)
+        {
+            if (!TryGetEntity(actorId, out var entity))
+            {
+                return;
+            }
+
+            _world.GetStorage<KnockbackComponent>().Remove(entity.Id);
         }
 
         /// <summary>在指定范围内查询距 origin 最近的异队存活 Actor ID。</summary>
@@ -236,6 +280,11 @@ namespace Framework.GamePlay
                     continue;
                 }
 
+                if (!MatchesRequiredTags(target, filter))
+                {
+                    continue;
+                }
+
                 results.Add(target.ActorId);
             }
         }
@@ -299,6 +348,11 @@ namespace Framework.GamePlay
                     continue;
                 }
 
+                if (!MatchesRequiredTags(target, filter))
+                {
+                    continue;
+                }
+
                 results.Add(target.ActorId);
             }
         }
@@ -329,6 +383,106 @@ namespace Framework.GamePlay
             }
 
             return true;
+        }
+
+        static bool MatchesRequiredTags(BattleActor target, TargetDataFilter filter)
+        {
+            if (filter.RequiredTags == null || filter.RequiredTags.Count == 0)
+            {
+                return true;
+            }
+
+            for (var i = 0; i < filter.RequiredTags.Count; i++)
+            {
+                if (target.AbilitySystem.Tags.HasTag(new GameplayTag(filter.RequiredTags[i])))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>设置 Actor 的 ECS 速度；定身时由调用方传零向量。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="velocity">世界空间速度。</param>
+        public void SetVelocity(ActorId actorId, Vector3 velocity)
+        {
+            if (!TryGetEntity(actorId, out var entity))
+            {
+                return;
+            }
+
+            _world.AddComponent(entity, new VelocityComponent { Value = velocity });
+        }
+
+        /// <summary>对 Actor 施加击退冲量（写入 <see cref="KnockbackComponent"/>）。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="offset">期望位移向量（米）。</param>
+        /// <param name="duration">冲量持续秒数；≤0 时使用默认时长。</param>
+        public void ApplyKnockback(ActorId actorId, Vector3 offset, float duration = 0f)
+        {
+            if (!TryGetEntity(actorId, out var entity) || offset.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            if (duration <= 0f)
+            {
+                duration = BattleConstants.DefaultKnockbackDuration;
+            }
+
+            var add = offset / duration;
+            if (_world.TryGetComponent(entity, out KnockbackComponent existing))
+            {
+                existing.Velocity += add;
+                existing.Remaining = Mathf.Max(existing.Remaining, duration);
+                _world.AddComponent(entity, existing);
+                return;
+            }
+
+            _world.AddComponent(entity, new KnockbackComponent
+            {
+                Velocity = add,
+                Remaining = duration
+            });
+        }
+
+        /// <summary>对 Actor 施加世界空间位移（击退）。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="offset">位移向量。</param>
+        public void ApplyDisplacement(ActorId actorId, Vector3 offset)
+        {
+            ApplyKnockback(actorId, offset);
+        }
+
+        /// <summary>读取 Actor 朝向；无 Transform 时返回 <see cref="Vector3.forward"/>。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <returns>朝向向量。</returns>
+        public Vector3 GetForward(ActorId actorId)
+        {
+            if (!TryGetEntity(actorId, out var entity) ||
+                !_world.TryGetComponent(entity, out TransformComponent transform))
+            {
+                return Vector3.forward;
+            }
+
+            return transform.Forward.sqrMagnitude > 0f ? transform.Forward.normalized : Vector3.forward;
+        }
+
+        /// <summary>写入 Actor 朝向。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="forward">朝向。</param>
+        public void SetForward(ActorId actorId, Vector3 forward)
+        {
+            if (!TryGetEntity(actorId, out var entity) ||
+                !_world.TryGetComponent(entity, out TransformComponent transform))
+            {
+                return;
+            }
+
+            transform.Forward = forward.sqrMagnitude > 0f ? forward.normalized : Vector3.forward;
+            _world.AddComponent(entity, transform);
         }
 
         /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.Position"/>，每帧 Tick 末尾调用。</summary>

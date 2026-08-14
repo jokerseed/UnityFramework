@@ -7,6 +7,7 @@ using Framework.GamePlay;
 using Framework.GamePlay.Data;
 using Framework.GAS.Abilities;
 using Framework.GAS.Events;
+using Framework.GAS.Tags;
 using Framework.Logging;
 using Framework.Res;
 using UnityEngine;
@@ -15,31 +16,44 @@ namespace Game
 {
 /// <summary>
 /// 战斗场景业务入口：进 Battle 后由 GamePlay 接管——创建 Actor、注册技能、每帧 Tick，并同步模型表现。
-/// Hero 周期施放 Fireball；弹道用简易球体跟随 ECS 投射物。
+/// Hero 可用 WASD 移动；J 近战三连，K 火球，Left Shift 闪避。12 只杂兵槽位，全灭后刷下一波。
 /// 挂到 <c>Assets/Bundles/Scenes/Battle.unity</c> 任意常驻节点上。
 /// </summary>
 public sealed class BattleBootstrap : MonoBehaviour
 {
     static readonly Vector3 HeroPosition = new Vector3(-2f, 0f, 0f);
-    static readonly Vector3 MonsterPosition = new Vector3(2f, 0f, 0f);
     static readonly Quaternion FaceCamera = Quaternion.Euler(0f, 180f, 0f);
 
     static readonly ActorId HeroId = new ActorId(1);
-    static readonly ActorId MonsterId = new ActorId(2);
+    const uint FirstMonsterId = 2;
+    const int MonsterCount = 12;
     const int HeroTeamId = 1;
     const int MonsterTeamId = 2;
     const string FireballAbilityId = "Fireball";
     const float FireballCastHeight = 1.2f;
     const float FireballBallMinScale = 0.35f;
+    const string DodgeAbilityId = "Dodge";
+    const float ComboBufferSeconds = 0.28f;
+    const float MonsterBaseHealth = 40f;
+    const float HitStopScale = 0.18f;
+    const float HitStopSeconds = 0.05f;
+    static readonly string[] MeleeComboIds = { "Slash3", "Slash2", "Slash" };
 
     GamePlayFramework _framework;
     Action<DamageDealtEvent> _onDamageDealt;
+    Action<ActorDiedEvent> _onActorDied;
+    Action<GameplayCueEvent> _onCue;
+    readonly BattleCuePresenter _cuePresenter = new BattleCuePresenter();
     bool _battleStarted;
 
     ResourceAssetHandle _heroHandle;
     ResourceAssetHandle _monsterHandle;
     GameObject _heroInstance;
-    GameObject _monsterInstance;
+    readonly List<ActorId> _monsterIds = new List<ActorId>(MonsterCount);
+    readonly List<GameObject> _monsterInstances = new List<GameObject>(MonsterCount);
+    BattleWaveDirector _waveDirector;
+    float _meleeBuffer;
+    float _hitStopUntilUnscaled;
 
     readonly Dictionary<uint, GameObject> _projectileViews = new Dictionary<uint, GameObject>(16);
     readonly List<uint> _projectileViewRemoveScratch = new List<uint>(16);
@@ -69,8 +83,14 @@ public sealed class BattleBootstrap : MonoBehaviour
             return;
         }
 
+        RestoreHitStopIfExpired();
+        TryMoveHero();
+        TryHeroMelee();
         TryCastHeroFireball();
+        TryHeroDodge();
         _framework.Tick(Time.deltaTime);
+        TickWaves();
+        _cuePresenter.Tick(ResolveCuePosition);
         SyncModelTransforms();
         SyncProjectileViews();
     }
@@ -102,6 +122,10 @@ public sealed class BattleBootstrap : MonoBehaviour
 
         _onDamageDealt = OnDamageDealt;
         _framework.EventBus.Subscribe(_onDamageDealt);
+        _onActorDied = OnActorDied;
+        _framework.EventBus.Subscribe(_onActorDied);
+        _onCue = OnGameplayCue;
+        _framework.EventBus.Subscribe(_onCue);
         return true;
     }
 
@@ -110,22 +134,30 @@ public sealed class BattleBootstrap : MonoBehaviour
         try
         {
             var tables = ConfigManager.Instance.GetTables();
+            _cuePresenter.Bind(tables.CfgTbCue);
 
-            _framework.CreateActor(HeroId, HeroPosition, maxHealth: 100f, teamId: HeroTeamId);
-            _framework.CreateActor(MonsterId, MonsterPosition, maxHealth: 100f, teamId: MonsterTeamId);
-
+            _framework.CreateActor(HeroId, HeroPosition, maxHealth: 120f, teamId: HeroTeamId);
             _framework.RegisterActorAbilities(
                 HeroId,
                 teamId: HeroTeamId,
-                abilityIds: new[] { FireballAbilityId, "Slash" },
+                abilityIds: new[] { FireballAbilityId, "Slash", "Slash2", "Slash3", DodgeAbilityId },
                 tables);
 
-            _framework.RegisterActorAbilities(
-                MonsterId,
-                teamId: MonsterTeamId,
-                abilityIds: new[] { "Slash" },
-                tables);
+            for (var i = 0; i < MonsterCount; i++)
+            {
+                var monsterId = new ActorId(FirstMonsterId + (uint)i);
+                var position = MonsterSpawnPosition(i);
+                _framework.CreateActor(monsterId, position, maxHealth: 40f, teamId: MonsterTeamId);
+                _framework.RegisterActorAbilities(
+                    monsterId,
+                    teamId: MonsterTeamId,
+                    abilityIds: new[] { "MobSlash" },
+                    tables);
+                _framework.SetBattleAgent(monsterId, BattleAiNodes.CreateMeleeChaserAgent("MobSlash", HeroId));
+                _monsterIds.Add(monsterId);
+            }
 
+            _waveDirector = new BattleWaveDirector(_monsterIds, HeroId, MonsterBaseHealth, "MobSlash");
             return true;
         }
         catch (Exception ex)
@@ -136,23 +168,97 @@ public sealed class BattleBootstrap : MonoBehaviour
         }
     }
 
-    void TryCastHeroFireball()
+    void TryMoveHero()
     {
-        if (!_framework.Registry.TryGet(HeroId, out var hero) ||
-            !_framework.Registry.TryGet(MonsterId, out var monster))
+        if (!_framework.TryGetActor(HeroId, out var asc) || asc.IsDead)
         {
             return;
         }
 
-        var origin = hero.Position + Vector3.up * FireballCastHeight;
-        var toTarget = monster.Position - hero.Position;
-        toTarget.y = 0f;
-        if (toTarget.sqrMagnitude < 0.0001f)
+        if (asc.Tags.HasTag(new GameplayTag(BattleConstants.TagStunned)) ||
+            asc.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
         {
-            toTarget = Vector3.right;
+            _framework.SetActorVelocity(HeroId, Vector3.zero);
+            return;
         }
 
-        var context = new AbilityActivationContext(origin, toTarget, MonsterId);
+        if (asc.Tags.HasTag(new GameplayTag(BattleConstants.TagDodging)))
+        {
+            return;
+        }
+
+        var move = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+        if (move.sqrMagnitude < 0.01f)
+        {
+            _framework.SetActorVelocity(HeroId, Vector3.zero);
+            return;
+        }
+
+        move.Normalize();
+        _framework.Registry.SetForward(HeroId, move);
+        _framework.SetActorVelocity(HeroId, move * 3.5f);
+    }
+
+    void TryHeroMelee()
+    {
+        if (Input.GetKeyDown(KeyCode.J))
+        {
+            _meleeBuffer = ComboBufferSeconds;
+        }
+
+        if (_meleeBuffer <= 0f)
+        {
+            return;
+        }
+
+        if (!_framework.Registry.TryGet(HeroId, out var hero) ||
+            !_framework.TryGetActor(HeroId, out var asc) ||
+            asc.IsDead)
+        {
+            _meleeBuffer = 0f;
+            return;
+        }
+
+        var forward = _framework.Registry.GetForward(HeroId);
+        var context = new AbilityActivationContext(hero.Position, forward);
+        for (var i = 0; i < MeleeComboIds.Length; i++)
+        {
+            var result = _framework.TryActivateAbility(HeroId, MeleeComboIds[i], context);
+            if (!result.Success)
+            {
+                continue;
+            }
+
+            _meleeBuffer = 0f;
+            GameLog.Info(LogCategories.GamePlay, $"Hero melee {LogStyle.Name(MeleeComboIds[i])}");
+            return;
+        }
+
+        _meleeBuffer -= Time.deltaTime;
+    }
+
+    void TryCastHeroFireball()
+    {
+        if (!Input.GetKeyDown(KeyCode.K) || !_framework.Registry.TryGet(HeroId, out var hero))
+        {
+            return;
+        }
+
+        var targetId = _framework.QueryNearestEnemy(HeroId, hero.Position, 20f);
+        var origin = hero.Position + Vector3.up * FireballCastHeight;
+        var direction = _framework.Registry.GetForward(HeroId);
+        if (_framework.Registry.TryGet(targetId, out var target))
+        {
+            var toTarget = target.Position - hero.Position;
+            toTarget.y = 0f;
+            if (toTarget.sqrMagnitude > 0.0001f)
+            {
+                direction = toTarget.normalized;
+                _framework.Registry.SetForward(HeroId, direction);
+            }
+        }
+
+        var context = new AbilityActivationContext(origin, direction, targetId);
         var result = _framework.TryActivateAbility(HeroId, FireballAbilityId, context);
         if (!result.Success)
         {
@@ -160,6 +266,43 @@ public sealed class BattleBootstrap : MonoBehaviour
         }
 
         GameLog.Info(LogCategories.GamePlay, $"Hero cast {LogStyle.Name(FireballAbilityId)}");
+    }
+
+    void TryHeroDodge()
+    {
+        if (!Input.GetKeyDown(KeyCode.LeftShift) || !_framework.Registry.TryGet(HeroId, out var hero))
+        {
+            return;
+        }
+
+        var forward = _framework.Registry.GetForward(HeroId);
+        var move = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+        if (move.sqrMagnitude > 0.01f)
+        {
+            forward = move.normalized;
+            _framework.Registry.SetForward(HeroId, forward);
+        }
+
+        var result = _framework.TryActivateAbility(HeroId, DodgeAbilityId, new AbilityActivationContext(hero.Position, forward));
+        if (!result.Success)
+        {
+            return;
+        }
+
+        GameLog.Info(LogCategories.GamePlay, $"Hero {LogStyle.Name(DodgeAbilityId)}");
+    }
+
+    void TickWaves()
+    {
+        if (_waveDirector == null || !_framework.Registry.TryGet(HeroId, out var hero))
+        {
+            return;
+        }
+
+        if (_waveDirector.Tick(_framework, hero.Position, Time.deltaTime))
+        {
+            GameLog.Info(LogCategories.GamePlay, $"Wave {LogStyle.Value(_waveDirector.Wave.ToString())}");
+        }
     }
 
     void SpawnModels()
@@ -172,10 +315,31 @@ public sealed class BattleBootstrap : MonoBehaviour
         }
 
         _heroInstance = SpawnModel(res, ResourceAddresses.MaleSword01Prefab, HeroPosition, "Hero", out _heroHandle);
-        _monsterInstance = SpawnModel(res, ResourceAddresses.AxeKnightPrefab, MonsterPosition, "Monster", out _monsterHandle);
+        _monsterHandle = res.LoadAssetSync<GameObject>(ResourceAddresses.AxeKnightPrefab);
+        if (!_monsterHandle.IsValid || !_monsterHandle.Succeeded)
+        {
+            GameLog.Error(LogCategories.GamePlay,
+                $"Load model failed: {LogStyle.Name("Monster")}  error={_monsterHandle.Error}");
+            _monsterHandle.Dispose();
+            _monsterHandle = default;
+            return;
+        }
+
+        for (var i = 0; i < MonsterCount; i++)
+        {
+            var instance = _monsterHandle.InstantiateSync();
+            if (instance == null)
+            {
+                continue;
+            }
+
+            instance.name = "Monster_" + (FirstMonsterId + (uint)i);
+            instance.transform.SetPositionAndRotation(MonsterSpawnPosition(i), FaceCamera);
+            _monsterInstances.Add(instance);
+        }
 
         GameLog.Info(LogCategories.GamePlay,
-            $"Battle models spawned  Hero={LogStyle.Name(_heroInstance != null ? _heroInstance.name : "null")}  Monster={LogStyle.Name(_monsterInstance != null ? _monsterInstance.name : "null")}");
+            $"Battle models spawned  Hero={LogStyle.Name(_heroInstance != null ? _heroInstance.name : "null")}  Monsters={LogStyle.Value(_monsterInstances.Count.ToString())}");
     }
 
     static GameObject SpawnModel(
@@ -212,7 +376,11 @@ public sealed class BattleBootstrap : MonoBehaviour
     void SyncModelTransforms()
     {
         SyncOne(_heroInstance, HeroId);
-        SyncOne(_monsterInstance, MonsterId);
+        var count = Mathf.Min(_monsterInstances.Count, _monsterIds.Count);
+        for (var i = 0; i < count; i++)
+        {
+            SyncOne(_monsterInstances[i], _monsterIds[i]);
+        }
     }
 
     void SyncOne(GameObject instance, ActorId actorId)
@@ -222,7 +390,30 @@ public sealed class BattleBootstrap : MonoBehaviour
             return;
         }
 
-        instance.transform.position = actor.Position;
+        var dead = actor.AbilitySystem.IsDead;
+        if (instance.activeSelf == dead)
+        {
+            instance.SetActive(!dead);
+        }
+
+        if (dead)
+        {
+            return;
+        }
+
+        var forward = _framework.Registry.GetForward(actorId);
+        forward.y = 0f;
+        var rotation = forward.sqrMagnitude > 0.0001f
+            ? Quaternion.LookRotation(forward) * FaceCamera
+            : FaceCamera;
+        instance.transform.SetPositionAndRotation(actor.Position, rotation);
+    }
+
+    static Vector3 MonsterSpawnPosition(int index)
+    {
+        var column = index % 4;
+        var row = index / 4;
+        return new Vector3(2.2f + row * 1.05f, 0f, (column - 1.5f) * 1.1f);
     }
 
     void SyncProjectileViews()
@@ -308,10 +499,44 @@ public sealed class BattleBootstrap : MonoBehaviour
         _projectileViewRemoveScratch.Clear();
     }
 
-    static void OnDamageDealt(DamageDealtEvent e)
+    void RestoreHitStopIfExpired()
+    {
+        if (Time.timeScale < 1f && Time.unscaledTime >= _hitStopUntilUnscaled)
+        {
+            Time.timeScale = 1f;
+        }
+    }
+
+    void OnDamageDealt(DamageDealtEvent e)
     {
         GameLog.Info(LogCategories.GamePlay,
-            $"Damage {LogStyle.Value(e.Source.Value)} → {LogStyle.Value(e.Target.Value)}  ability={LogStyle.Name(e.AbilityId)}  final={LogStyle.Value(e.FinalDamage.ToString("F1"))}");
+            $"Damage {LogStyle.Value(e.Source.Value)} → {LogStyle.Value(e.Target.Value)}  ability={LogStyle.Name(e.AbilityId)}  final={LogStyle.Value(e.FinalDamage.ToString("F1"))}  crit={e.IsCrit}");
+
+        if (e.Source != HeroId || e.FinalDamage <= 0f)
+        {
+            return;
+        }
+
+        Time.timeScale = HitStopScale;
+        _hitStopUntilUnscaled = Time.unscaledTime + HitStopSeconds;
+    }
+
+    static void OnActorDied(ActorDiedEvent e)
+    {
+        GameLog.Info(LogCategories.GamePlay,
+            $"Actor died {LogStyle.Value(e.Actor.Value)}  killer={LogStyle.Value(e.Killer.Value)}  ability={LogStyle.Name(e.AbilityId ?? "")}");
+    }
+
+    void OnGameplayCue(GameplayCueEvent e) => _cuePresenter.Handle(e);
+
+    Vector3? ResolveCuePosition(ActorId actorId)
+    {
+        if (_framework != null && _framework.Registry.TryGet(actorId, out var actor))
+        {
+            return actor.Position;
+        }
+
+        return null;
     }
 
     void CleanupActors()
@@ -327,13 +552,34 @@ public sealed class BattleBootstrap : MonoBehaviour
             _onDamageDealt = null;
         }
 
+        if (_onActorDied != null)
+        {
+            _framework.EventBus.Unsubscribe(_onActorDied);
+            _onActorDied = null;
+        }
+
+        if (_onCue != null)
+        {
+            _framework.EventBus.Unsubscribe(_onCue);
+            _onCue = null;
+        }
+
+        _cuePresenter.Clear();
+        _waveDirector = null;
+
         _framework.DestroyActor(HeroId);
-        _framework.DestroyActor(MonsterId);
+        for (var i = 0; i < _monsterIds.Count; i++)
+        {
+            _framework.DestroyActor(_monsterIds[i]);
+        }
+
+        _monsterIds.Clear();
     }
 
     void OnDestroy()
     {
         _battleStarted = false;
+        Time.timeScale = 1f;
         ClearProjectileViews();
         CleanupActors();
         // Framework 由 GamePlayModule 持有，场景退出时不 Dispose。
@@ -344,11 +590,15 @@ public sealed class BattleBootstrap : MonoBehaviour
             _heroInstance = null;
         }
 
-        if (_monsterInstance != null)
+        for (var i = 0; i < _monsterInstances.Count; i++)
         {
-            Destroy(_monsterInstance);
-            _monsterInstance = null;
+            if (_monsterInstances[i] != null)
+            {
+                Destroy(_monsterInstances[i]);
+            }
         }
+
+        _monsterInstances.Clear();
 
         if (_heroHandle.IsValid)
         {

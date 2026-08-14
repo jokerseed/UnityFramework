@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Framework.Core;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
+using AbilitySystemComponent = Framework.GAS.AbilitySystemComponent;
 
 namespace Framework.GAS.Effects
 {
@@ -117,6 +118,9 @@ namespace Framework.GAS.Effects
         /// <summary>Apply 时的 SetByCaller。</summary>
         public IReadOnlyDictionary<string, float> SetByCaller { get; }
 
+        /// <summary>叠层上限；≤0 表示不限制。</summary>
+        public int MaxStacks { get; }
+
         /// <summary>从 Def 构造运行时 Spec（兼容旧构造函数）。</summary>
         public GameplayEffectSpec(
             string effectId,
@@ -159,6 +163,7 @@ namespace Framework.GAS.Effects
             CueTagsOnRemove = def.CueTagsOnRemove;
             CostAttributes = def.CostAttributes;
             SetByCaller = setByCaller;
+            MaxStacks = def.MaxStacks;
         }
     }
 
@@ -187,6 +192,9 @@ namespace Framework.GAS.Effects
 
         /// <summary>本效果授予的技能 Spec 句柄。</summary>
         public List<GameplayAbilitySpecHandle> GrantedAbilityHandles { get; } = new List<GameplayAbilitySpecHandle>();
+
+        /// <summary>施加时的来源 ASC；Periodic Execution 用其攻击力。可为 null。</summary>
+        public AbilitySystemComponent SourceAsc { get; set; }
 
         /// <summary>创建活跃效果。</summary>
         public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source)

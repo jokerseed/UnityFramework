@@ -25,7 +25,13 @@ namespace Framework.GAS.Abilities
         InsufficientResource,
 
         /// <summary>被自定义逻辑拦截。</summary>
-        CustomBlocked
+        CustomBlocked,
+
+        /// <summary>单位已死亡。</summary>
+        Dead,
+
+        /// <summary>处于眩晕或沉默等控制状态。</summary>
+        CrowdControlled
     }
 
     /// <summary>技能激活结果，包含成功标志与失败原因。</summary>

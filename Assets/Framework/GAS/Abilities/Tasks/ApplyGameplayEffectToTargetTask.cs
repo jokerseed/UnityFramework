@@ -46,7 +46,7 @@ namespace Framework.GAS.Abilities.Tasks
                 return;
             }
 
-            targetAsc.ApplyEffect(_effectDef, _ownerAsc.ActorId, _eventBus, Instance.ActivationInfo.SetByCaller);
+            targetAsc.ApplyEffect(_effectDef, _ownerAsc.ActorId, _eventBus, Instance.ActivationInfo.SetByCaller, _ownerAsc);
             Finish();
         }
     }

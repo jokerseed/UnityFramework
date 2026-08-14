@@ -33,7 +33,7 @@ ECS/
 | System Phase | `EcsSystemPhase.Simulate` / `Cleanup` |
 | 组件查询 | `world.ForEach<TDriver, TRequired>(...)` |
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
-| 空间索引 | `SpatialHashGrid` + `SpatialIndexService.RebuildActors` |
+| 空间索引 | `SpatialHashGrid`（HashSet 池化） + `SpatialIndexService.RebuildActors` |
 
 ## 组件一览
 
@@ -41,7 +41,8 @@ ECS/
 |------|------|------|
 | `TransformComponent` | Position, Forward | 世界坐标 |
 | `VelocityComponent` | Value | 速度 |
-| `ProjectileComponent` | Owner, AbilityId, Damage, Radius, RemainingLifetime, TeamId | 投射物 |
+| `ProjectileComponent` | Owner, AbilityId, Damage, Radius, RemainingLifetime, TeamId, PierceRemaining, HitEffectId, ExplodeRadius, DamageType | 投射物 |
+| `KnockbackComponent` | Velocity, Remaining | 击退冲量 |
 | `ActorLinkComponent` | ActorId | 关联 GAS ASC |
 | `CombatStateComponent` | IsAlive | 存活标记（同步自 GAS） |
 | `TeamComponent` | TeamId | 阵营 |
@@ -51,24 +52,27 @@ ECS/
 
 | System | Phase | 职责 |
 |--------|-------|------|
-| `MovementSystem` | Simulate | 按速度更新位置（Query: Velocity + Transform） |
+| `MovementSystem` | Simulate | 按速度更新位置；定身由 GamePlay 在 Tick 前把速度写 0 |
+| `KnockbackSystem` | Simulate | 击退冲量叠加位移，到期移除 |
+| `ActorSeparationSystem` | Simulate | 存活 Actor 圆 vs 圆挤开 |
 | `SpatialIndexSystem` | Simulate | Movement 后重建 Actor 空间索引 |
-| `ProjectileCollisionSystem` | Simulate | 投射物与 Actor 碰撞检测 |
+| `ProjectileCollisionSystem` | Simulate | 圆 vs 圆；支持穿透与命中爆炸（入队范围命令） |
 | `ProjectileLifetimeSystem` | Simulate | 投射物超时销毁 |
 
-注册顺序：`Movement → SpatialIndex → ProjectileCollision → ProjectileLifetime`
+注册顺序：`Movement → Knockback → Separation → SpatialIndex → ProjectileCollision → ProjectileLifetime`
 
 ## Tick 时序（GamePlay 驱动）
 
 ```
 GamePlayFramework.Tick
   1. SpatialIndexService.RebuildActors   ← 供 GAS 目标查询（SpatialHash broadphase）
-  2. GAS Tick（含 QueryNearestEnemy / QueryTargetsInRadius 等）
-  3. Flush Spawn
-  4. World.Tick (Simulate Phase)
+  2. SyncCuePose → BT Agent → 定身/眩晕清速度
+  3. 存活 ASC.Tick（无 Active 技能/效果则跳过）
+  4. Flush Spawn
+  5. World.Tick (Simulate Phase)
        Movement → SpatialIndex → ProjectileCollision → ProjectileLifetime
-  5. Flush Damage
-  6. Sync Positions
+  6. Flush Damage / Heal / GE / Area / Displace
+  7. SyncDeath → Sync Positions
 ```
 
 GAS 查询与 ECS 碰撞各重建一次 Actor 空间索引：查询前用「上帧 Sync 后」的 Transform；碰撞前用 Movement 后的 Transform。

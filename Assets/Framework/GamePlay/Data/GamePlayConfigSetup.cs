@@ -28,7 +28,7 @@ namespace Framework.GamePlay.Data
                 throw new System.InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables() first.");
             }
 
-            var factory = new AbilityConfigFactory(framework.QueryNearestEnemy);
+            var factory = new AbilityConfigFactory(framework.QueryNearestEnemy, framework.QueryEnemiesInCone);
             for (var i = 0; i < abilityIds.Count; i++)
             {
                 var abilityId = abilityIds[i];

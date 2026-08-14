@@ -10,6 +10,7 @@ using Framework.GAS;
 using Framework.GAS.Abilities;
 using Framework.GAS.Cues;
 using Framework.GAS.Events;
+using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
 using UnityEngine;
 
@@ -17,7 +18,7 @@ namespace Framework.GamePlay
 {
     /// <summary>
     /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
-    /// Tick 顺序：GAS Tick → Flush Spawn → ECS Tick → Flush Damage → 同步坐标
+    /// Tick 顺序：RebuildActors → SyncCue → BT → 定身清速度 → 存活 ASC.Tick → Flush Spawn → ECS → Flush 结算 → SyncDeath → SyncPositions
     /// </summary>
     public sealed class GamePlayFramework : ITickable, IDisposable
     {
@@ -28,7 +29,10 @@ namespace Framework.GamePlay
         readonly ActorRegistry _registry;
         readonly BattleCommandProcessor _commandProcessor;
         readonly EventBusGameplayCueManager _cueManager;
-        readonly List<ActorId> _targetScratch = new List<ActorId>();
+        readonly Dictionary<ActorId, BattleAgent> _agents = new Dictionary<ActorId, BattleAgent>();
+        readonly EngageSlotAllocator _engageSlots = new EngageSlotAllocator();
+        const float FullAiRangeSqr = 64f;
+        const float FarChaseSpeed = 2.2f;
 
         /// <summary>表现层事件总线，用于向外广播战斗事件（如伤害飘字、技能特效触发）。</summary>
         public IEventBus EventBus => _presentationBus;
@@ -58,6 +62,8 @@ namespace Framework.GamePlay
             _cueManager = new EventBusGameplayCueManager(_presentationBus);
 
             _world.AddSystem(new MovementSystem());
+            _world.AddSystem(new KnockbackSystem());
+            _world.AddSystem(new ActorSeparationSystem());
             _world.AddSystem(new SpatialIndexSystem());
             _world.AddSystem(new ProjectileCollisionSystem());
             _world.AddSystem(new ProjectileLifetimeSystem());
@@ -78,9 +84,12 @@ namespace Framework.GamePlay
             int teamId = 0)
         {
             var asc = new AbilitySystemComponent(actorId);
-            asc.InitializeHealth(maxHealth);
+            asc.InitializeCombatAttributes(maxHealth, BattleConstants.DefaultMaxMana);
             asc.Attributes.GetOrCreate(BattleConstants.Attack, 10f);
             asc.Attributes.GetOrCreate(BattleConstants.Defense, 0f);
+            asc.CuePosition = position;
+            asc.CueDirection = Vector3.forward;
+            asc.CueManager = _cueManager;
 
             _registry.Create(actorId, position, maxHealth, teamId, asc);
             return asc;
@@ -158,6 +167,20 @@ namespace Framework.GamePlay
             return actor.AbilitySystem.CancelAbility(activeInstanceId, _presentationBus);
         }
 
+        /// <summary>按 Tag 取消指定 Actor 正在释放的技能。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="query">查询标签。</param>
+        /// <returns>取消的实例数量。</returns>
+        public int CancelAbilitiesWithTag(ActorId actorId, GameplayTag query)
+        {
+            if (!_registry.TryGet(actorId, out var actor))
+            {
+                return 0;
+            }
+
+            return actor.AbilitySystem.CancelAbilitiesWithTag(query, _presentationBus);
+        }
+
         /// <summary>分发 GameplayEvent 到指定 Actor ASC。</summary>
         public bool HandleGameplayEvent(ActorId actorId, in GameplayEventData eventData)
         {
@@ -177,14 +200,13 @@ namespace Framework.GamePlay
             TargetDataFilter filter,
             List<ActorId> results)
         {
-            var f = new TargetDataFilter(source, filter.SourceTeamId, filter.EnemiesOnly, filter.MaxDistance, filter.RequiredTags);
             if (!_registry.TryGet(source, out var sourceActor))
             {
                 results.Clear();
                 return;
             }
 
-            f = new TargetDataFilter(source, sourceActor.TeamId, filter.EnemiesOnly, filter.MaxDistance, filter.RequiredTags);
+            var f = new TargetDataFilter(source, sourceActor.TeamId, filter.EnemiesOnly, filter.MaxDistance, filter.RequiredTags);
             _registry.QueryTargetsInRadius(origin, radius, f, results);
         }
 
@@ -216,12 +238,89 @@ namespace Framework.GamePlay
         public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, float range) =>
             _registry.QueryNearestEnemy(source, origin, range);
 
+        /// <summary>查询扇形内敌对 Actor，供近战扇形技能注入。</summary>
+        /// <param name="source">施法者。</param>
+        /// <param name="origin">扇形顶点。</param>
+        /// <param name="direction">朝向。</param>
+        /// <param name="halfAngleDegrees">半角（度）。</param>
+        /// <param name="range">半径（米）。</param>
+        /// <param name="results">输出列表；查询前会被清空。</param>
+        public void QueryEnemiesInCone(
+            ActorId source,
+            Vector3 origin,
+            Vector3 direction,
+            float halfAngleDegrees,
+            float range,
+            List<ActorId> results)
+        {
+            if (!_registry.TryGet(source, out var sourceActor))
+            {
+                results.Clear();
+                return;
+            }
+
+            var filter = new TargetDataFilter(source, sourceActor.TeamId, enemiesOnly: true, maxDistance: range);
+            _registry.QueryTargetsInCone(origin, direction, halfAngleDegrees, range, filter, results);
+        }
+
+        /// <summary>设置 Actor 移动速度；定身时会被 Tick 清零。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="velocity">世界空间速度。</param>
+        public void SetActorVelocity(ActorId actorId, Vector3 velocity) =>
+            _registry.SetVelocity(actorId, velocity);
+
+        /// <summary>为 Actor 绑定行为树 Agent；同一 Actor 重复绑定会替换。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="agent">AI Agent；不可为 null。</param>
+        public void SetBattleAgent(ActorId actorId, BattleAgent agent)
+        {
+            if (agent == null)
+            {
+                throw new ArgumentNullException(nameof(agent));
+            }
+
+            _agents[actorId] = agent;
+        }
+
+        /// <summary>查询该 Actor 本帧围攻槽位世界坐标；无槽则返回 false。</summary>
+        /// <param name="attacker">攻击者。</param>
+        /// <param name="point">槽位坐标。</param>
+        /// <returns>已分配槽位时返回 true。</returns>
+        public bool TryGetEngagePoint(ActorId attacker, out Vector3 point) =>
+            _engageSlots.TryGetPoint(attacker, out point);
+
         /// <summary>销毁指定 Actor，同时移除其 ECS 实体及注册表记录。</summary>
         /// <param name="actorId">要销毁的 Actor ID；若不存在则静默忽略。</param>
-        public void DestroyActor(ActorId actorId) => _registry.Remove(actorId);
+        public void DestroyActor(ActorId actorId)
+        {
+            _agents.Remove(actorId);
+            _registry.Remove(actorId);
+        }
+
+        /// <summary>回收复用已死亡的 Actor：清状态、回血、放到新坐标并重新标记存活。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="position">复活坐标。</param>
+        /// <param name="maxHealth">复活后最大生命。</param>
+        /// <returns>成功复活返回 true。</returns>
+        public bool ReviveActor(ActorId actorId, Vector3 position, float maxHealth)
+        {
+            if (!_registry.TryGet(actorId, out var actor) || maxHealth <= 0f)
+            {
+                return false;
+            }
+
+            actor.AbilitySystem.ResetForReuse(_presentationBus, maxHealth);
+            actor.AbilitySystem.CuePosition = position;
+            actor.AbilitySystem.CueManager = _cueManager;
+            _registry.ClearKnockback(actorId);
+            _registry.SetVelocity(actorId, Vector3.zero);
+            _registry.SetPosition(actorId, position);
+            _registry.MarkAlive(actorId);
+            return true;
+        }
 
         /// <summary>
-        /// 执行一帧战斗逻辑：GAS Tick → 刷新投射物生成 → ECS Tick → 刷新伤害 → 同步坐标。
+        /// 执行一帧战斗逻辑。
         /// </summary>
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Tick(float deltaTime)
@@ -232,20 +331,145 @@ namespace Framework.GamePlay
                 SpatialIndexService.RebuildActors(_world, grid);
             }
 
+            SyncCuePose();
+            TickAgents(deltaTime);
+            ApplyRootAndStun();
+
             foreach (var pair in _registry.Actors)
             {
-                pair.Value.AbilitySystem.Tick(deltaTime, _presentationBus);
+                var actor = pair.Value;
+                if (actor.AbilitySystem.IsDead)
+                {
+                    continue;
+                }
+
+                actor.AbilitySystem.Tick(deltaTime, _presentationBus);
             }
 
             _commandProcessor.FlushSpawnCommands(_commandBuffer);
             _world.Tick(deltaTime);
-            _commandProcessor.FlushDamageCommands(_commandBuffer, _presentationBus);
+            _commandProcessor.FlushOutcomeCommands(_commandBuffer, _presentationBus);
+            SyncDeath();
             _registry.SyncPositionsFromEcs();
+        }
+
+        void SyncCuePose()
+        {
+            foreach (var pair in _registry.Actors)
+            {
+                var actor = pair.Value;
+                if (actor.AbilitySystem.IsDead)
+                {
+                    continue;
+                }
+
+                actor.AbilitySystem.CuePosition = actor.Position;
+                actor.AbilitySystem.CueDirection = _registry.GetForward(actor.ActorId);
+            }
+        }
+
+        void ApplyRootAndStun()
+        {
+            var stunned = new GameplayTag(BattleConstants.TagStunned);
+            var rooted = new GameplayTag(BattleConstants.TagRooted);
+            foreach (var pair in _registry.Actors)
+            {
+                var actor = pair.Value;
+                var asc = actor.AbilitySystem;
+                if (asc.IsDead ||
+                    asc.Tags.HasTag(rooted) ||
+                    asc.Tags.HasTag(stunned) ||
+                    asc.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
+                {
+                    _registry.SetVelocity(actor.ActorId, Vector3.zero);
+                }
+            }
+        }
+
+        void TickAgents(float deltaTime)
+        {
+            _engageSlots.Rebuild(_registry, _agents);
+            var stunned = new GameplayTag(BattleConstants.TagStunned);
+            var knocked = new GameplayTag(BattleConstants.TagKnockedDown);
+            foreach (var pair in _agents)
+            {
+                if (!_registry.TryGet(pair.Key, out var actor) ||
+                    actor.AbilitySystem.IsDead ||
+                    actor.AbilitySystem.Tags.HasTag(knocked) ||
+                    actor.AbilitySystem.Tags.HasTag(stunned))
+                {
+                    continue;
+                }
+
+                if (TryTickFarChase(actor, pair.Value))
+                {
+                    continue;
+                }
+
+                pair.Value.Tick(this, pair.Key, deltaTime);
+            }
+        }
+
+        bool TryTickFarChase(BattleActor actor, BattleAgent agent)
+        {
+            if (!agent.FocusTarget.IsValid || !_registry.TryGet(agent.FocusTarget, out var focus))
+            {
+                return false;
+            }
+
+            var toFocus = focus.Position - actor.Position;
+            toFocus.y = 0f;
+            if (toFocus.sqrMagnitude <= FullAiRangeSqr)
+            {
+                return false;
+            }
+
+            var dest = focus.Position;
+            if (_engageSlots.TryGetPoint(actor.ActorId, out var slot))
+            {
+                dest = slot;
+            }
+
+            var toDest = dest - actor.Position;
+            toDest.y = 0f;
+            var distance = toDest.magnitude;
+            if (distance < 0.001f)
+            {
+                return true;
+            }
+
+            var dir = toDest / distance;
+            if (toFocus.sqrMagnitude > 0.0001f)
+            {
+                _registry.SetForward(actor.ActorId, toFocus.normalized);
+            }
+            else
+            {
+                _registry.SetForward(actor.ActorId, dir);
+            }
+
+            _registry.SetVelocity(actor.ActorId, dir * FarChaseSpeed);
+            return true;
+        }
+
+        void SyncDeath()
+        {
+            foreach (var pair in _registry.Actors)
+            {
+                var actor = pair.Value;
+                actor.AbilitySystem.SyncDeathIfNeeded(_presentationBus);
+                if (actor.AbilitySystem.IsDead)
+                {
+                    _registry.MarkDead(actor.ActorId);
+                    _registry.SetVelocity(actor.ActorId, Vector3.zero);
+                }
+            }
         }
 
         /// <summary>释放玩法框架持有的全部资源，包括 ECS 世界、命令缓冲与事件总线。</summary>
         public void Dispose()
         {
+            _agents.Clear();
             _world.Dispose();
             _commandBuffer.ClearAll();
             _presentationBus.Clear();

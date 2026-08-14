@@ -1,9 +1,15 @@
+using System.Collections.Generic;
+using Framework.Config;
 using Framework.Core;
 using Framework.Core.Commands;
 using Framework.Events;
 using Framework.ECS;
 using Framework.ECS.Components;
+using Framework.GAS;
 using Framework.GAS.Combat;
+using Framework.GAS.Targeting;
+using Framework.GamePlay.Data;
+using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -12,6 +18,7 @@ namespace Framework.GamePlay
     {
         readonly World _world;
         readonly ActorRegistry _registry;
+        readonly List<ActorId> _areaScratch = new List<ActorId>(16);
 
         /// <summary>创建命令处理器。</summary>
         /// <param name="world">ECS 世界实例，用于创建投射物实体。</param>
@@ -50,7 +57,11 @@ namespace Framework.GamePlay
                     Damage = command.Damage,
                     Radius = command.Radius,
                     RemainingLifetime = command.Lifetime,
-                    TeamId = command.TeamId
+                    TeamId = command.TeamId,
+                    PierceRemaining = command.PierceCount,
+                    HitEffectId = command.HitEffectId,
+                    ExplodeRadius = command.ExplodeRadius,
+                    DamageType = command.DamageType
                 });
                 _world.AddComponent(entity, new TeamComponent { TeamId = command.TeamId });
             }
@@ -59,15 +70,59 @@ namespace Framework.GamePlay
         }
 
         /// <summary>
-        /// 将缓冲中所有 <see cref="ApplyDamageCommand"/> 分发给目标 Actor 的 GAS 执行伤害计算，
-        /// 死亡时同步更新 ECS 战斗状态，最后清空队列。
+        /// 刷写伤害、治疗、效果、范围与位移命令，并同步死亡状态。
         /// 应在 ECS Tick 之后调用。
         /// </summary>
-        /// <param name="buffer">待处理的命令缓冲；处理完毕后会清空伤害队列。</param>
-        /// <param name="presentation">表现层事件总线，用于广播伤害、死亡等事件。</param>
-        public void FlushDamageCommands(BattleCommandBuffer buffer, IEventBus presentation)
+        /// <param name="buffer">待处理的命令缓冲。</param>
+        /// <param name="presentation">表现层事件总线。</param>
+        public void FlushOutcomeCommands(BattleCommandBuffer buffer, IEventBus presentation)
+        {
+            FlushDamage(buffer, presentation);
+            FlushHeal(buffer, presentation);
+            FlushEffects(buffer, presentation);
+            FlushArea(buffer, presentation);
+            FlushDisplace(buffer);
+            buffer.ClearApplyDamage();
+            buffer.ClearApplyHeal();
+            buffer.ClearApplyEffect();
+            buffer.ClearApplyAreaEffect();
+            buffer.ClearApplyDisplace();
+        }
+
+        void FlushDamage(BattleCommandBuffer buffer, IEventBus presentation)
         {
             var commands = buffer.ApplyDamage;
+            for (var i = 0; i < commands.Count; i++)
+            {
+                ApplyDamageToActor(commands[i], presentation);
+            }
+        }
+
+        void ApplyDamageToActor(in ApplyDamageCommand command, IEventBus presentation)
+        {
+            if (!_registry.TryGet(command.Target, out var targetActor))
+            {
+                return;
+            }
+
+            _registry.TryGet(command.Source, out var sourceActor);
+            var context = new DamageContext(
+                command.Source,
+                command.Target,
+                command.Damage,
+                command.AbilityId,
+                damageType: command.DamageType);
+
+            targetActor.AbilitySystem.ApplyDamage(context, presentation, sourceActor?.AbilitySystem);
+            if (targetActor.AbilitySystem.IsDead)
+            {
+                _registry.MarkDead(command.Target);
+            }
+        }
+
+        void FlushHeal(BattleCommandBuffer buffer, IEventBus presentation)
+        {
+            var commands = buffer.ApplyHeal;
             for (var i = 0; i < commands.Count; i++)
             {
                 var command = commands[i];
@@ -76,22 +131,99 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                _registry.TryGet(command.Source, out var sourceActor);
-                var context = new DamageContext(
-                    command.Source,
-                    command.Target,
-                    command.Damage,
-                    command.AbilityId);
+                targetActor.AbilitySystem.ApplyHeal(command.Amount, presentation);
+            }
+        }
 
-                targetActor.AbilitySystem.ApplyDamage(context, presentation, sourceActor?.AbilitySystem);
+        void FlushEffects(BattleCommandBuffer buffer, IEventBus presentation)
+        {
+            var commands = buffer.ApplyEffect;
+            for (var i = 0; i < commands.Count; i++)
+            {
+                ApplyNamedEffect(commands[i].Source, commands[i].Target, commands[i].EffectId, presentation);
+            }
+        }
 
-                if (targetActor.AbilitySystem.Attributes.GetCurrentValue(BattleConstants.Health) <= 0f)
+        void FlushArea(BattleCommandBuffer buffer, IEventBus presentation)
+        {
+            var commands = buffer.ApplyAreaEffect;
+            for (var i = 0; i < commands.Count; i++)
+            {
+                var command = commands[i];
+                var filter = new TargetDataFilter(command.Source, command.TeamId, enemiesOnly: true);
+                if (command.HalfAngleDegrees > 0f)
                 {
-                    _registry.MarkDead(command.Target);
+                    _registry.QueryTargetsInCone(
+                        command.Origin,
+                        command.Direction,
+                        command.HalfAngleDegrees,
+                        command.Radius,
+                        filter,
+                        _areaScratch);
+                }
+                else
+                {
+                    _registry.QueryTargetsInRadius(command.Origin, command.Radius, filter, _areaScratch);
+                }
+                for (var t = 0; t < _areaScratch.Count; t++)
+                {
+                    var targetId = _areaScratch[t];
+                    if (command.Damage > 0f)
+                    {
+                        ApplyDamageToActor(
+                            new ApplyDamageCommand
+                            {
+                                Source = command.Source,
+                                Target = targetId,
+                                Damage = command.Damage,
+                                AbilityId = command.AbilityId,
+                                DamageType = command.DamageType
+                            },
+                            presentation);
+                    }
+
+                    if (!string.IsNullOrEmpty(command.EffectId))
+                    {
+                        ApplyNamedEffect(command.Source, targetId, command.EffectId, presentation);
+                    }
                 }
             }
+        }
 
-            buffer.ClearApplyDamage();
+        void FlushDisplace(BattleCommandBuffer buffer)
+        {
+            var commands = buffer.ApplyDisplace;
+            for (var i = 0; i < commands.Count; i++)
+            {
+                var command = commands[i];
+                _registry.ApplyDisplacement(command.Target, command.Offset);
+            }
+        }
+
+        void ApplyNamedEffect(ActorId source, ActorId target, string effectId, IEventBus presentation)
+        {
+            if (string.IsNullOrEmpty(effectId) || !_registry.TryGet(target, out var targetActor))
+            {
+                return;
+            }
+
+            if (!ConfigManager.HasInstance)
+            {
+                return;
+            }
+
+            var tables = ConfigManager.Instance.GetTables();
+            if (tables == null || !tables.CfgTbEffect.DataMap.TryGetValue(effectId, out var row))
+            {
+                return;
+            }
+
+            _registry.TryGet(source, out var sourceActor);
+            targetActor.AbilitySystem.ApplyEffect(
+                EffectConfigFactory.CreateDef(row),
+                source,
+                presentation,
+                sourceAsc: sourceActor?.AbilitySystem);
         }
     }
 }

@@ -1,3 +1,5 @@
+using Framework.GAS.Events;
+
 namespace Framework.GAS.Abilities.Tasks
 {
     /// <summary>
@@ -39,6 +41,13 @@ namespace Framework.GAS.Abilities.Tasks
 
         /// <summary>任务被取消时调用。</summary>
         protected virtual void OnCancel() { }
+
+        /// <summary>收到 GameplayEvent 时调用；默认忽略。</summary>
+        /// <param name="eventData">事件数据。</param>
+        protected virtual void OnGameplayEvent(in GameplayEventData eventData) { }
+
+        internal void HandleGameplayEvent(in GameplayEventData eventData) =>
+            OnGameplayEvent(eventData);
 
         /// <summary>标记任务完成。</summary>
         protected void Finish() => IsDone = true;

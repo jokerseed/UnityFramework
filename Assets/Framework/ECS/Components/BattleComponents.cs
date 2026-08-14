@@ -40,6 +40,28 @@ namespace Framework.ECS.Components
 
         /// <summary>投射物所属队伍 ID；用于过滤友方碰撞。</summary>
         public int TeamId;
+
+        /// <summary>剩余可穿透次数；0 表示下一次命中后销毁。</summary>
+        public int PierceRemaining;
+
+        /// <summary>命中后施加的效果 ID；空则不施加。</summary>
+        public string HitEffectId;
+
+        /// <summary>命中爆炸半径；≤0 不爆炸。</summary>
+        public float ExplodeRadius;
+
+        /// <summary>伤害类型。</summary>
+        public BattleDamageType DamageType;
+    }
+
+    /// <summary>击退冲量，由 <see cref="Systems.KnockbackSystem"/> 在移动之后叠加位移并衰减。</summary>
+    public struct KnockbackComponent : IComponent
+    {
+        /// <summary>击退速度（米/秒）。</summary>
+        public Vector3 Velocity;
+
+        /// <summary>剩余持续时间（秒）。</summary>
+        public float Remaining;
     }
 
     /// <summary>Actor 关联组件，将 ECS 实体与 GAS Actor ID 绑定，供系统查找对应的 <see cref="Framework.GamePlay.BattleActor"/>。</summary>

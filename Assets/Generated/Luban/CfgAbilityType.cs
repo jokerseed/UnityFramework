@@ -21,6 +21,26 @@ namespace cfg
         /// 近战
         /// </summary>
         Melee = 1,
+        /// <summary>
+        /// 圆形AOE
+        /// </summary>
+        AoeCircle = 2,
+        /// <summary>
+        /// 扇形AOE
+        /// </summary>
+        AoeCone = 3,
+        /// <summary>
+        /// 穿透弹
+        /// </summary>
+        PierceProjectile = 4,
+        /// <summary>
+        /// 爆炸弹
+        /// </summary>
+        ExplodeProjectile = 5,
+        /// <summary>
+        /// 闪避冲刺
+        /// </summary>
+        Dash = 6,
     }
 
 } 

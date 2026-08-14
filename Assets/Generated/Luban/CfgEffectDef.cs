@@ -26,6 +26,19 @@ public sealed partial class CfgEffectDef : Luban.BeanBase
         ModAttribute = _buf.ReadString();
         ModOperation = _buf.ReadInt();
         ModMagnitude = _buf.ReadFloat();
+        GrantedTags = _buf.ReadString();
+        RequiredTags = _buf.ReadString();
+        BlockedTags = _buf.ReadString();
+        ImmunityTags = _buf.ReadString();
+        Period = _buf.ReadFloat();
+        MaxStacks = _buf.ReadInt();
+        CostAttribute = _buf.ReadString();
+        CostAmount = _buf.ReadFloat();
+        ExecutionType = (CfgEffectExecutionType)_buf.ReadInt();
+        ExecutionEffectId = _buf.ReadString();
+        CueApply = _buf.ReadString();
+        CueRemove = _buf.ReadString();
+        ShieldValue = _buf.ReadFloat();
     }
 
     public static CfgEffectDef DeserializeCfgEffectDef(ByteBuf _buf)
@@ -42,10 +55,47 @@ public sealed partial class CfgEffectDef : Luban.BeanBase
     /// </summary>
     public readonly string ModAttribute;
     /// <summary>
-    /// 0=Add 1=Multiply
+    /// 0=Add 1=Multiply 2=Override
     /// </summary>
     public readonly int ModOperation;
     public readonly float ModMagnitude;
+    /// <summary>
+    /// 授予Tag逗号分隔
+    /// </summary>
+    public readonly string GrantedTags;
+    /// <summary>
+    /// 应用前置Tag
+    /// </summary>
+    public readonly string RequiredTags;
+    /// <summary>
+    /// 应用阻断Tag
+    /// </summary>
+    public readonly string BlockedTags;
+    /// <summary>
+    /// 免疫Tag
+    /// </summary>
+    public readonly string ImmunityTags;
+    /// <summary>
+    /// 周期秒
+    /// </summary>
+    public readonly float Period;
+    /// <summary>
+    /// 叠层上限
+    /// </summary>
+    public readonly int MaxStacks;
+    public readonly string CostAttribute;
+    public readonly float CostAmount;
+    public readonly CfgEffectExecutionType ExecutionType;
+    /// <summary>
+    /// ApplyGE 目标效果
+    /// </summary>
+    public readonly string ExecutionEffectId;
+    public readonly string CueApply;
+    public readonly string CueRemove;
+    /// <summary>
+    /// 护盾附加值
+    /// </summary>
+    public readonly float ShieldValue;
    
     public const int __ID__ = -1072578352;
     public override int GetTypeId() => __ID__;
@@ -64,6 +114,19 @@ public sealed partial class CfgEffectDef : Luban.BeanBase
         + "modAttribute:" + ModAttribute + ","
         + "modOperation:" + ModOperation + ","
         + "modMagnitude:" + ModMagnitude + ","
+        + "grantedTags:" + GrantedTags + ","
+        + "requiredTags:" + RequiredTags + ","
+        + "blockedTags:" + BlockedTags + ","
+        + "immunityTags:" + ImmunityTags + ","
+        + "period:" + Period + ","
+        + "maxStacks:" + MaxStacks + ","
+        + "costAttribute:" + CostAttribute + ","
+        + "costAmount:" + CostAmount + ","
+        + "executionType:" + ExecutionType + ","
+        + "executionEffectId:" + ExecutionEffectId + ","
+        + "cueApply:" + CueApply + ","
+        + "cueRemove:" + CueRemove + ","
+        + "shieldValue:" + ShieldValue + ","
         + "}";
     }
 }

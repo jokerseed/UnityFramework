@@ -28,6 +28,23 @@ public sealed partial class CfgAbilityDef : Luban.BeanBase
         Lifetime = _buf.ReadFloat();
         Range = _buf.ReadFloat();
         CueTag = _buf.ReadString();
+        CostAttribute = _buf.ReadString();
+        CostAmount = _buf.ReadFloat();
+        RequiredTags = _buf.ReadString();
+        BlockedTags = _buf.ReadString();
+        DamageType = (CfgDamageType)_buf.ReadInt();
+        HalfAngle = _buf.ReadFloat();
+        PierceCount = _buf.ReadInt();
+        ExplodeRadius = _buf.ReadFloat();
+        HitEffectId = _buf.ReadString();
+        ChannelTime = _buf.ReadFloat();
+        CooldownGroup = _buf.ReadString();
+        AssetTags = _buf.ReadString();
+        OwnedTags = _buf.ReadString();
+        CancelTags = _buf.ReadString();
+        RecoveryTime = _buf.ReadFloat();
+        Knockback = _buf.ReadFloat();
+        ComboEffectId = _buf.ReadString();
     }
 
     public static CfgAbilityDef DeserializeCfgAbilityDef(ByteBuf _buf)
@@ -56,7 +73,7 @@ public sealed partial class CfgAbilityDef : Luban.BeanBase
     /// </summary>
     public readonly float Speed;
     /// <summary>
-    /// 碰撞半径
+    /// 碰撞或AOE半径
     /// </summary>
     public readonly float Radius;
     /// <summary>
@@ -64,13 +81,81 @@ public sealed partial class CfgAbilityDef : Luban.BeanBase
     /// </summary>
     public readonly float Lifetime;
     /// <summary>
-    /// 近战范围
+    /// 近战/扇形距离
     /// </summary>
     public readonly float Range;
     /// <summary>
     /// GameplayCue
     /// </summary>
     public readonly string CueTag;
+    /// <summary>
+    /// 消耗属性名
+    /// </summary>
+    public readonly string CostAttribute;
+    /// <summary>
+    /// 消耗量
+    /// </summary>
+    public readonly float CostAmount;
+    /// <summary>
+    /// 所需Tag逗号分隔
+    /// </summary>
+    public readonly string RequiredTags;
+    /// <summary>
+    /// 阻断Tag逗号分隔
+    /// </summary>
+    public readonly string BlockedTags;
+    /// <summary>
+    /// 伤害类型
+    /// </summary>
+    public readonly CfgDamageType DamageType;
+    /// <summary>
+    /// 扇形半角
+    /// </summary>
+    public readonly float HalfAngle;
+    /// <summary>
+    /// 穿透次数
+    /// </summary>
+    public readonly int PierceCount;
+    /// <summary>
+    /// 爆炸半径
+    /// </summary>
+    public readonly float ExplodeRadius;
+    /// <summary>
+    /// 命中施加效果ID
+    /// </summary>
+    public readonly string HitEffectId;
+    /// <summary>
+    /// 引导时间
+    /// </summary>
+    public readonly float ChannelTime;
+    /// <summary>
+    /// 共享冷却键，空则用技能ID
+    /// </summary>
+    public readonly string CooldownGroup;
+    /// <summary>
+    /// 技能身份Tag逗号分隔
+    /// </summary>
+    public readonly string AssetTags;
+    /// <summary>
+    /// 激活期间授予Tag
+    /// </summary>
+    public readonly string OwnedTags;
+    /// <summary>
+    /// 激活时取消的技能Tag
+    /// </summary>
+    public readonly string CancelTags;
+    /// <summary>
+    /// 近战后摇
+    /// </summary>
+    public readonly float RecoveryTime;
+    /// <summary>
+    /// 击退距离
+    /// </summary>
+    public readonly float Knockback;
+    /// <summary>
+    /// 后摇时自身连招窗口效果
+    /// </summary>
+    public readonly string ComboEffectId;
    
     public const int __ID__ = -734876193;
     public override int GetTypeId() => __ID__;
@@ -91,6 +176,23 @@ public sealed partial class CfgAbilityDef : Luban.BeanBase
         + "lifetime:" + Lifetime + ","
         + "range:" + Range + ","
         + "cueTag:" + CueTag + ","
+        + "costAttribute:" + CostAttribute + ","
+        + "costAmount:" + CostAmount + ","
+        + "requiredTags:" + RequiredTags + ","
+        + "blockedTags:" + BlockedTags + ","
+        + "damageType:" + DamageType + ","
+        + "halfAngle:" + HalfAngle + ","
+        + "pierceCount:" + PierceCount + ","
+        + "explodeRadius:" + ExplodeRadius + ","
+        + "hitEffectId:" + HitEffectId + ","
+        + "channelTime:" + ChannelTime + ","
+        + "cooldownGroup:" + CooldownGroup + ","
+        + "assetTags:" + AssetTags + ","
+        + "ownedTags:" + OwnedTags + ","
+        + "cancelTags:" + CancelTags + ","
+        + "recoveryTime:" + RecoveryTime + ","
+        + "knockback:" + Knockback + ","
+        + "comboEffectId:" + ComboEffectId + ","
         + "}";
     }
 }

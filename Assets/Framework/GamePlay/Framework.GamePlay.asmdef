@@ -8,7 +8,9 @@
         "Framework.ECS",
         "Framework.Logging",
         "Framework.Config",
-        "Generated.Luban"
+        "Generated.Luban",
+        "Framework.BehaviourTree",
+        "Framework.FixedMath"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

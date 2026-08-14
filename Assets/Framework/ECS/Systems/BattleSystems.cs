@@ -64,6 +64,142 @@ namespace Framework.ECS.Systems
         }
     }
 
+    /// <summary>击退冲量系统：在位移之后叠加击退速度，到期移除组件。</summary>
+    public sealed class KnockbackSystem : ISystem
+    {
+        readonly List<uint> _scratch = new List<uint>(16);
+        readonly List<uint> _expired = new List<uint>(16);
+
+        /// <inheritdoc/>
+        public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
+
+        /// <inheritdoc/>
+        public void OnCreate(World world) { }
+
+        /// <inheritdoc/>
+        public void OnDestroy(World world) { }
+
+        /// <inheritdoc/>
+        public void Update(World world, float deltaTime)
+        {
+            _scratch.Clear();
+            _expired.Clear();
+            var knockbacks = world.GetStorage<KnockbackComponent>();
+            var transforms = world.GetStorage<TransformComponent>();
+            foreach (var pair in knockbacks.All)
+            {
+                _scratch.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _scratch.Count; i++)
+            {
+                var entityId = _scratch[i];
+                if (!knockbacks.TryGet(entityId, out var knockback))
+                {
+                    continue;
+                }
+
+                if (!transforms.TryGet(entityId, out var transform))
+                {
+                    _expired.Add(entityId);
+                    continue;
+                }
+
+                transform.Position += knockback.Velocity * deltaTime;
+                knockback.Remaining -= deltaTime;
+                transforms.Add(entityId, transform);
+                if (knockback.Remaining <= 0f)
+                {
+                    _expired.Add(entityId);
+                }
+                else
+                {
+                    knockbacks.Add(entityId, knockback);
+                }
+            }
+
+            for (var i = 0; i < _expired.Count; i++)
+            {
+                knockbacks.Remove(_expired[i]);
+            }
+        }
+    }
+
+    /// <summary>存活 Actor 圆形挤开，避免割草时叠在同一点。</summary>
+    public sealed class ActorSeparationSystem : ISystem
+    {
+        readonly List<uint> _ids = new List<uint>(64);
+        readonly List<Vector3> _positions = new List<Vector3>(64);
+        readonly List<float> _radii = new List<float>(64);
+        readonly List<Vector3> _pushes = new List<Vector3>(64);
+
+        /// <inheritdoc/>
+        public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
+
+        /// <inheritdoc/>
+        public void OnCreate(World world) { }
+
+        /// <inheritdoc/>
+        public void OnDestroy(World world) { }
+
+        /// <inheritdoc/>
+        public void Update(World world, float deltaTime)
+        {
+            _ids.Clear();
+            _positions.Clear();
+            _radii.Clear();
+            _pushes.Clear();
+
+            var combat = world.GetStorage<CombatStateComponent>();
+            world.ForEach<ActorLinkComponent, TransformComponent, CollisionComponent>(
+                (entityId, _, transform, collision) =>
+                {
+                    if (combat.TryGet(entityId, out var state) && !state.IsAlive)
+                    {
+                        return;
+                    }
+
+                    _ids.Add(entityId);
+                    _positions.Add(transform.Position);
+                    _radii.Add(collision.Radius > 0f ? collision.Radius : BattleConstants.DefaultActorCollisionRadius);
+                    _pushes.Add(Vector3.zero);
+                });
+
+            for (var i = 0; i < _ids.Count; i++)
+            {
+                for (var j = i + 1; j < _ids.Count; j++)
+                {
+                    var delta = _positions[i] - _positions[j];
+                    delta.y = 0f;
+                    var minDist = _radii[i] + _radii[j];
+                    var distSq = delta.sqrMagnitude;
+                    if (distSq >= minDist * minDist || distSq < 0.0001f)
+                    {
+                        continue;
+                    }
+
+                    var dist = Mathf.Sqrt(distSq);
+                    var overlap = (minDist - dist) * 0.5f;
+                    var axis = delta / dist;
+                    _pushes[i] += axis * overlap;
+                    _pushes[j] -= axis * overlap;
+                }
+            }
+
+            var transforms = world.GetStorage<TransformComponent>();
+            for (var i = 0; i < _ids.Count; i++)
+            {
+                if (_pushes[i].sqrMagnitude < 0.0001f || !transforms.TryGet(_ids[i], out var transform))
+                {
+                    continue;
+                }
+
+                transform.Position += _pushes[i];
+                transforms.Add(_ids[i], transform);
+            }
+        }
+    }
+
     /// <summary>
     /// 投射物生命周期系统，每帧递减 <see cref="ProjectileComponent.RemainingLifetime"/>，
     /// 到期时销毁对应实体。
@@ -173,6 +309,7 @@ namespace Framework.ECS.Systems
                     projectileTransform.Position,
                     projectile.Radius + BattleConstants.DefaultActorCollisionRadius);
 
+                var hitThisFrame = false;
                 for (var c = 0; c < candidates.Count; c++)
                 {
                     var targetEntityId = candidates[c];
@@ -218,16 +355,59 @@ namespace Framework.ECS.Systems
                         continue;
                     }
 
-                    commands.EnqueueApplyDamage(new ApplyDamageCommand
+                    if (projectile.ExplodeRadius > 0f)
                     {
-                        Source = projectile.Owner,
-                        Target = actorLink.ActorId,
-                        Damage = projectile.Damage,
-                        AbilityId = projectile.AbilityId
-                    });
+                        commands.EnqueueApplyAreaEffect(new ApplyAreaEffectCommand
+                        {
+                            Source = projectile.Owner,
+                            Origin = projectileTransform.Position,
+                            Radius = projectile.ExplodeRadius,
+                            Damage = projectile.Damage,
+                            AbilityId = projectile.AbilityId,
+                            EffectId = projectile.HitEffectId,
+                            TeamId = projectile.TeamId,
+                            DamageType = projectile.DamageType
+                        });
+                    }
+                    else
+                    {
+                        commands.EnqueueApplyDamage(new ApplyDamageCommand
+                        {
+                            Source = projectile.Owner,
+                            Target = actorLink.ActorId,
+                            Damage = projectile.Damage,
+                            AbilityId = projectile.AbilityId,
+                            DamageType = projectile.DamageType
+                        });
 
-                    _hits.Add(projectilePair.Key);
+                        if (!string.IsNullOrEmpty(projectile.HitEffectId))
+                        {
+                            commands.EnqueueApplyEffect(new ApplyEffectCommand
+                            {
+                                Source = projectile.Owner,
+                                Target = actorLink.ActorId,
+                                EffectId = projectile.HitEffectId
+                            });
+                        }
+                    }
+
+                    hitThisFrame = true;
+                    if (projectile.PierceRemaining > 0)
+                    {
+                        projectile.PierceRemaining--;
+                        projectiles.Add(projectilePair.Key, projectile);
+                    }
+                    else
+                    {
+                        _hits.Add(projectilePair.Key);
+                    }
+
                     break;
+                }
+
+                if (!hitThisFrame)
+                {
+                    continue;
                 }
             }
 

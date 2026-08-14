@@ -9,12 +9,28 @@ namespace Framework.Core.Commands
     {
         readonly List<SpawnProjectileCommand> _spawnProjectiles = new List<SpawnProjectileCommand>(32);
         readonly List<ApplyDamageCommand> _applyDamage = new List<ApplyDamageCommand>(32);
+        readonly List<ApplyHealCommand> _applyHeal = new List<ApplyHealCommand>(16);
+        readonly List<ApplyEffectCommand> _applyEffect = new List<ApplyEffectCommand>(16);
+        readonly List<ApplyDisplaceCommand> _applyDisplace = new List<ApplyDisplaceCommand>(16);
+        readonly List<ApplyAreaEffectCommand> _applyArea = new List<ApplyAreaEffectCommand>(8);
 
         /// <summary>获取当前帧待处理的投射物生成命令列表（只读）。</summary>
         public IReadOnlyList<SpawnProjectileCommand> SpawnProjectiles => _spawnProjectiles;
 
         /// <summary>获取当前帧待处理的伤害应用命令列表（只读）。</summary>
         public IReadOnlyList<ApplyDamageCommand> ApplyDamage => _applyDamage;
+
+        /// <summary>获取当前帧待处理的治疗命令列表（只读）。</summary>
+        public IReadOnlyList<ApplyHealCommand> ApplyHeal => _applyHeal;
+
+        /// <summary>获取当前帧待处理的效果施加命令列表（只读）。</summary>
+        public IReadOnlyList<ApplyEffectCommand> ApplyEffect => _applyEffect;
+
+        /// <summary>获取当前帧待处理的位移命令列表（只读）。</summary>
+        public IReadOnlyList<ApplyDisplaceCommand> ApplyDisplace => _applyDisplace;
+
+        /// <summary>获取当前帧待处理的范围效果命令列表（只读）。</summary>
+        public IReadOnlyList<ApplyAreaEffectCommand> ApplyAreaEffect => _applyArea;
 
         /// <summary>将一条投射物生成命令加入缓冲。</summary>
         /// <param name="command">要入队的命令（通过 in 传递，避免拷贝）。</param>
@@ -24,17 +40,49 @@ namespace Framework.Core.Commands
         /// <param name="command">要入队的命令（通过 in 传递，避免拷贝）。</param>
         public void EnqueueApplyDamage(in ApplyDamageCommand command) => _applyDamage.Add(command);
 
+        /// <summary>将一条治疗命令加入缓冲。</summary>
+        /// <param name="command">要入队的命令。</param>
+        public void EnqueueApplyHeal(in ApplyHealCommand command) => _applyHeal.Add(command);
+
+        /// <summary>将一条效果施加命令加入缓冲。</summary>
+        /// <param name="command">要入队的命令。</param>
+        public void EnqueueApplyEffect(in ApplyEffectCommand command) => _applyEffect.Add(command);
+
+        /// <summary>将一条位移命令加入缓冲。</summary>
+        /// <param name="command">要入队的命令。</param>
+        public void EnqueueApplyDisplace(in ApplyDisplaceCommand command) => _applyDisplace.Add(command);
+
+        /// <summary>将一条范围效果命令加入缓冲。</summary>
+        /// <param name="command">要入队的命令。</param>
+        public void EnqueueApplyAreaEffect(in ApplyAreaEffectCommand command) => _applyArea.Add(command);
+
         /// <summary>清空投射物生成命令缓冲；通常在 Flush Spawn 阶段结束后调用。</summary>
         public void ClearSpawnProjectiles() => _spawnProjectiles.Clear();
 
         /// <summary>清空伤害应用命令缓冲；通常在 Flush Damage 阶段结束后调用。</summary>
         public void ClearApplyDamage() => _applyDamage.Clear();
 
+        /// <summary>清空治疗命令缓冲。</summary>
+        public void ClearApplyHeal() => _applyHeal.Clear();
+
+        /// <summary>清空效果施加命令缓冲。</summary>
+        public void ClearApplyEffect() => _applyEffect.Clear();
+
+        /// <summary>清空位移命令缓冲。</summary>
+        public void ClearApplyDisplace() => _applyDisplace.Clear();
+
+        /// <summary>清空范围效果命令缓冲。</summary>
+        public void ClearApplyAreaEffect() => _applyArea.Clear();
+
         /// <summary>清空所有命令缓冲。</summary>
         public void ClearAll()
         {
             ClearSpawnProjectiles();
             ClearApplyDamage();
+            ClearApplyHeal();
+            ClearApplyEffect();
+            ClearApplyDisplace();
+            ClearApplyAreaEffect();
         }
     }
 }

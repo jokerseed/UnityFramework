@@ -23,6 +23,18 @@ namespace Framework.GAS.Abilities
         /// <summary>阻止激活的 GameplayTag 列表；拥有者持有任意标签时不可激活。</summary>
         public IReadOnlyList<GameplayTag> BlockedTags { get; }
 
+        /// <summary>冷却键；空则使用 <see cref="AbilityId"/>，用于共享冷却组。</summary>
+        public virtual string CooldownId => null;
+
+        /// <summary>技能身份 Tag。</summary>
+        public virtual IReadOnlyList<GameplayTag> AssetTags => System.Array.Empty<GameplayTag>();
+
+        /// <summary>激活期间授予拥有者的 Tag。</summary>
+        public virtual IReadOnlyList<GameplayTag> ActivationOwnedTags => System.Array.Empty<GameplayTag>();
+
+        /// <summary>激活时取消其它匹配技能所用的 Tag。</summary>
+        public virtual IReadOnlyList<GameplayTag> CancelAbilitiesWithTags => System.Array.Empty<GameplayTag>();
+
         /// <summary>激活时是否立即 Commit（设冷却）；false 时由子类手动调用 Commit。</summary>
         public virtual bool AutoCommit { get; } = true;
 
@@ -57,7 +69,19 @@ namespace Framework.GAS.Abilities
             in AbilityActivationContext context,
             GameplayAbilitySpec spec = null)
         {
-            if (owner.CooldownRemaining(AbilityId) > 0f)
+            if (owner.IsDead)
+            {
+                return AbilityActivationResult.Failed(AbilityActivationFailureReason.Dead);
+            }
+
+            if (owner.Tags.HasTag(new GameplayTag(BattleConstants.TagStunned)) ||
+                owner.Tags.HasTag(new GameplayTag(BattleConstants.TagSilenced)) ||
+                owner.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
+            {
+                return AbilityActivationResult.Failed(AbilityActivationFailureReason.CrowdControlled);
+            }
+
+            if (owner.CooldownRemaining(spec != null ? spec.Def.GetCooldownId() : GetCooldownId()) > 0f)
             {
                 return AbilityActivationResult.Failed(AbilityActivationFailureReason.OnCooldown);
             }
@@ -70,6 +94,11 @@ namespace Framework.GAS.Abilities
             if (owner.Tags.HasAny(BlockedTags))
             {
                 return AbilityActivationResult.Failed(AbilityActivationFailureReason.HasBlockingTags);
+            }
+
+            if (CostAttributes != null && CostAttributes.Count > 0 && !owner.CanAffordCost(CostAttributes))
+            {
+                return AbilityActivationResult.Failed(AbilityActivationFailureReason.InsufficientResource);
             }
 
             return AbilityActivationResult.Succeeded();
@@ -87,9 +116,13 @@ namespace Framework.GAS.Abilities
             ActiveAbilityInstance instance,
             BattleContext battle)
         {
-            owner.StartCooldown(AbilityId, Cooldown);
+            owner.StartCooldown(instance.Spec.Def.GetCooldownId(), Cooldown, battle.Presentation);
             return true;
         }
+
+        /// <summary>实际冷却键。</summary>
+        /// <returns>共享组名或技能 ID。</returns>
+        public string GetCooldownId() => string.IsNullOrEmpty(CooldownId) ? AbilityId : CooldownId;
 
         /// <summary>执行技能激活逻辑（写入命令缓冲 / 启动 AbilityTask）。</summary>
         /// <param name="owner">持有该技能的 ASC。</param>
