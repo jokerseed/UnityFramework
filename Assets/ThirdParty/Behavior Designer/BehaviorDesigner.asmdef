@@ -1,16 +1,12 @@
 {
-    "name": "Framework.Editor",
-    "rootNamespace": "Framework.Editor",
+    "name": "BehaviorDesigner",
+    "rootNamespace": "",
     "references": [
-        "Framework.Logging",
-        "YooAsset.Editor",
-        "BehaviorDesigner"
+        "GUID:f06555f75b070af458a003d92f9efb00"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
