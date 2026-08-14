@@ -8,13 +8,13 @@
 |---|---|
 | 程序集 | `Framework.Logging` |
 | 命名空间 | `Framework.Logging` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Core` |
+| 依赖 | `Framework.Core` |
 
 ## 核心类型
 
 | 类型 | 职责 |
 |------|------|
-| `LoggingModule` | `IGameModule`，位于 `Framework.Bootstrap` 程序集 |
+| `LoggingModule` | `IGameModule` 实现（本程序集） |
 | `LoggingManager` | 常驻单例，Inspector 配置 `LogInitOptions` |
 | `GameLog` | 全局静态入口（级别 / 分类 / Sink / 格式化） |
 | `ILogSink` | 自定义输出目标 |

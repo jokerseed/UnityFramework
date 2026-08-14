@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.GamePlay` |
 | 命名空间 | `Framework.GamePlay` / `Framework.GamePlay.Data` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.Events`、`Framework.GAS`、`Framework.ECS`、`Framework.Logging`、`Framework.Config` |
+| 依赖 | `Framework.Core`、`Framework.Events`、`Framework.GAS`、`Framework.ECS`、`Framework.Logging`、`Framework.Config` |
 
 ## 核心类型
 

@@ -182,7 +182,7 @@ GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
 ```
 Framework/
 ├── Assets/
-│   ├── Scripts/                    # Launch、BattleBootstrap 等业务入口
+│   ├── Scripts/                    # 业务程序集 Game（Launch、BattleBootstrap）
 │   ├── Framework/                  # 框架源码（各模块 README）
 │   ├── Generated/Luban/            # Luban 生成 C#（勿手改）
 │   └── Bundles/                    # 场景、配置、Prefab（YooAsset 收集）

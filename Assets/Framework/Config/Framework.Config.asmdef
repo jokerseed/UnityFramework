@@ -2,7 +2,6 @@
     "name": "Framework.Config",
     "rootNamespace": "Framework.Config",
     "references": [
-        "Framework.Bootstrap",
         "Framework.Core",
         "Framework.Res",
         "Framework.Logging",

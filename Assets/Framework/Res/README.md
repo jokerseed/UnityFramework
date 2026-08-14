@@ -8,7 +8,7 @@ YooAsset 资源管线封装：**通用**加载、释放、反序列化统一入�
 |---|---|
 | 程序集 | `Framework.Res` |
 | 命名空间 | `Framework.Res` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.Logging`、`YooAsset` |
+| 依赖 | `Framework.Core`、`Framework.Logging`、`YooAsset` |
 
 ## 核心类型
 

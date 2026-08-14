@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.MemoryPool` |
 | 命名空间 | `Framework.MemoryPool` |
-| 依赖 | `Framework.Core`、`Framework.Bootstrap`、`Framework.Logging` |
+| 依赖 | `Framework.Core`、`Framework.Logging` |
 
 ## 核心类型
 

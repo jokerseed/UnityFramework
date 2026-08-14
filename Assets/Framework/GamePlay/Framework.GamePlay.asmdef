@@ -2,7 +2,6 @@
     "name": "Framework.GamePlay",
     "rootNamespace": "Framework.GamePlay",
     "references": [
-        "Framework.Bootstrap",
         "Framework.Core",
         "Framework.Events",
         "Framework.GAS",

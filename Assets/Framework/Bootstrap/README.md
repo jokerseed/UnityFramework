@@ -10,13 +10,13 @@
 |---|---|
 | 程序集 | `Framework.Bootstrap` |
 | 命名空间 | `Framework.Bootstrap` |
-| 依赖 | `Framework.Core` |
+| 依赖 | `Framework.Core`、`Framework.Logging` |
 
 ## 核心类型
 
 | 类型 | 职责 |
 |------|------|
-| `IGameModule` | 业务模块契约（名称、阶段、依赖、同步/异步初始化） |
+| `IGameModule` / `ModulePhase` / `ModuleInitMode` | 模块契约（定义在 `Framework.Core`，由本程序集调度） |
 | `ModuleGroup` | 一组模块的句柄，含状态与事件 |
 | `ModuleGroupState` | `Idle` / `Running` / `Ready` / `Failed` |
 | `GameBootstrap` | 常驻单例，仅负责多组模块的初始化调度 |

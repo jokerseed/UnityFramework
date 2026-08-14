@@ -1,4 +1,4 @@
-namespace Framework.Bootstrap
+namespace Framework.Core
 {
     /// <summary>模块初始化执行方式。</summary>
     public enum ModuleInitMode

@@ -2,9 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Framework.Bootstrap
+namespace Framework.Core
 {
-    /// <summary>游戏模块接口，定义模块生命周期、依赖声明与初始化模式。</summary>
+    /// <summary>
+    /// 游戏模块契约：生命周期、依赖声明与初始化模式。
+    /// 由 <c>Framework.Bootstrap.GameBootstrap</c> 调度；实现类放在各业务程序集。
+    /// </summary>
     public interface IGameModule
     {
         /// <summary>获取模块名称，用于日志与调试。</summary>

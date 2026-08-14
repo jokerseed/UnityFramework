@@ -26,8 +26,8 @@
 
 | 程序集 | 职责 | 文档 |
 |--------|------|------|
-| `Framework.Bootstrap` | 模块启动编排（Host + `IGameModule`） | [Bootstrap/README.md](Bootstrap/README.md) |
-| `Framework.Core` | CommandBuffer、BattleContext、标识符 | [Core/README.md](Core/README.md) |
+| `Framework.Bootstrap` | 模块启动编排（Host；`IGameModule` 契约在 Core） | [Bootstrap/README.md](Bootstrap/README.md) |
+| `Framework.Core` | CommandBuffer、BattleContext、标识符、`IGameModule` | [Core/README.md](Core/README.md) |
 | `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
 | `Framework.ECS` | World、System、空间哈希 | [ECS/README.md](ECS/README.md) |
@@ -43,6 +43,7 @@
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree/README.md](BehaviourTree/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
 | `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
+| `Game` | 业务入口（Launch / 主界面 / Battle 演示） | [../../Scripts/README.md](../../Scripts/README.md) |
 | `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
 
 ## 示例与验证（写在 README）

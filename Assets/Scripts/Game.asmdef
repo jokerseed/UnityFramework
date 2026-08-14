@@ -1,12 +1,21 @@
 {
-    "name": "Framework.UI",
-    "rootNamespace": "Framework.UI",
+    "name": "Game",
+    "rootNamespace": "Game",
     "references": [
+        "Framework.Bootstrap",
+        "Framework.Config",
         "Framework.Core",
-        "Framework.Logging",
-        "Framework.Res",
         "Framework.Coroutine",
-        "Framework.Events"
+        "Framework.ECS",
+        "Framework.Events",
+        "Framework.GamePlay",
+        "Framework.GAS",
+        "Framework.Logging",
+        "Framework.MemoryPool",
+        "Framework.ObjectPool",
+        "Framework.Res",
+        "Framework.UI",
+        "Generated.Luban"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

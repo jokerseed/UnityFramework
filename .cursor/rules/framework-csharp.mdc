@@ -70,6 +70,8 @@ public enum ModuleInitMode
 ## 新增 / 修改 IGameModule
 
 ```csharp
+using Framework.Core;
+
 public sealed class MyModule : IGameModule
 {
     public string Name => "My";
@@ -121,7 +123,7 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 
 ## 程序集
 
-- 新功能放进对应 `Framework.*` asmdef，避免 `Assembly-CSharp` 膨胀
+- 新功能放进对应 `Framework.*` asmdef；业务入口放 `Assets/Scripts` 的 `Game` 程序集，避免 `Assembly-CSharp` 膨胀
 - `Framework.Editor` 仅 Editor；运行时模块禁止引用 Editor 程序集
 - 跨模块通过各模块自己的单例/静态入口访问（如 `ResourceManager.Instance`）
 - Bootstrap 不保存模块上下文，只做初始化调度

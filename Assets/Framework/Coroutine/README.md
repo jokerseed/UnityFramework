@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.Coroutine` |
 | 命名空间 | `Framework.Coroutine` |
-| 依赖 | `Framework.Core`、`Bootstrap`、`Logging` |
+| 依赖 | `Framework.Core`、`Logging` |
 
 ## 核心类型
 

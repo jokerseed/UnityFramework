@@ -1,4 +1,4 @@
-namespace Framework.Bootstrap
+namespace Framework.Core
 {
     /// <summary>模块粗粒度启动阶段，用于同波次内的排序参考。</summary>
     public enum ModulePhase

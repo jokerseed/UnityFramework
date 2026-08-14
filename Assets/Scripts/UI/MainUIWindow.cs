@@ -5,6 +5,8 @@ using Framework.Res;
 using Framework.UI;
 using UnityEngine.UI;
 
+namespace Game
+{
 /// <summary>
 /// 首页窗口：展示「进入游戏」按钮，点击后关闭首页并加载战斗场景。
 /// </summary>
@@ -46,4 +48,5 @@ public sealed class MainUIWindow : UIWindow
             _enterGameButton.onClick.RemoveListener(OnEnterGameClicked);
         }
     }
+}
 }

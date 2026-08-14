@@ -8,7 +8,7 @@ Luban 配置表的按需加载与缓存。**读表不在模块初始化时发生
 |---|---|
 | 程序集 | `Framework.Config` |
 | 命名空间 | `Framework.Config` |
-| 依赖 | `Framework.Bootstrap`、`Framework.Core`、`Framework.Res`、`Framework.Logging`、`Generated.Luban`、`Luban.Runtime` |
+| 依赖 | `Framework.Core`、`Framework.Res`、`Framework.Logging`、`Generated.Luban`、`Luban.Runtime` |
 
 ## 核心类型
 

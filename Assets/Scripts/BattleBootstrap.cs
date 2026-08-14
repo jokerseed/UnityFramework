@@ -11,6 +11,8 @@ using Framework.Logging;
 using Framework.Res;
 using UnityEngine;
 
+namespace Game
+{
 /// <summary>
 /// 战斗场景业务入口：进 Battle 后由 GamePlay 接管——创建 Actor、注册技能、每帧 Tick，并同步模型表现。
 /// Hero 周期施放 Fireball；弹道用简易球体跟随 ECS 投射物。
@@ -362,4 +364,5 @@ public sealed class BattleBootstrap : MonoBehaviour
 
         _framework = null;
     }
+}
 }

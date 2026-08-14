@@ -3,7 +3,6 @@
     "rootNamespace": "Framework.Coroutine",
     "references": [
         "Framework.Core",
-        "Framework.Bootstrap",
         "Framework.Logging"
     ],
     "includePlatforms": [],

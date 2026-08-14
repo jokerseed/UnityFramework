@@ -43,7 +43,7 @@ alwaysApply: false
 未 `Configure` 时 `GameLog` 会使用内部 fallback Sink 输出（便于 Bootstrap 首轮日志与 Editor 工具）。
 
 - 需要打日志的运行时程序集应引用 `Framework.Logging`
-- `LoggingModule` 位于 `Framework.Bootstrap` 程序集（避免循环依赖）
+- `LoggingModule` 位于 `Framework.Logging` 程序集（`IGameModule` 契约在 `Framework.Core`，避免与 Bootstrap 循环依赖）
 - 使用 `GameLog` 的 `IGameModule` 须在 `Dependencies` 声明 `typeof(LoggingModule)`
 - `LoggingModule` 须在同组 `SetModules` 中、且早于依赖它的模块初始化
 

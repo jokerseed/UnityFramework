@@ -1,5 +1,6 @@
 using Framework.Bootstrap;
 using Framework.Config;
+using Framework.Core;
 using Framework.Coroutine;
 using Framework.GamePlay;
 using Framework.Logging;
@@ -9,6 +10,8 @@ using Framework.Res;
 using Framework.UI;
 using UnityEngine;
 
+namespace Game
+{
 /// <summary>
 /// 启动入口：通过 GameBootstrap 按依赖顺序初始化各模块。
 /// 挂到 Launch 场景任意 GameObject 上即可。
@@ -85,4 +88,5 @@ public sealed class Launch : MonoBehaviour
                 return LogStyle.Muted(state);
         }
     }
+}
 }

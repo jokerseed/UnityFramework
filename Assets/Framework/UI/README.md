@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.UI` |
 | 命名空间 | `Framework.UI` |
-| 依赖 | `Framework.Core`、`Framework.Bootstrap`、`Framework.Logging`、`Framework.Res`、`Framework.Coroutine`、`Framework.Events` |
+| 依赖 | `Framework.Core`、`Framework.Logging`、`Framework.Res`、`Framework.Coroutine`、`Framework.Events` |
 
 ## 核心类型
 

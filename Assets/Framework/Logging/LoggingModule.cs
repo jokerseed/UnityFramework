@@ -1,13 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Framework.Bootstrap;
+using Framework.Core;
 
 namespace Framework.Logging
 {
     /// <summary>
-    /// 日志模块：置于 Bootstrap 程序集，避免与 GameLog 所在程序集循环依赖。
-    /// 初始化选项从 <see cref="LoggingManager"/> 读取。
+    /// 日志模块：实现 <see cref="IGameModule"/>，初始化选项从 <see cref="LoggingManager"/> 读取。
     /// </summary>
     public sealed class LoggingModule : IGameModule
     {
