@@ -5,6 +5,7 @@ using Framework.Coroutine;
 using Framework.GamePlay;
 using Framework.Logging;
 using Framework.MemoryPool;
+using Framework.Network;
 using Framework.ObjectPool;
 using Framework.Res;
 using Framework.UI;
@@ -29,6 +30,7 @@ public sealed class Launch : MonoBehaviour
             new CoroutineModule(),
             new MemoryPoolModule(),
             new ObjectPoolModule(),
+            new NetworkModule(),
             new ResourceModule(),
             new UIModule(),
             new ConfigModule(),

@@ -42,6 +42,7 @@
 | `Framework.LockstepPhysics` | 确定性 2D/3D 物理（基座 D） | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree/README.md](BehaviourTree/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
+| `Framework.Network` | TCP 网络频道（`NetworkManager` / `INetworkChannel`） | [Network/README.md](Network/README.md) |
 | `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
 | `Game` | 业务入口（Launch / 主界面 / Battle 演示） | [../../Scripts/README.md](../../Scripts/README.md) |
 | `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
@@ -63,6 +64,7 @@ Bootstrap (Host)
     ├── Coroutine (CoroutineModule)   Infrastructure（依赖 Logging）
     ├── MemoryPool (MemoryPoolModule) Infrastructure
     ├── ObjectPool (ObjectPoolModule) Infrastructure（依赖 MemoryPool）
+    ├── Network (NetworkModule)       Infrastructure（依赖 Logging + MemoryPool）
     ├── Res (ResourceModule)          Infrastructure
     │       ├── UI (UIModule)             Presentation（依赖 Resource + Coroutine）
     │       └── Config (ConfigModule)     Data

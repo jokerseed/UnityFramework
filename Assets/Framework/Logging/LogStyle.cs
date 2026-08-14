@@ -156,6 +156,8 @@ namespace Framework.Logging
                     return "#78909C";
                 case LogCategories.UI:
                     return "#66BB6A";
+                case LogCategories.Network:
+                    return "#26A69A";
                 case LogCategories.Editor:
                     return "#90A4AE";
                 default:

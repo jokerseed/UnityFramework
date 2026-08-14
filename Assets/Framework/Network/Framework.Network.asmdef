@@ -1,22 +1,11 @@
 {
-    "name": "Game",
-    "rootNamespace": "Game",
+    "name": "Framework.Network",
+    "rootNamespace": "Framework.Network",
     "references": [
-        "Framework.Bootstrap",
-        "Framework.Config",
         "Framework.Core",
-        "Framework.Coroutine",
-        "Framework.ECS",
-        "Framework.Events",
-        "Framework.GamePlay",
-        "Framework.GAS",
         "Framework.Logging",
         "Framework.MemoryPool",
-        "Framework.Network",
-        "Framework.ObjectPool",
-        "Framework.Res",
-        "Framework.UI",
-        "Generated.Luban"
+        "Framework.Events"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

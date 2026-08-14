@@ -39,6 +39,8 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 | `Framework.Lockstep` | 帧同步调度/输入抽象/回滚核心（非 IGameModule） |
 | `Framework.LockstepPhysics` | 确定性 Jitter/Farseer 物理插件（非 IGameModule） |
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时（非 IGameModule） |
+| `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
+| `Framework.Network` | TCP 网络频道（`NetworkManager` / `INetworkChannel`） | [Network/README.md](Network/README.md) |
 | `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
 | `Game` | 业务入口（`Assets/Scripts`：Launch / 主界面 / Battle 演示），引用框架、不被框架引用 |
 

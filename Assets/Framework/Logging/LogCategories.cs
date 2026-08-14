@@ -44,5 +44,8 @@ namespace Framework.Logging
 
         /// <summary>UI 模块。</summary>
         public const string UI = "UI";
+
+        /// <summary>网络模块。</summary>
+        public const string Network = "Network";
     }
 }
