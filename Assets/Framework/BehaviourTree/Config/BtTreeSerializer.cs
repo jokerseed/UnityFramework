@@ -48,7 +48,40 @@ namespace Framework.BehaviourTree
                 definition.Nodes = new System.Collections.Generic.List<BtConfigNode>();
             }
 
+            Migrate(definition);
             return definition;
+        }
+
+        static void Migrate(BtTreeDefinition definition)
+        {
+            if (definition.Version >= BtTreeDefinition.CurrentVersion)
+            {
+                return;
+            }
+
+            if (definition.Version < 2)
+            {
+                for (var i = 0; i < definition.Nodes.Count; i++)
+                {
+                    var node = definition.Nodes[i];
+                    if (node == null)
+                    {
+                        continue;
+                    }
+
+                    node.FailFast = true;
+                    node.SucceedFast = true;
+                    if (node.Kind == BtNodeKind.WaitTime ||
+                        node.Kind == BtNodeKind.Cooldown ||
+                        node.Kind == BtNodeKind.Timeout ||
+                        node.Kind == BtNodeKind.TimeLimit)
+                    {
+                        node.SetDurationSeconds(node.FloatParam);
+                    }
+                }
+            }
+
+            definition.Version = BtTreeDefinition.CurrentVersion;
         }
 
         /// <summary>

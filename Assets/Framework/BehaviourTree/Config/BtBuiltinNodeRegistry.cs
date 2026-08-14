@@ -1,5 +1,4 @@
 using System;
-using Framework.FixedMath;
 
 namespace Framework.BehaviourTree
 {
@@ -17,20 +16,11 @@ namespace Framework.BehaviourTree
 
             switch (config.Kind)
             {
-                case BtNodeKind.Sequence:
-                    node = new BtSequence();
-                    return true;
-                case BtNodeKind.Selector:
-                    node = new BtSelector();
-                    return true;
-                case BtNodeKind.Parallel:
-                    node = new BtParallel(config.ParallelPolicy);
-                    return true;
                 case BtNodeKind.WaitFrames:
                     node = new BtWaitFrames(config.IntParam);
                     return true;
                 case BtNodeKind.WaitTime:
-                    node = new BtWaitTime(FP.FromFloat(config.FloatParam));
+                    node = new BtWaitTime(config.ResolveDuration());
                     return true;
                 case BtNodeKind.BlackboardBool:
                     node = CreateBlackboardBool(config.StringParam);

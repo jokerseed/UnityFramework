@@ -6,10 +6,49 @@ using UnityEngine;
 
 namespace Framework.BehaviourTree.Editor
 {
+    /// <summary>按资产名解析子树（Editor）。</summary>
+    public sealed class BtEditorSubtreeResolver : IBtSubtreeResolver
+    {
+        /// <inheritdoc />
+        public bool TryResolve(string subtreeId, out BtTreeDefinition definition)
+        {
+            definition = null;
+            if (string.IsNullOrEmpty(subtreeId))
+            {
+                return false;
+            }
+
+            var guids = AssetDatabase.FindAssets("t:BtTreeAsset");
+            for (var i = 0; i < guids.Length; i++)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                var asset = AssetDatabase.LoadAssetAtPath<BtTreeAsset>(path);
+                if (asset == null)
+                {
+                    continue;
+                }
+
+                var name = string.IsNullOrEmpty(asset.Definition.TreeName)
+                    ? Path.GetFileNameWithoutExtension(path)
+                    : asset.Definition.TreeName;
+                if (name == subtreeId || Path.GetFileNameWithoutExtension(path) == subtreeId)
+                {
+                    definition = asset.Definition;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>行为树 Editor 工具：创建资产、导入导出 JSON。</summary>
     public static class BtEditorUtility
     {
+        /// <summary>默认资产目录。</summary>
         public const string DefaultTreeFolder = "Assets/Bundles/BehaviourTrees";
+
+        /// <summary>导出 JSON 扩展名（含点）。</summary>
         public const string JsonExtension = ".bt.json";
 
         /// <summary>
@@ -92,7 +131,7 @@ namespace Framework.BehaviourTree.Editor
 
             try
             {
-                BtTreeCompiler.Compile(asset);
+                BtTreeCompiler.Compile(asset, null, new BtEditorSubtreeResolver());
                 return true;
             }
             catch (Exception ex)

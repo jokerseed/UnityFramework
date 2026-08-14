@@ -18,11 +18,11 @@ namespace Framework.BehaviourTree
             switch (status)
             {
                 case BtStatus.Success:
-                    return BtStatus.Failure;
+                    return Commit(context, BtStatus.Failure);
                 case BtStatus.Failure:
-                    return BtStatus.Success;
+                    return Commit(context, BtStatus.Success);
                 default:
-                    return BtStatus.Running;
+                    return Commit(context, BtStatus.Running);
             }
         }
     }

@@ -1,49 +1,53 @@
-using System;
-
 namespace Framework.BehaviourTree
 {
     /// <summary>并行策略：如何汇总子节点本帧结果。</summary>
     public enum BtParallelPolicy
     {
-        /// <summary>全部成功才成功；任一失败则失败；否则 Running。</summary>
+        /// <summary>全部成功才成功；失败是否立刻返回由 <see cref="BtParallel.FailFast"/> 决定。</summary>
         RequireAll = 0,
 
-        /// <summary>任一成功即成功；全部失败才失败；否则 Running。</summary>
+        /// <summary>任一成功即成功；成功是否立刻返回由 <see cref="BtParallel.SucceedFast"/> 决定。</summary>
         RequireOne = 1,
     }
 
-    /// <summary>
-    /// 并行节点：每帧对所有仍在进行的子节点 Tick，按策略汇总。
-    /// </summary>
+    /// <summary>并行节点：每帧对尚未结束的子节点 Tick，按策略汇总。</summary>
     public sealed class BtParallel : BtComposite
     {
-        BtStatus[] _statuses;
-        bool _started;
-
-        /// <summary>
-        /// 创建并行节点。
-        /// </summary>
+        /// <summary>创建并行节点。</summary>
         /// <param name="policy">汇总策略。</param>
-        public BtParallel(BtParallelPolicy policy = BtParallelPolicy.RequireAll)
+        /// <param name="failFast">任一失败是否立刻失败并中止其余；默认 true。</param>
+        /// <param name="succeedFast">任一成功是否立刻成功并中止其余；默认 true。</param>
+        public BtParallel(
+            BtParallelPolicy policy = BtParallelPolicy.RequireAll,
+            bool failFast = true,
+            bool succeedFast = true)
         {
             Policy = policy;
+            FailFast = failFast;
+            SucceedFast = succeedFast;
         }
 
         /// <summary>汇总策略。</summary>
         public BtParallelPolicy Policy { get; }
 
+        /// <summary>出现失败时是否立刻失败并 Abort 仍在 Running 的子节点。</summary>
+        public bool FailFast { get; }
+
+        /// <summary>出现成功时是否立刻成功并 Abort 仍在 Running 的子节点。</summary>
+        public bool SucceedFast { get; }
+
         /// <inheritdoc />
         public override BtStatus Tick(BtContext context)
         {
-            EnsureStatusBuffer();
-            if (!_started)
+            var runtime = context.Runtime;
+            if (runtime != null && !runtime.IsStarted(Index))
             {
                 for (var i = 0; i < Children.Count; i++)
                 {
-                    _statuses[i] = BtStatus.Running;
+                    runtime.SetStatus(Children[i].Index, BtStatus.Running);
                 }
 
-                _started = true;
+                runtime.SetStarted(Index, true);
             }
 
             var anyRunning = false;
@@ -52,12 +56,14 @@ namespace Framework.BehaviourTree
 
             for (var i = 0; i < Children.Count; i++)
             {
-                if (_statuses[i] == BtStatus.Running)
+                var child = Children[i];
+                var childStatus = runtime != null ? runtime.GetStatus(child.Index) : BtStatus.Running;
+                if (childStatus == BtStatus.Running)
                 {
-                    _statuses[i] = Children[i].Tick(context);
+                    childStatus = child.Tick(context);
                 }
 
-                switch (_statuses[i])
+                switch (childStatus)
                 {
                     case BtStatus.Running:
                         anyRunning = true;
@@ -73,75 +79,47 @@ namespace Framework.BehaviourTree
 
             if (Policy == BtParallelPolicy.RequireAll)
             {
-                if (anyFailure)
+                if (anyFailure && (FailFast || !anyRunning))
                 {
                     AbortRunningChildren(context);
                     Reset(context);
-                    return BtStatus.Failure;
+                    return Commit(context, BtStatus.Failure);
                 }
 
                 if (anyRunning)
                 {
-                    return BtStatus.Running;
+                    return Commit(context, BtStatus.Running);
                 }
 
                 Reset(context);
-                return BtStatus.Success;
+                return Commit(context, BtStatus.Success);
             }
 
-            // RequireOne
-            if (anySuccess)
+            if (anySuccess && (SucceedFast || !anyRunning))
             {
                 AbortRunningChildren(context);
                 Reset(context);
-                return BtStatus.Success;
+                return Commit(context, BtStatus.Success);
             }
 
             if (anyRunning)
             {
-                return BtStatus.Running;
+                return Commit(context, BtStatus.Running);
             }
 
             Reset(context);
-            return BtStatus.Failure;
-        }
-
-        /// <inheritdoc />
-        public override void Reset(BtContext context)
-        {
-            _started = false;
-            if (_statuses != null)
-            {
-                for (var i = 0; i < _statuses.Length; i++)
-                {
-                    _statuses[i] = BtStatus.Running;
-                }
-            }
-
-            base.Reset(context);
-        }
-
-        void EnsureStatusBuffer()
-        {
-            if (_statuses != null && _statuses.Length == Children.Count)
-            {
-                return;
-            }
-
-            _statuses = new BtStatus[Children.Count];
-            for (var i = 0; i < _statuses.Length; i++)
-            {
-                _statuses[i] = BtStatus.Running;
-            }
+            return Commit(context, BtStatus.Failure);
         }
 
         void AbortRunningChildren(BtContext context)
         {
+            var runtime = context.Runtime;
             for (var i = 0; i < Children.Count; i++)
             {
-                if (_statuses[i] == BtStatus.Running)
+                var child = Children[i];
+                if (runtime == null || runtime.GetStatus(child.Index) == BtStatus.Running)
                 {
-                    Children[i].Abort(context);
+                    child.Abort(context);
                 }
             }
         }

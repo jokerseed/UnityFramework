@@ -2,61 +2,52 @@ namespace Framework.BehaviourTree
 {
     /// <summary>
     /// 重复执行子节点。times &lt;= 0 表示无限重复直到被 Abort。
+    /// Failure 默认使装饰失败；<see cref="RepeatOnFailure"/> 为 true 时失败也重试。
     /// </summary>
     public sealed class BtRepeater : BtDecorator
     {
         readonly int _times;
-        int _count;
-        bool _started;
 
-        /// <summary>
-        /// 创建重复装饰。
-        /// </summary>
+        /// <summary>创建重复装饰。</summary>
         /// <param name="child">子节点；不可为 null。</param>
         /// <param name="times">重复次数；&lt;=0 表示无限。</param>
-        public BtRepeater(BtNode child, int times = 0) : base(child)
+        /// <param name="repeatOnFailure">子节点 Failure 时是否重试。</param>
+        public BtRepeater(BtNode child, int times = 0, bool repeatOnFailure = false) : base(child)
         {
             _times = times;
+            RepeatOnFailure = repeatOnFailure;
         }
+
+        /// <summary>子节点失败时是否当作一次完成并继续。</summary>
+        public bool RepeatOnFailure { get; }
 
         /// <inheritdoc />
         public override BtStatus Tick(BtContext context)
         {
-            if (!_started)
-            {
-                _count = 0;
-                _started = true;
-            }
-
+            var runtime = context.Runtime;
+            var count = runtime != null ? runtime.GetInt(Index) : 0;
             var status = Child.Tick(context);
             if (status == BtStatus.Running)
             {
-                return BtStatus.Running;
+                return Commit(context, BtStatus.Running);
             }
 
-            if (status == BtStatus.Failure)
+            if (status == BtStatus.Failure && !RepeatOnFailure)
             {
                 Reset(context);
-                return BtStatus.Failure;
+                return Commit(context, BtStatus.Failure);
             }
 
-            _count++;
+            count++;
             Child.Reset(context);
-            if (_times > 0 && _count >= _times)
+            runtime?.SetInt(Index, count);
+            if (_times > 0 && count >= _times)
             {
                 Reset(context);
-                return BtStatus.Success;
+                return Commit(context, BtStatus.Success);
             }
 
-            return BtStatus.Running;
-        }
-
-        /// <inheritdoc />
-        public override void Reset(BtContext context)
-        {
-            _count = 0;
-            _started = false;
-            base.Reset(context);
+            return Commit(context, BtStatus.Running);
         }
     }
 }

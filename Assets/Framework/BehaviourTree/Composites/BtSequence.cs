@@ -1,41 +1,62 @@
 namespace Framework.BehaviourTree
 {
     /// <summary>
-    /// 顺序节点：从左到右执行；任一失败则失败，全部成功则成功；子节点 Running 时保持进度。
+    /// 顺序节点：从左到右；任一失败则失败，全部成功则成功。
+    /// <see cref="BtAbortType.Self"/> / <see cref="BtAbortType.Both"/> 时每帧从左重评前缀。
     /// </summary>
     public sealed class BtSequence : BtComposite
     {
-        int _currentIndex;
-
         /// <inheritdoc />
         public override BtStatus Tick(BtContext context)
         {
-            while (_currentIndex < Children.Count)
+            var runtime = context.Runtime;
+            var current = runtime != null ? runtime.GetInt(Index) : 0;
+            var reactive = AbortType == BtAbortType.Self || AbortType == BtAbortType.Both;
+
+            if (reactive && current > 0)
             {
-                var status = Children[_currentIndex].Tick(context);
+                for (var i = 0; i < current; i++)
+                {
+                    var prefix = Children[i].Tick(context);
+                    if (prefix == BtStatus.Running)
+                    {
+                        AbortChildrenFrom(context, i + 1);
+                        runtime?.SetInt(Index, i);
+                        return Commit(context, BtStatus.Running);
+                    }
+
+                    if (prefix == BtStatus.Failure)
+                    {
+                        AbortChild(context, current);
+                        Reset(context);
+                        return Commit(context, BtStatus.Failure);
+                    }
+
+                    Children[i].Reset(context);
+                }
+            }
+
+            while (current < Children.Count)
+            {
+                var status = Children[current].Tick(context);
                 if (status == BtStatus.Running)
                 {
-                    return BtStatus.Running;
+                    runtime?.SetInt(Index, current);
+                    return Commit(context, BtStatus.Running);
                 }
 
                 if (status == BtStatus.Failure)
                 {
                     Reset(context);
-                    return BtStatus.Failure;
+                    return Commit(context, BtStatus.Failure);
                 }
 
-                _currentIndex++;
+                current++;
+                runtime?.SetInt(Index, current);
             }
 
             Reset(context);
-            return BtStatus.Success;
-        }
-
-        /// <inheritdoc />
-        public override void Reset(BtContext context)
-        {
-            _currentIndex = 0;
-            base.Reset(context);
+            return Commit(context, BtStatus.Success);
         }
     }
 }

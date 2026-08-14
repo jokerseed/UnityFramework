@@ -15,7 +15,7 @@ namespace Framework.BehaviourTree
         public override BtStatus Tick(BtContext context)
         {
             var status = Child.Tick(context);
-            return status == BtStatus.Running ? BtStatus.Running : BtStatus.Success;
+            return Commit(context, status == BtStatus.Running ? BtStatus.Running : BtStatus.Success);
         }
     }
 }

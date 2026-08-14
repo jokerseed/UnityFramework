@@ -8,7 +8,7 @@ namespace Framework.BehaviourTree
     public sealed class BtTreeDefinition
     {
         /// <summary>配置格式版本。</summary>
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         /// <summary>格式版本号。</summary>
         public int Version = CurrentVersion;
