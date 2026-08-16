@@ -18,6 +18,7 @@ namespace Framework.Editor.YooAsset
         const string ConfigsRoot = "Assets/Bundles/Configs";
         const string PrefabsRoot = "Assets/Bundles/Prefabs";
         const string ScenesRoot = "Assets/Bundles/Scenes";
+        const string BehaviourTreesRoot = "Assets/Bundles/BehaviourTrees";
 
         /// <summary>Collector 打包粒度。</summary>
         enum PackMode
@@ -132,6 +133,11 @@ namespace Framework.Editor.YooAsset
             if (AssetDatabase.IsValidFolder(ScenesRoot))
             {
                 rules.Add(new FolderRule(ScenesRoot, PackMode.PerFile, "Scenes"));
+            }
+
+            if (AssetDatabase.IsValidFolder(BehaviourTreesRoot))
+            {
+                rules.Add(new FolderRule(BehaviourTreesRoot, PackMode.PerFile, "BehaviourTrees"));
             }
 
             // 子目录按文件夹打包（后续扩展 battle/item 等模块时使用）

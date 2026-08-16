@@ -47,6 +47,19 @@ namespace Framework.BehaviourTree.Editor
             BtEditorUtility.CreateTreeAsset();
         }
 
+        /// <summary>批量导出全部 BtTreeAsset 旁路 .bt.json（供 YooAsset 热更）。</summary>
+        [MenuItem("Tools/Behaviour Tree/Export All Runtime JSON")]
+        public static void ExportAllRuntimeJsonMenu()
+        {
+            var count = BtEditorUtility.ExportAllRuntimeJson();
+            EditorUtility.DisplayDialog(
+                "Export All Runtime JSON",
+                count > 0
+                    ? $"Exported {count} behaviour tree JSON file(s)."
+                    : "No BtTreeAsset found in the project.",
+                "OK");
+        }
+
         /// <summary>打开指定资产。</summary>
         /// <param name="asset">行为树资产；可为 null。</param>
         public static void Open(BtTreeAsset asset)

@@ -17,7 +17,7 @@ YooAsset 资源管线封装：**通用**加载、释放、反序列化统一入�
 | `ResourceModule` | `IGameModule` 实现，初始化 YooAsset 并注册 `ResourceManager` |
 | `ResourceManager` | 常驻单例，包初始化、Asset/Scene/bytes 加载与释放 |
 | `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host） |
-| `ResourceAddresses` | 寻址规则（如 `bundles/configs/{表名}.unity3d`、`bundles/scenes/{场景}.unity3d`） |
+| `ResourceAddresses` | 寻址规则（配置表 / 场景 / **行为树** `BehaviourTree(treeId)` 等） |
 | `ResourceAssetHandle` | 资源句柄封装，支持 `Dispose` / `InstantiateSync` |
 | `ResourceSceneHandle` | 场景句柄封装，支持状态查询 / `UnloadAsync` |
 

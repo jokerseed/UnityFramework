@@ -12,6 +12,9 @@ namespace Framework.Res
         /// <summary>场景资源根路径（对应 YooAsset Collector 中的 Assets/Bundles/Scenes）。</summary>
         public const string ScenesRoot = "Bundles/Scenes";
 
+        /// <summary>行为树 JSON 资源根路径（对应 Assets/Bundles/BehaviourTrees/*.bt.json）。</summary>
+        public const string BehaviourTreesRoot = "Bundles/BehaviourTrees";
+
         /// <summary>首页 Prefab 寻址路径（Assets/Bundles/Prefabs/UI/Main.prefab）。</summary>
         public const string MainPrefab = "bundles/prefabs/ui/main.unity3d";
 
@@ -47,6 +50,17 @@ namespace Framework.Res
         public static string Scene(string sceneName)
         {
             return $"{ScenesRoot}/{sceneName}.unity3d".ToLower();
+        }
+
+        /// <summary>
+        /// 将行为树 id 转换为 YooAsset 寻址字符串（对应 <c>{treeId}.bt.json</c> TextAsset）。
+        /// 例如：<c>MonsterCommon</c> → <c>bundles/behaviourtrees/monstercommon.unity3d</c>
+        /// </summary>
+        /// <param name="treeId">树 id（通常与资产名 / TreeName 一致，不含扩展名）。</param>
+        /// <returns>对应的 YooAsset 寻址字符串（全小写）。</returns>
+        public static string BehaviourTree(string treeId)
+        {
+            return $"{BehaviourTreesRoot}/{treeId}.unity3d".ToLower();
         }
     }
 }

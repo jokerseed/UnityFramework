@@ -231,6 +231,7 @@ Framework/
 - [x] Launch 模块启动 + Battle 演示（Fireball / 弹道）
 - [x] FixedMath / Lockstep / LockstepPhysics 基座（自 Client TrueSync 迁移）
 - [x] BehaviourTree 运行时 + 可视化编辑器 + JSON 导出
+- [x] 行为树热更资源：`.bt.json` 导出 / YooAsset 加载 / 模板缓存 / `BattleAgent` 运行时替换
 - [x] 单机玩法打磨：控制/死亡/Tag 计数、冷却 GE、伤害管线、AOE/弹道变体、移动、BT 接线
 - [ ] `LockstepHost` + `ILockstepSimulation` 门面
 - [ ] 本地 `NullCommunicator` + 录像对拍 Demo

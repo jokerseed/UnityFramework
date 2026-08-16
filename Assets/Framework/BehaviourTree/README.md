@@ -78,7 +78,8 @@ tree.Tick(ctx);
 |------|------|
 | **Tools → Behaviour Tree → Editor** | 打开节点图 |
 | **Tools → Behaviour Tree → Create Tree Asset** | 创建 `BtTreeAsset`（默认 `Assets/Bundles/BehaviourTrees/`） |
-| **Create → Framework → Behaviour Tree** | 同上 |
+| **Tools → Behaviour Tree → Export All Runtime JSON** | 批量导出旁路 `.bt.json` 供热更 |
+| **Create → Framework → Behaviour Tree** | 同上创建资产 |
 
 ### 操作
 
@@ -94,11 +95,42 @@ tree.Tick(ctx);
 ## 运行时加载
 
 ```csharp
+// Editor / 已持有 ScriptableObject
 var tree = BtTreeLoader.Load(asset, customRegistry, subtrees);
-var tree2 = BtTreeLoader.LoadFromJson(jsonText, customRegistry, subtrees);
+
+// 热更 TextAsset（.bt.json）
+var tree2 = BtTreeLoader.LoadFromTextAsset(textAsset, customRegistry);
+
+// 仅编译共享模板，多 Agent Instantiate
+var template = BtTreeLoader.CompileToTemplateFromJson(json, customRegistry);
+var agentTree = new BehaviourTree(template);
 ```
 
 自定义节点实现 `IBtNodeRegistry`，处理 `CustomAction` / `CustomCondition`，或 `BtNodeFactory.Default.Register`。
+
+## 热更资源与运行时替换
+
+Player 以 **`.bt.json`（TextAsset）** 为准；`BtTreeAsset` 仅服务编辑器。
+
+| 步骤 | 操作 |
+|------|------|
+| 1. 编辑 | `Tools → Behaviour Tree → Editor` |
+| 2. 生成运行时资源 | `Tools → Behaviour Tree → Export All Runtime JSON`（或单资产 Export） |
+| 3. 打包 | YooAsset 收集 `Assets/Bundles/BehaviourTrees/*.bt.json` |
+| 4. 加载 | `BtTreeResource.LoadTree("MonsterCommon")`（GamePlay，经 `ResourceManager`） |
+| 5. 替换 | `battleAgent.ReplaceFromResource("MonsterCommon")` 或 `ReplaceTree(newTree)` |
+
+寻址：`ResourceAddresses.BehaviourTree(treeId)` → `bundles/behaviourtrees/{treeid}.unity3d`。  
+模板缓存：`BtTreeTemplateCache.Shared`；热更换包后 `BtTreeResource.Invalidate` / `ClearCache`。
+
+替换语义：中止旧树 → 新实例干净 Runtime → **默认保留黑板**（`clearBlackboard: true` 可清空）。
+
+```csharp
+var agent = new BattleAgent(BtTreeResource.LoadTree("MonsterCommon"), new BtBlackboard());
+// 热更后：
+BtTreeResource.Invalidate("MonsterCommon");
+agent.ReplaceFromResource("MonsterCommon");
+```
 
 ## 内置节点
 
@@ -125,9 +157,12 @@ var tree2 = BtTreeLoader.LoadFromJson(jsonText, customRegistry, subtrees);
 ## 资源路径建议
 
 ```
-Assets/Bundles/BehaviourTrees/MonsterCommon.asset
-Assets/Bundles/BehaviourTrees/MonsterCommon.bt.json
+Assets/Bundles/BehaviourTrees/MeleeChaser.bt.json
+Assets/Bundles/BehaviourTrees/MonsterCommon.asset   # 仅 Editor
+Assets/Bundles/BehaviourTrees/MonsterCommon.bt.json # Player / 热更
 ```
+
+战斗演示近战树：`MeleeChaser`；自定义叶子 TypeId 见 GamePlay `BattleAiTypeIds`（`Battle.IsAlive` 等），由 `BattleAiNodeRegistry.EnsureRegistered` 注册。
 
 ## 验证
 

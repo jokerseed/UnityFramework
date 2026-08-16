@@ -42,7 +42,9 @@
 - `Assets/Bundles/Configs/*.bytes` — 每个文件单独打包
 - `Assets/Bundles/Prefabs/` — 每个 Prefab 单独打包
 - `Assets/Bundles/Scenes/` — 每个场景单独打包
+- `Assets/Bundles/BehaviourTrees/` — 每个 `.bt.json` 单独打包
 - 寻址规则由 `AddressByPreImportPath` 实现：`bundles/{目录}/{文件名}.unity3d`
+  （例：`MeleeChaser.bt.json` → `bundles/behaviourtrees/meleechaser.unity3d`）
 
 ## 目录结构
 

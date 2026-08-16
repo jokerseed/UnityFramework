@@ -64,3 +64,16 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
+    - GroupName: BehaviourTrees
+      GroupDesc: 
+      AssetTags: 
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/Bundles/BehaviourTrees
+        CollectorGUID: f13e1e5a06bfd1142947f87e851bf1bb
+        CollectorType: 0
+        AddressRuleName: AddressByPreImportPath
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 

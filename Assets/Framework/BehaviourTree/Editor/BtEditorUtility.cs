@@ -101,6 +101,32 @@ namespace Framework.BehaviourTree.Editor
         }
 
         /// <summary>
+        /// 扫描项目中全部 <see cref="BtTreeAsset"/>，导出旁路 <c>.bt.json</c> 运行时资源。
+        /// </summary>
+        /// <returns>成功导出的资产数量。</returns>
+        public static int ExportAllRuntimeJson()
+        {
+            var guids = AssetDatabase.FindAssets("t:BtTreeAsset");
+            var count = 0;
+            for (var i = 0; i < guids.Length; i++)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                var asset = AssetDatabase.LoadAssetAtPath<BtTreeAsset>(path);
+                if (asset == null)
+                {
+                    continue;
+                }
+
+                if (ExportJsonNextToAsset(asset) != null)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
         /// 从 JSON 文件导入到资产。
         /// </summary>
         /// <param name="asset">目标资产。</param>

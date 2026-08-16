@@ -87,6 +87,7 @@ void Update()
     // WASD 移动；J 近战三连（扇形多目标），K 火球
     framework.TryActivateAbility(heroId, "Slash", new AbilityActivationContext(origin, dir));
     framework.SetBattleAgent(monsterId, BattleAiNodes.CreateMeleeChaserAgent("MobSlash", heroId));
+// 树拓扑：Assets/Bundles/BehaviourTrees/MeleeChaser.bt.json（YooAsset 寻址 bundles/behaviourtrees/meleechaser.unity3d）
     framework.Tick(Time.deltaTime);
 }
 // 场景退出：DestroyActor + Unsubscribe；不要 Dispose 模块持有的 Framework

@@ -10,7 +10,8 @@
         "Framework.Config",
         "Generated.Luban",
         "Framework.BehaviourTree",
-        "Framework.FixedMath"
+        "Framework.FixedMath",
+        "Framework.Res"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

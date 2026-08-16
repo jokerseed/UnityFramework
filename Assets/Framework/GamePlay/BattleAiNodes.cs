@@ -1,64 +1,77 @@
 using Framework.BehaviourTree;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using UnityEngine;
 
 namespace Framework.GamePlay
 {
-    /// <summary>GamePlay 侧行为树自定义叶子工厂（不进入 BehaviourTree 程序集）。</summary>
+    /// <summary>GamePlay 侧行为树自定义叶子工厂与 Agent 装配（不进入 BehaviourTree 程序集）。</summary>
     public static class BattleAiNodes
     {
+        /// <summary>近战追击树资源 id（对应 <c>Assets/Bundles/BehaviourTrees/MeleeChaser.bt.json</c>）。</summary>
+        public const string MeleeChaserTreeId = "MeleeChaser";
+
         const float DefaultMoveSpeed = 2.2f;
         const float DefaultMeleeRange = 2f;
         const float ArriveSlotRange = 0.28f;
 
-        /// <summary>构建默认近战怪物树：存活则靠近并释放指定技能。</summary>
-        /// <param name="abilityId">近战技能 ID。</param>
-        /// <param name="targetId">追击目标。</param>
-        /// <param name="meleeRange">近战距离；默认 1.9。</param>
-        /// <returns>行为树实例。</returns>
-        public static Framework.BehaviourTree.BehaviourTree CreateMeleeChaser(
-            string abilityId,
-            ActorId targetId,
-            float meleeRange = DefaultMeleeRange)
+        /// <summary>
+        /// 从热更资源加载近战追击树拓扑（参数请用 <see cref="ApplyMeleeChaserBlackboard"/> 写入 Agent 黑板）。
+        /// </summary>
+        /// <returns>独立 Runtime 的行为树实例。</returns>
+        public static Framework.BehaviourTree.BehaviourTree CreateMeleeChaser()
         {
-            var combat = BtTreeBuilder.Selector()
-                .AddChild(
-                    BtTreeBuilder.Sequence()
-                        .AddChild(InRange(targetId, meleeRange))
-                        .AddChild(Stop())
-                        .AddChild(ActivateAbility(abilityId, targetId)))
-                .AddChild(MoveTo(targetId, DefaultMoveSpeed, meleeRange * 0.85f));
-
-            var root = BtTreeBuilder.Sequence()
-                .AddChild(BtTreeBuilder.Condition(IsAlive))
-                .AddChild(combat);
-
-            return new BtTreeBuilder().Root(root).Build("MeleeChaser");
+            BattleAiNodeRegistry.EnsureRegistered();
+            return BtTreeResource.LoadTree(MeleeChaserTreeId);
         }
 
-        /// <summary>创建近战追击 Agent（含独立黑板）。</summary>
+        /// <summary>创建近战追击 Agent（资源树 + 独立黑板）。</summary>
         /// <param name="abilityId">技能 ID。</param>
         /// <param name="targetId">追击目标。</param>
-        /// <param name="meleeRange">近战距离；默认 1.9。</param>
+        /// <param name="meleeRange">近战距离；默认 2。</param>
         /// <returns>可交给 <see cref="GamePlayFramework.SetBattleAgent"/> 的 Agent。</returns>
         public static BattleAgent CreateMeleeChaserAgent(
             string abilityId,
             ActorId targetId,
             float meleeRange = DefaultMeleeRange)
         {
-            return new BattleAgent(CreateMeleeChaser(abilityId, targetId, meleeRange), new BtBlackboard(), focusTarget: targetId);
+            BattleAiNodeRegistry.EnsureRegistered();
+            var tree = BtTreeResource.LoadTree(MeleeChaserTreeId);
+            var board = new BtBlackboard();
+            ApplyMeleeChaserBlackboard(board, abilityId, targetId, meleeRange);
+            return new BattleAgent(tree, board, focusTarget: targetId);
         }
 
-        static bool IsAlive(BtContext ctx)
+        /// <summary>写入近战追击树运行时参数。</summary>
+        /// <param name="board">黑板。</param>
+        /// <param name="abilityId">技能 ID。</param>
+        /// <param name="targetId">追击目标。</param>
+        /// <param name="meleeRange">近战距离。</param>
+        public static void ApplyMeleeChaserBlackboard(
+            BtBlackboard board,
+            string abilityId,
+            ActorId targetId,
+            float meleeRange = DefaultMeleeRange)
         {
-            var owner = ctx.GetOwner<BattleAiOwner>();
-            return owner.Framework != null &&
-                   owner.Framework.TryGetActor(owner.ActorId, out var asc) &&
-                   !asc.IsDead &&
-                   !asc.Tags.HasTag(new GameplayTag(BattleConstants.TagStunned)) &&
-                   !asc.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown));
+            if (board == null)
+            {
+                return;
+            }
+
+            if (targetId.IsValid)
+            {
+                board.SetId(BattleAiBlackboardKeys.FocusTarget, targetId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(abilityId))
+            {
+                board.SetObject(BattleAiBlackboardKeys.AbilityId, abilityId);
+            }
+
+            board.Set(BattleAiBlackboardKeys.MeleeRange, FP.FromFloat(meleeRange));
+            board.Set(BattleAiBlackboardKeys.MoveSpeed, FP.FromFloat(DefaultMoveSpeed));
         }
 
         /// <summary>条件：持有指定 Tag（支持层级前缀匹配）。</summary>
