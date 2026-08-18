@@ -43,7 +43,7 @@ alwaysApply: false
 - **禁止**在 `Framework.Res` 之外调用 `YooAssets.Destroy()`、`DestroyPackage()` 等全局销毁 API
 - 实例化：热路径用 `ResourceAssetHandle.InstantiateSync(...)`；异步打开用 `ResourceManager.InstantiateAsync` / `InstantiateScheduled`。销毁实例仍用 Unity `Destroy`，释放引用计数须 `Dispose` 句柄
 - 卸载未使用资源只能走 `ResourceManager.RequestUnloadUnusedAssets()`，**禁止**业务直接 `YooAssets` / `Resources.UnloadUnusedAssets`
-- `LoadAssetAsync` 已进入 `ResourceScheduler`：时间预算为主、个数上限为辅；`LoadAssetSync` / `LoadBytes` / `LoadSceneAsync` 不进调度
+- `LoadAssetAsync` 已进入 `ResourceScheduler`：时间预算为主、个数上限为辅；同一 `location + Type` 合并为一次 YooAsset 加载；`LoadAssetSync` / `LoadBytes` / `LoadSceneAsync` 不进调度
 
 ## 禁止（运行时业务代码）
 

@@ -33,7 +33,8 @@ namespace Framework.Res
 
         /// <summary>
         /// 取消尚未完成的请求。已在执行中的 Instantiate 无法中断；
-        /// 尚未 Start 的 Load 不会发起；InFlight 的 Load 会释放底层句柄。
+        /// 尚未 Start 的 Load 不会发起；InFlight 或已完成尚未回调的 Load 会释放底层句柄。
+        /// 同地址合并加载时，取消本请求不影响其他等待者；全部取消后才释放底层 YooAsset 句柄。
         /// </summary>
         public void Cancel()
         {

@@ -12,6 +12,10 @@ namespace Framework.Audio
     {
         readonly Dictionary<string, ResourceAssetHandle> _handles =
             new Dictionary<string, ResourceAssetHandle>(StringComparer.OrdinalIgnoreCase);
+        readonly HashSet<string> _loading =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        int _generation;
 
         /// <summary>同步获取或加载 Clip。</summary>
         /// <param name="location">YooAsset 寻址字符串。</param>
@@ -23,16 +27,12 @@ namespace Framework.Audio
                 return null;
             }
 
-            if (_handles.TryGetValue(location, out var existing) && existing.IsValid && existing.Succeeded)
+            if (TryGetCached(location, out var clip))
             {
-                return existing.GetAsset<AudioClip>();
+                return clip;
             }
 
-            if (existing.IsValid)
-            {
-                existing.Dispose();
-                _handles.Remove(location);
-            }
+            DisposeInvalid(location);
 
             var handle = ResourceManager.Instance.LoadAssetSync<AudioClip>(location);
             if (!handle.IsValid || !handle.Succeeded)
@@ -43,11 +43,11 @@ namespace Framework.Audio
                 return null;
             }
 
-            _handles[location] = handle;
-            return handle.GetAsset<AudioClip>();
+            StoreHandle(location, handle);
+            return TryGetCached(location, out clip) ? clip : null;
         }
 
-        /// <summary>异步加载 Clip。</summary>
+        /// <summary>异步加载 Clip。同一 location 正在加载时后来者等待第一次完成，不另开句柄。</summary>
         /// <param name="location">YooAsset 寻址字符串。</param>
         /// <param name="onComplete">完成回调；参数为 Clip 或失败时的 null。</param>
         /// <returns>协程迭代器。</returns>
@@ -59,43 +59,124 @@ namespace Framework.Audio
                 yield break;
             }
 
-            if (_handles.TryGetValue(location, out var existing) && existing.IsValid && existing.Succeeded)
+            if (TryGetCached(location, out var cached))
             {
-                onComplete?.Invoke(existing.GetAsset<AudioClip>());
+                onComplete?.Invoke(cached);
                 yield break;
             }
 
-            if (existing.IsValid)
+            if (_loading.Contains(location))
             {
-                existing.Dispose();
-                _handles.Remove(location);
+                while (_loading.Contains(location))
+                {
+                    if (TryGetCached(location, out cached))
+                    {
+                        onComplete?.Invoke(cached);
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+
+                onComplete?.Invoke(TryGetCached(location, out cached) ? cached : null);
+                yield break;
             }
 
+            var generation = _generation;
+            _loading.Add(location);
             ResourceAssetHandle handle = default;
-            yield return ResourceManager.Instance.LoadAssetAsync<AudioClip>(location, h => handle = h);
-            if (handle.IsValid && handle.Succeeded)
+            try
             {
-                _handles[location] = handle;
-                onComplete?.Invoke(handle.GetAsset<AudioClip>());
+                yield return ResourceManager.Instance.LoadAssetAsync<AudioClip>(location, h => handle = h);
+                if (generation != _generation)
+                {
+                    handle.Dispose();
+                    onComplete?.Invoke(null);
+                    yield break;
+                }
+
+                if (handle.IsValid && handle.Succeeded)
+                {
+                    if (TryGetCached(location, out cached))
+                    {
+                        handle.Dispose();
+                        onComplete?.Invoke(cached);
+                    }
+                    else
+                    {
+                        StoreHandle(location, handle);
+                        onComplete?.Invoke(handle.GetAsset<AudioClip>());
+                    }
+                }
+                else
+                {
+                    GameLog.Error(LogCategories.Audio,
+                        $"Load clip async failed: {LogStyle.Name(location)}  error={LogStyle.Value(handle.Error)}");
+                    handle.Dispose();
+                    onComplete?.Invoke(null);
+                }
             }
-            else
+            finally
             {
-                GameLog.Error(LogCategories.Audio,
-                    $"Load clip async failed: {LogStyle.Name(location)}  error={LogStyle.Value(handle.Error)}");
-                handle.Dispose();
-                onComplete?.Invoke(null);
+                _loading.Remove(location);
             }
         }
 
         /// <summary>释放全部缓存句柄。</summary>
         public void ReleaseAll()
         {
+            _generation++;
             foreach (var pair in _handles)
             {
                 pair.Value.Dispose();
             }
 
             _handles.Clear();
+            _loading.Clear();
+        }
+
+        bool TryGetCached(string location, out AudioClip clip)
+        {
+            if (_handles.TryGetValue(location, out var existing) && existing.IsValid && existing.Succeeded)
+            {
+                clip = existing.GetAsset<AudioClip>();
+                return clip != null;
+            }
+
+            clip = null;
+            return false;
+        }
+
+        void DisposeInvalid(string location)
+        {
+            if (!_handles.TryGetValue(location, out var existing))
+            {
+                return;
+            }
+
+            if (existing.IsValid && existing.Succeeded)
+            {
+                return;
+            }
+
+            if (existing.IsValid)
+            {
+                existing.Dispose();
+            }
+
+            _handles.Remove(location);
+        }
+
+        void StoreHandle(string location, ResourceAssetHandle handle)
+        {
+            DisposeInvalid(location);
+            if (TryGetCached(location, out _))
+            {
+                handle.Dispose();
+                return;
+            }
+
+            _handles[location] = handle;
         }
     }
 }

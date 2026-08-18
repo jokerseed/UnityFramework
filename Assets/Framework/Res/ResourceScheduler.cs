@@ -8,17 +8,55 @@ namespace Framework.Res
     /// <summary>
     /// 资源分帧调度器：Load / Instantiate / Unload 统一排队。
     /// 每帧按时间预算执行，个数上限仅作安全阀。
+    /// 同一 location + Type 的加载合并到一条 InFlight，完成时再给每个等待者独立句柄。
     /// </summary>
     sealed class ResourceScheduler
     {
-        sealed class LoadItem
+        readonly struct LoadKey : IEquatable<LoadKey>
+        {
+            public readonly string Location;
+            public readonly Type AssetType;
+
+            public LoadKey(string location, Type assetType)
+            {
+                Location = location;
+                AssetType = assetType;
+            }
+
+            public bool Equals(LoadKey other)
+            {
+                return AssetType == other.AssetType
+                       && string.Equals(Location, other.Location, StringComparison.OrdinalIgnoreCase);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is LoadKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = StringComparer.OrdinalIgnoreCase.GetHashCode(Location ?? string.Empty);
+                    return (hash * 397) ^ (AssetType != null ? AssetType.GetHashCode() : 0);
+                }
+            }
+        }
+
+        sealed class LoadWaiter
         {
             public ResourceRequestHandle Request;
+            public Action<ResourceAssetHandle> OnComplete;
+        }
+
+        sealed class LoadItem
+        {
             public string Location;
             public Type AssetType;
             public int Priority;
-            public Action<ResourceAssetHandle> OnComplete;
             public AssetHandle YooHandle;
+            public readonly List<LoadWaiter> Waiters = new List<LoadWaiter>(4);
         }
 
         sealed class InstantiateItem
@@ -39,16 +77,17 @@ namespace Framework.Res
         readonly List<LoadItem> _completedLoads = new List<LoadItem>(16);
         readonly List<InstantiateItem> _pendingInstantiates = new List<InstantiateItem>(16);
         readonly List<LoadItem> _inFlightScratch = new List<LoadItem>(16);
+        readonly Dictionary<LoadKey, LoadItem> _loadsByKey = new Dictionary<LoadKey, LoadItem>(16);
 
         int _nextId = 1;
         bool _unloadRequested;
         UnloadUnusedAssetsOperation _unloadOperation;
         bool _stopped;
 
-        /// <summary>等待发起的加载数量。</summary>
+        /// <summary>等待发起的加载数量（已合并的同地址请求计为 1）。</summary>
         public int PendingLoadCount => _pendingLoads.Count;
 
-        /// <summary>进行中的加载数量。</summary>
+        /// <summary>进行中的加载数量（已合并的同地址请求计为 1）。</summary>
         public int InFlightCount => _inFlight.Count;
 
         /// <summary>等待实例化的数量。</summary>
@@ -67,7 +106,7 @@ namespace Framework.Res
             _startUnload = startUnload ?? throw new ArgumentNullException(nameof(startUnload));
         }
 
-        /// <summary>入队异步加载。</summary>
+        /// <summary>入队异步加载；同一 location + Type 会挂到已有 Pending / InFlight / Completed 上。</summary>
         public ResourceRequestHandle EnqueueLoad(
             string location,
             Type assetType,
@@ -75,15 +114,41 @@ namespace Framework.Res
             int priority)
         {
             var request = CreateRequest();
-            var item = new LoadItem
+            var waiter = new LoadWaiter
             {
                 Request = request,
+                OnComplete = onComplete,
+            };
+
+            if (!string.IsNullOrEmpty(location) && assetType != null)
+            {
+                var key = new LoadKey(location, assetType);
+                if (_loadsByKey.TryGetValue(key, out var existing))
+                {
+                    AttachWaiter(existing, waiter, priority);
+                    return request;
+                }
+
+                var item = new LoadItem
+                {
+                    Location = location,
+                    AssetType = assetType,
+                    Priority = priority,
+                };
+                item.Waiters.Add(waiter);
+                _loadsByKey.Add(key, item);
+                InsertByPriority(_pendingLoads, item, i => i.Priority);
+                return request;
+            }
+
+            var invalid = new LoadItem
+            {
                 Location = location,
                 AssetType = assetType,
                 Priority = priority,
-                OnComplete = onComplete,
             };
-            InsertByPriority(_pendingLoads, item, i => i.Priority);
+            invalid.Waiters.Add(waiter);
+            InsertByPriority(_pendingLoads, invalid, i => i.Priority);
             return request;
         }
 
@@ -120,7 +185,7 @@ namespace Framework.Res
             _unloadRequested = true;
         }
 
-        /// <summary>取消指定请求。</summary>
+        /// <summary>取消指定请求。同地址其他等待者不受影响；最后一个取消时才释放底层加载。</summary>
         public void Cancel(ResourceRequestHandle request)
         {
             if (request == null || request.IsDone || _stopped)
@@ -128,22 +193,22 @@ namespace Framework.Res
                 return;
             }
 
-            if (RemovePendingLoad(request, disposeYooHandle: false))
+            if (RemoveWaiter(_pendingLoads, request, disposeYooHandle: false))
             {
                 CompleteCancelled(request);
                 return;
             }
 
-            for (var i = 0; i < _inFlight.Count; i++)
+            if (RemoveWaiter(_inFlight, request, disposeYooHandle: true))
             {
-                if (_inFlight[i].Request == request)
-                {
-                    var item = _inFlight[i];
-                    _inFlight.RemoveAt(i);
-                    ReleaseYooHandle(item);
-                    CompleteCancelled(request);
-                    return;
-                }
+                CompleteCancelled(request);
+                return;
+            }
+
+            if (RemoveWaiter(_completedLoads, request, disposeYooHandle: true))
+            {
+                CompleteCancelled(request);
+                return;
             }
 
             if (RemovePendingInstantiate(request))
@@ -183,6 +248,7 @@ namespace Framework.Res
             }
 
             _pendingInstantiates.Clear();
+            _loadsByKey.Clear();
             _unloadRequested = false;
             _unloadOperation = null;
         }
@@ -198,6 +264,28 @@ namespace Framework.Res
             return request;
         }
 
+        void AttachWaiter(LoadItem item, LoadWaiter waiter, int priority)
+        {
+            item.Waiters.Add(waiter);
+            if (item.YooHandle != null)
+            {
+                waiter.Request.Status = ResourceRequestStatus.Processing;
+            }
+
+            if (priority <= item.Priority)
+            {
+                return;
+            }
+
+            item.Priority = priority;
+            var pendingIndex = _pendingLoads.IndexOf(item);
+            if (pendingIndex >= 0)
+            {
+                _pendingLoads.RemoveAt(pendingIndex);
+                InsertByPriority(_pendingLoads, item, i => i.Priority);
+            }
+        }
+
         void StartPendingLoads(float frameStart)
         {
             var started = 0;
@@ -207,8 +295,9 @@ namespace Framework.Res
                    && !Exceeded(frameStart, _options.MaxFrameBudgetMs))
             {
                 var item = DequeueFirst(_pendingLoads);
-                if (item.Request.Status == ResourceRequestStatus.Cancelled)
+                if (item.Waiters.Count == 0)
                 {
+                    Unregister(item);
                     continue;
                 }
 
@@ -228,7 +317,7 @@ namespace Framework.Res
                     continue;
                 }
 
-                item.Request.Status = ResourceRequestStatus.Processing;
+                SetWaitersStatus(item, ResourceRequestStatus.Processing);
                 _inFlight.Add(item);
                 started++;
             }
@@ -272,7 +361,8 @@ namespace Framework.Res
                    && !Exceeded(categoryStart, _options.CallbackBudgetMs))
             {
                 var item = DequeueFirst(_completedLoads);
-                if (item.Request.Status == ResourceRequestStatus.Cancelled)
+                Unregister(item);
+                if (!HasActiveWaiter(item))
                 {
                     ReleaseYooHandle(item);
                     continue;
@@ -287,10 +377,62 @@ namespace Framework.Res
                     continue;
                 }
 
-                item.Request.AssetHandle = wrapped;
-                item.Request.Status = ResourceRequestStatus.Succeeded;
-                item.OnComplete?.Invoke(wrapped);
+                DistributeSucceededHandles(item);
                 dispatched++;
+            }
+        }
+
+        void DistributeSucceededHandles(LoadItem item)
+        {
+            var originalAssigned = false;
+            for (var i = 0; i < item.Waiters.Count; i++)
+            {
+                var waiter = item.Waiters[i];
+                if (waiter.Request.Status == ResourceRequestStatus.Cancelled)
+                {
+                    continue;
+                }
+
+                AssetHandle yooHandle;
+                if (!originalAssigned)
+                {
+                    yooHandle = item.YooHandle;
+                    originalAssigned = true;
+                }
+                else
+                {
+                    try
+                    {
+                        yooHandle = _startLoad(item.Location, item.AssetType);
+                    }
+                    catch (Exception ex)
+                    {
+                        waiter.Request.Status = ResourceRequestStatus.Failed;
+                        waiter.Request.Error = ex.Message;
+                        waiter.OnComplete?.Invoke(default);
+                        continue;
+                    }
+                }
+
+                var wrapped = new ResourceAssetHandle(yooHandle);
+                if (!wrapped.IsValid || !wrapped.Succeeded)
+                {
+                    var extraError = string.IsNullOrEmpty(wrapped.Error) ? "Load failed." : wrapped.Error;
+                    wrapped.Dispose();
+                    waiter.Request.Status = ResourceRequestStatus.Failed;
+                    waiter.Request.Error = extraError;
+                    waiter.OnComplete?.Invoke(default);
+                    continue;
+                }
+
+                waiter.Request.AssetHandle = wrapped;
+                waiter.Request.Status = ResourceRequestStatus.Succeeded;
+                waiter.OnComplete?.Invoke(wrapped);
+            }
+
+            if (!originalAssigned)
+            {
+                ReleaseYooHandle(item);
             }
         }
 
@@ -388,10 +530,23 @@ namespace Framework.Res
 
         void FailLoad(LoadItem item, string error)
         {
+            Unregister(item);
             ReleaseYooHandle(item);
-            item.Request.Status = ResourceRequestStatus.Failed;
-            item.Request.Error = error ?? string.Empty;
-            item.OnComplete?.Invoke(default);
+            var message = error ?? string.Empty;
+            for (var i = 0; i < item.Waiters.Count; i++)
+            {
+                var waiter = item.Waiters[i];
+                if (waiter.Request.Status == ResourceRequestStatus.Cancelled)
+                {
+                    continue;
+                }
+
+                waiter.Request.Status = ResourceRequestStatus.Failed;
+                waiter.Request.Error = message;
+                waiter.OnComplete?.Invoke(default);
+            }
+
+            item.Waiters.Clear();
         }
 
         void CompleteCancelled(ResourceRequestHandle request)
@@ -400,23 +555,31 @@ namespace Framework.Res
             request.Error = "Cancelled.";
         }
 
-        bool RemovePendingLoad(ResourceRequestHandle request, bool disposeYooHandle)
+        bool RemoveWaiter(List<LoadItem> list, ResourceRequestHandle request, bool disposeYooHandle)
         {
-            for (var i = 0; i < _pendingLoads.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
-                if (_pendingLoads[i].Request != request)
+                var item = list[i];
+                for (var w = 0; w < item.Waiters.Count; w++)
                 {
-                    continue;
-                }
+                    if (item.Waiters[w].Request != request)
+                    {
+                        continue;
+                    }
 
-                var item = _pendingLoads[i];
-                _pendingLoads.RemoveAt(i);
-                if (disposeYooHandle)
-                {
-                    ReleaseYooHandle(item);
-                }
+                    item.Waiters.RemoveAt(w);
+                    if (item.Waiters.Count == 0)
+                    {
+                        list.RemoveAt(i);
+                        Unregister(item);
+                        if (disposeYooHandle)
+                        {
+                            ReleaseYooHandle(item);
+                        }
+                    }
 
-                return true;
+                    return true;
+                }
             }
 
             return false;
@@ -442,15 +605,56 @@ namespace Framework.Res
         {
             for (var i = 0; i < list.Count; i++)
             {
+                var item = list[i];
                 if (disposeYooHandle)
                 {
-                    ReleaseYooHandle(list[i]);
+                    ReleaseYooHandle(item);
                 }
 
-                CompleteCancelled(list[i].Request);
+                for (var w = 0; w < item.Waiters.Count; w++)
+                {
+                    CompleteCancelled(item.Waiters[w].Request);
+                }
+
+                item.Waiters.Clear();
             }
 
             list.Clear();
+        }
+
+        void Unregister(LoadItem item)
+        {
+            if (string.IsNullOrEmpty(item.Location) || item.AssetType == null)
+            {
+                return;
+            }
+
+            _loadsByKey.Remove(new LoadKey(item.Location, item.AssetType));
+        }
+
+        static void SetWaitersStatus(LoadItem item, ResourceRequestStatus status)
+        {
+            for (var i = 0; i < item.Waiters.Count; i++)
+            {
+                var request = item.Waiters[i].Request;
+                if (request.Status != ResourceRequestStatus.Cancelled)
+                {
+                    request.Status = status;
+                }
+            }
+        }
+
+        static bool HasActiveWaiter(LoadItem item)
+        {
+            for (var i = 0; i < item.Waiters.Count; i++)
+            {
+                if (item.Waiters[i].Request.Status != ResourceRequestStatus.Cancelled)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         static void ReleaseYooHandle(LoadItem item)

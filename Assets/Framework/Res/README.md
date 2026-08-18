@@ -48,6 +48,7 @@ Instantiate 可能 3ms 也可能 30ms；发起一次 Load 几乎不占主线程�
 
 - **时间（ms）是主控**
 - **个数上限是安全阀**（防并发过高、防回调扎堆）
+- **同地址合并**：`location + Type` 已在 Pending / InFlight / 待回调时，后来的请求挂到同一组，不占新的 Start / InFlight 名额
 - 某一类本帧一个都还没跑、且总预算还没用完时，**至少执行 1 个**（避免超重 Instantiate 永远排不上）
 
 ### 三类工作
@@ -61,10 +62,10 @@ Instantiate 可能 3ms 也可能 30ms；发起一次 Load 几乎不占主线程�
 Load 三阶段：
 
 ```
-Enqueue → Pending
-  Tick: 取出 ≤ MaxLoadStartsPerFrame，且 InFlight < MaxLoadInFlight，调用 YooAsset LoadAssetAsync
-  InFlight: 轮询 IsDone，完成的进入 Complete 队列
-  Tick: 按 CallbackBudgetMs / MaxCallbacksPerFrame 派发 onComplete
+Enqueue → Pending（同 location + Type 挂到已有组）
+  Tick: 每组只发起 1 次 YooAsset LoadAssetAsync
+  InFlight: 轮询 IsDone，后来者直接挂到该组
+  Tick: 完成后为每个等待者派发独立句柄（可各自 Dispose）
 ```
 
 ### 谁走调度、谁旁路
@@ -103,7 +104,7 @@ yield return res.InstantiateAsync(handle, parent, go => instance = go, priority:
 res.RequestUnloadUnusedAssets();
 ```
 
-`priority` 越大越先处理；同优先级 FIFO。UI 异步打开默认 `10`。
+`priority` 越大越先处理；同优先级 FIFO。UI 异步打开默认 `10`。同一 `location + Type` 的多次 `LoadAssetAsync` / `LoadAssetScheduled` 会合并为一次 YooAsset 加载，取消其中一笔不影响其他等待者。
 
 ## 预算配置
 

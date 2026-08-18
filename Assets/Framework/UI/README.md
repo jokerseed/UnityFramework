@@ -15,6 +15,7 @@
 | 类型 | 职责 |
 |------|------|
 | `UIManager` | 打开/关闭窗口、层级栈、全屏遮挡、资源句柄生命周期 |
+| `UIShowHandle` | `ShowAsync` 返回值：`Cancel` / `IsRunning` / `IsCancelled` |
 | `UIBase` | UI 基类与生命周期（`OnCreate` / `OnRefresh` / `OnUpdate` / `OnDestroy`） |
 | `UIWindow` | 窗口级 UI |
 | `UIWidget` | 可复用子组件 |
@@ -66,8 +67,11 @@ public sealed class MainUIWindow : UIWindow
 // 模块就绪后
 UIManager.Instance.Show<MainUIWindow>();
 
-// 异步打开
-UIManager.Instance.ShowAsync<MainUIWindow>(onComplete: window => { /* ... */ });
+// 异步打开；失败或取消时 window 为 null
+var show = UIManager.Instance.ShowAsync<MainUIWindow>(onComplete: window => { /* ... */ });
+show.Cancel(); // 或 show.Stop() / Dispose()，释放未完成的加载与实例
+
+// Close / CloseAll / 再次 Show(Async) 同类型时，会取消进行中的异步打开
 ```
 
 ## 资源寻址
@@ -95,3 +99,4 @@ new ConfigModule(),
 - **全屏遮挡**：`fullScreen: true` 时隐藏其下方的已打开窗口（不销毁）
 - **事件绑定**：`AddUIEvent<T>` 在窗口销毁时自动取消订阅
 - **资源管理**：窗口关闭时释放 `ResourceAssetHandle`
+- **异步取消**：`ShowAsync` 返回 `UIShowHandle`；`Cancel` 会停协程、取消 Res 调度请求，并销毁未绑定的实例

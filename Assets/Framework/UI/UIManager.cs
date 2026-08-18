@@ -22,6 +22,7 @@ namespace Framework.UI
 
         readonly List<UIWindow> _stack = new List<UIWindow>(16);
         readonly Dictionary<Type, UIWindow> _opened = new Dictionary<Type, UIWindow>(16);
+        readonly Dictionary<Type, UIShowHandle> _pendingShows = new Dictionary<Type, UIShowHandle>(8);
         readonly Dictionary<UILayer, Transform> _layerRoots = new Dictionary<UILayer, Transform>(8);
 
         Transform _uiRoot;
@@ -56,7 +57,7 @@ namespace Framework.UI
             GameLog.Info(LogCategories.UI, LogStyle.Ok("ready"));
         }
 
-        /// <summary>同步打开窗口；若已打开则仅刷新。</summary>
+        /// <summary>同步打开窗口；若已打开则仅刷新。会取消同类型尚未完成的 <see cref="ShowAsync{TWindow}"/>。</summary>
         /// <typeparam name="TWindow">窗口类型，须有无参构造。</typeparam>
         /// <param name="userData">传入窗口的用户数据；可为 null。</param>
         /// <returns>打开的窗口实例。</returns>
@@ -66,6 +67,7 @@ namespace Framework.UI
             EnsureInitialized();
 
             var windowType = typeof(TWindow);
+            CancelPendingShow(windowType);
             if (_opened.TryGetValue(windowType, out var existing))
             {
                 existing.UserData = userData;
@@ -89,42 +91,70 @@ namespace Framework.UI
             return window;
         }
 
-        /// <summary>异步打开窗口。</summary>
+        /// <summary>异步打开窗口。调用返回句柄的 <see cref="UIShowHandle.Cancel"/> 可中止尚未完成的打开。</summary>
         /// <typeparam name="TWindow">窗口类型，须有无参构造。</typeparam>
         /// <param name="userData">传入窗口的用户数据；可为 null。</param>
-        /// <param name="onComplete">完成回调；参数为窗口实例或失败时的 null。</param>
-        /// <returns>协程句柄。</returns>
-        public ICoroutineHandle ShowAsync<TWindow>(object userData = null, Action<TWindow> onComplete = null)
+        /// <param name="onComplete">完成回调；成功为窗口实例，失败或取消为 null。</param>
+        /// <returns>异步打开句柄；窗口已打开时返回已结束的空句柄。</returns>
+        public UIShowHandle ShowAsync<TWindow>(object userData = null, Action<TWindow> onComplete = null)
             where TWindow : UIWindow, new()
         {
-            return GameCoroutine.StartGlobal(ShowAsyncCoroutine(userData, onComplete));
+            EnsureInitialized();
+
+            var windowType = typeof(TWindow);
+            if (_opened.TryGetValue(windowType, out var existing))
+            {
+                existing.UserData = userData;
+                existing.OnRefresh();
+                BringToTop(existing);
+                RefreshVisibility();
+                onComplete?.Invoke((TWindow)existing);
+                return UIShowHandle.Settled;
+            }
+
+            CancelPendingShow(windowType);
+
+            var operation = new UIShowHandle(
+                windowType,
+                () => onComplete?.Invoke(null),
+                DetachPendingShow);
+            _pendingShows[windowType] = operation;
+            operation.BindCoroutine(GameCoroutine.StartGlobal(ShowAsyncCoroutine(operation, userData, onComplete)));
+            return operation;
         }
 
-        /// <summary>关闭指定类型窗口。</summary>
+        /// <summary>关闭指定类型窗口；若该类型仍在异步打开中则一并取消。</summary>
         /// <typeparam name="TWindow">窗口类型。</typeparam>
-        /// <returns>成功关闭返回 true；窗口未打开返回 false。</returns>
+        /// <returns>关闭了已打开窗口或取消了进行中的异步打开时返回 true。</returns>
         public bool Close<TWindow>() where TWindow : UIWindow
         {
             return Close(typeof(TWindow));
         }
 
-        /// <summary>关闭指定类型窗口。</summary>
+        /// <summary>关闭指定类型窗口；若该类型仍在异步打开中则一并取消。</summary>
         /// <param name="windowType">窗口类型，不可为 null。</param>
-        /// <returns>成功关闭返回 true；窗口未打开返回 false。</returns>
+        /// <returns>关闭了已打开窗口或取消了进行中的异步打开时返回 true。</returns>
         public bool Close(Type windowType)
         {
-            if (windowType == null || !_opened.TryGetValue(windowType, out var window))
+            if (windowType == null)
             {
                 return false;
+            }
+
+            var cancelledPending = CancelPendingShow(windowType);
+            if (!_opened.TryGetValue(windowType, out var window))
+            {
+                return cancelledPending;
             }
 
             DestroyWindow(window);
             return true;
         }
 
-        /// <summary>关闭全部已打开窗口。</summary>
+        /// <summary>关闭全部已打开窗口，并取消尚未完成的异步打开。</summary>
         public void CloseAll()
         {
+            CancelAllPendingShows();
             for (var i = _stack.Count - 1; i >= 0; i--)
             {
                 DestroyWindow(_stack[i]);
@@ -196,51 +226,133 @@ namespace Framework.UI
             }
         }
 
-        IEnumerator ShowAsyncCoroutine<TWindow>(object userData, Action<TWindow> onComplete)
+        IEnumerator ShowAsyncCoroutine<TWindow>(UIShowHandle operation, object userData, Action<TWindow> onComplete)
             where TWindow : UIWindow, new()
         {
-            EnsureInitialized();
-
             var windowType = typeof(TWindow);
-            if (_opened.TryGetValue(windowType, out var existing))
-            {
-                existing.UserData = userData;
-                existing.OnRefresh();
-                BringToTop(existing);
-                RefreshVisibility();
-                onComplete?.Invoke((TWindow)existing);
-                yield break;
-            }
-
             var metadata = ResolveMetadata(windowType);
-            ResourceAssetHandle handle = default;
-            yield return ResourceManager.Instance.LoadAssetAsync<GameObject>(
-                metadata.Location, loaded => handle = loaded, priority: 10);
-
-            if (!handle.IsValid || !handle.Succeeded)
+            try
             {
-                GameLog.Error(LogCategories.UI,
-                    $"Load window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)} error={handle.Error}");
-                handle.Dispose();
-                onComplete?.Invoke(null);
-                yield break;
+                var loadRequest = ResourceManager.Instance.LoadAssetScheduled<GameObject>(
+                    metadata.Location,
+                    loaded => operation.SetAssetHandle(loaded),
+                    priority: 10);
+                operation.SetRequest(loadRequest);
+                while (!loadRequest.IsDone)
+                {
+                    if (operation.IsCancelled)
+                    {
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+
+                if (operation.IsCancelled)
+                {
+                    yield break;
+                }
+
+                var handle = loadRequest.AssetHandle;
+                if (!handle.IsValid || !handle.Succeeded)
+                {
+                    var error = string.IsNullOrEmpty(handle.Error) ? loadRequest.Error : handle.Error;
+                    GameLog.Error(LogCategories.UI,
+                        $"Load window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)} error={error}");
+                    operation.MarkFailed();
+                    onComplete?.Invoke(null);
+                    yield break;
+                }
+
+                operation.SetAssetHandle(handle);
+
+                GameObject instance = null;
+                var instantiateRequest = ResourceManager.Instance.InstantiateScheduled(
+                    handle,
+                    _layerRoots[metadata.Layer],
+                    go =>
+                    {
+                        instance = go;
+                        operation.SetInstance(go);
+                    },
+                    priority: 10);
+                operation.SetRequest(instantiateRequest);
+                while (!instantiateRequest.IsDone)
+                {
+                    if (operation.IsCancelled)
+                    {
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+
+                if (operation.IsCancelled)
+                {
+                    yield break;
+                }
+
+                if (instance == null)
+                {
+                    instance = instantiateRequest.Instance;
+                }
+
+                if (instance == null)
+                {
+                    GameLog.Error(LogCategories.UI,
+                        $"Instantiate window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)}");
+                    operation.MarkFailed();
+                    onComplete?.Invoke(null);
+                    yield break;
+                }
+
+                var window = BindWindowInstance<TWindow>(instance, metadata, userData);
+                window.AssetHandle = handle;
+                operation.MarkBound();
+                onComplete?.Invoke(window);
+            }
+            finally
+            {
+                operation.AbortIfStillIncomplete();
+            }
+        }
+
+        bool CancelPendingShow(Type windowType)
+        {
+            if (windowType == null || !_pendingShows.TryGetValue(windowType, out var pending))
+            {
+                return false;
             }
 
-            GameObject instance = null;
-            yield return ResourceManager.Instance.InstantiateAsync(
-                handle, _layerRoots[metadata.Layer], go => instance = go, priority: 10);
-            if (instance == null)
+            pending.Cancel();
+            return true;
+        }
+
+        void CancelAllPendingShows()
+        {
+            if (_pendingShows.Count == 0)
             {
-                handle.Dispose();
-                GameLog.Error(LogCategories.UI,
-                    $"Instantiate window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)}");
-                onComplete?.Invoke(null);
-                yield break;
+                return;
             }
 
-            var window = BindWindowInstance<TWindow>(instance, metadata, userData);
-            window.AssetHandle = handle;
-            onComplete?.Invoke(window);
+            var pending = new List<UIShowHandle>(_pendingShows.Values);
+            for (var i = 0; i < pending.Count; i++)
+            {
+                pending[i].Cancel();
+            }
+        }
+
+        void DetachPendingShow(UIShowHandle operation)
+        {
+            if (operation?.WindowType == null)
+            {
+                return;
+            }
+
+            if (_pendingShows.TryGetValue(operation.WindowType, out var current) && current == operation)
+            {
+                _pendingShows.Remove(operation.WindowType);
+            }
         }
 
         TWindow CreateWindowInstance<TWindow>(

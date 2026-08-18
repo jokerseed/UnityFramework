@@ -73,6 +73,6 @@ new UIModule(),
 
 - **BGM**：双 `AudioSource` 交叉淡入淡出，单轨播放
 - **SFX**：`AudioSource` 对象池（默认 16），支持 OneShot / 3D / Loop
-- **资源**：仅 `ResourceManager` 加载；缓存持有 `ResourceAssetHandle` 直到 `Shutdown`
+- **资源**：仅 `ResourceManager` 加载；缓存按 location 只持有一个 `ResourceAssetHandle` 直到 `Shutdown`。同一 Clip 的并发 `LoadAsync` 会等待第一次完成，不会覆盖或泄漏句柄
 - **淡入淡出**：走 `GameCoroutine.StartGlobal`
 - **Shutdown**：停止全部音频 → 释放 Clip 缓存 → 保存音量 → 销毁 `AudioRoot`

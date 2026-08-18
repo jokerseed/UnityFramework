@@ -61,10 +61,10 @@ namespace Framework.Res
             }
         }
 
-        /// <summary>等待发起的异步加载数量。</summary>
+        /// <summary>等待发起的异步加载数量（同地址合并后的组数）。</summary>
         public int PendingLoadCount => _scheduler != null ? _scheduler.PendingLoadCount : 0;
 
-        /// <summary>进行中的异步加载数量。</summary>
+        /// <summary>进行中的异步加载数量（同地址合并后的组数）。</summary>
         public int InFlightLoadCount => _scheduler != null ? _scheduler.InFlightCount : 0;
 
         /// <summary>等待实例化的数量。</summary>
@@ -145,6 +145,7 @@ namespace Framework.Res
         /// <summary>
         /// 异步加载指定寻址的资源，完成后通过回调返回句柄。
         /// 内部进入 <see cref="ResourceScheduler"/> 分帧队列，不在调用当帧立即发起 YooAsset 加载。
+        /// 同一 location + 资源类型若已在排队或加载中，会挂到同一路 InFlight，完成后每个调用方仍获得可独立 Dispose 的句柄。
         /// </summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
@@ -165,6 +166,7 @@ namespace Framework.Res
 
         /// <summary>
         /// 将异步加载入队，立即返回请求句柄。完成时机由调度器按预算决定。
+        /// 同一 location + 资源类型会合并为一次 YooAsset 加载。
         /// </summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
