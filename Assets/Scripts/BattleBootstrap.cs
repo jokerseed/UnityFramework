@@ -9,6 +9,7 @@ using Framework.GamePlay.Data;
 using Framework.GAS.Abilities;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
+using Framework.Core;
 using Framework.Logging;
 using Framework.ObjectPool;
 using Framework.Res;
