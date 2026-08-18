@@ -73,20 +73,46 @@ namespace Game
             }
         }
 
+        /// <summary>
+        /// 战斗局部资源（Session Scope、表现 GO 等）释放后，请求分帧卸载未使用资源。
+        /// 多次调用会由 <see cref="ResourceManager"/> 调度器合并为一次。
+        /// </summary>
+        public static void RequestUnusedAssetsCleanup()
+        {
+            if (!ResourceManager.HasInstance)
+            {
+                return;
+            }
+
+            var res = ResourceManager.Instance;
+            if (res == null || !res.IsInitialized)
+            {
+                return;
+            }
+
+            res.RequestUnloadUnusedAssets();
+        }
+
         IEnumerator EnterBattleAsync()
         {
             _isEnteringBattle = true;
-            if (CurrentBattleFlow != null)
+            try
             {
-                CurrentBattleFlow.Dispose();
-                CurrentBattleFlow = null;
-            }
+                if (CurrentBattleFlow != null)
+                {
+                    CurrentBattleFlow.Dispose();
+                    CurrentBattleFlow = null;
+                }
 
-            CurrentBattleFlow = new BattleFlow();
-            GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
-            yield return ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
-            GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
-            _isEnteringBattle = false;
+                CurrentBattleFlow = new BattleFlow();
+                GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
+                yield return ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
+                GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
+            }
+            finally
+            {
+                _isEnteringBattle = false;
+            }
         }
     }
 }

@@ -87,6 +87,7 @@ namespace Game
 
             State = BattleFlowState.Exited;
             GameLog.Info(LogCategories.GamePlay, "BattleFlow exited");
+            GameSceneFlow.RequestUnusedAssetsCleanup();
         }
 
         /// <summary>

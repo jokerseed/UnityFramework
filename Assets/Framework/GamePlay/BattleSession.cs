@@ -16,6 +16,7 @@ namespace Framework.GamePlay
     {
         uint _nextActorId = 1;
         bool _disposed;
+        float _tickAccumulator;
 
         /// <summary>会话唯一标识，由 <see cref="BattleDirector"/> 分配。</summary>
         public int SessionId { get; }
@@ -34,6 +35,14 @@ namespace Framework.GamePlay
 
         /// <summary>会话是否正在运行（未暂停、未释放）。</summary>
         public bool IsRunning { get; set; } = true;
+
+        /// <summary>逻辑固定步长（秒）。</summary>
+        public float FixedDeltaTime { get; set; } = 1f / 30f;
+
+        /// <summary>当前渲染帧的逻辑插值系数，范围 [0, 1]。</summary>
+        public float InterpolationAlpha => FixedDeltaTime > 0f
+            ? Mathf.Clamp01(_tickAccumulator / FixedDeltaTime)
+            : 0f;
 
         internal BattleSession(int sessionId)
         {
@@ -67,16 +76,38 @@ namespace Framework.GamePlay
             }
         }
 
-        /// <summary>推进一帧战斗逻辑。</summary>
-        /// <param name="deltaTime">帧间隔（秒）。</param>
-        public void Tick(float deltaTime)
+        /// <summary>按固定步长推进战斗逻辑，并在每个逻辑步前后执行回调。</summary>
+        /// <param name="deltaTime">本次渲染帧累计的时间增量（秒）。</param>
+        /// <param name="beforeFixedStep">每个逻辑步执行前的回调；参数为固定步长。</param>
+        /// <param name="afterFixedStep">每个逻辑步执行后的回调；参数为固定步长。</param>
+        /// <returns>本次渲染帧实际推进的逻辑步数。</returns>
+        public int Tick(
+            float deltaTime,
+            Action<float> beforeFixedStep = null,
+            Action<float> afterFixedStep = null)
         {
             if (_disposed || !IsRunning)
             {
-                return;
+                return 0;
             }
 
-            Framework.Tick(deltaTime);
+            if (FixedDeltaTime <= 0f)
+            {
+                throw new InvalidOperationException("BattleSession.FixedDeltaTime must be greater than zero.");
+            }
+
+            _tickAccumulator = Mathf.Min(_tickAccumulator + Mathf.Max(0f, deltaTime), FixedDeltaTime * 4f);
+            var stepped = 0;
+            while (_tickAccumulator >= FixedDeltaTime)
+            {
+                beforeFixedStep?.Invoke(FixedDeltaTime);
+                Framework.Tick(FixedDeltaTime);
+                afterFixedStep?.Invoke(FixedDeltaTime);
+                _tickAccumulator -= FixedDeltaTime;
+                stepped++;
+            }
+
+            return stepped;
         }
 
         /// <summary>释放会话：销毁 Framework、释放 ResourceScope。</summary>
@@ -89,6 +120,7 @@ namespace Framework.GamePlay
 
             _disposed = true;
             IsRunning = false;
+            _tickAccumulator = 0f;
             Framework.Dispose();
             Scope.Dispose();
             GameLog.Info(LogCategories.GamePlay, $"Session {LogStyle.Value(SessionId.ToString())} disposed");
