@@ -55,7 +55,7 @@ namespace Game
 
             SetupPool(
                 factory: () => CreateInstance<BattleMonsterView>("Monster", Object.Instantiate(_prefab)),
-                allowMultiSpawn: true,
+                allowMultiSpawn: false,
                 capacity: Capacity);
         }
 

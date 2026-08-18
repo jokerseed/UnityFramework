@@ -1,5 +1,3 @@
-using System.Collections;
-using Framework.Coroutine;
 using Framework.Logging;
 using Framework.Res;
 using Framework.UI;
@@ -34,15 +32,7 @@ public sealed class MainUIWindow : UIWindow
     {
         GameLog.Info(LogCategories.Launch, "Enter game clicked");
         Manager.Close<MainUIWindow>();
-        // 窗口关闭后实例会销毁，场景加载须走全局协程。
-        GameCoroutine.StartGlobal(LoadBattleScene());
-    }
-
-    static IEnumerator LoadBattleScene()
-    {
-        GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
-        yield return ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
-        GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
+        GameSceneFlow.Instance.EnterBattle();
     }
 
     /// <inheritdoc/>

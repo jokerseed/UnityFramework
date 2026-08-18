@@ -41,6 +41,7 @@ public sealed class BattleBootstrap : MonoBehaviour
     static readonly string[] MeleeComboIds = { "Slash3", "Slash2", "Slash" };
 
     // ── Session ──────────────────────────────────────────────
+    BattleFlow _flow;
     BattleSession _session;
     GamePlayFramework _framework; // 快捷引用，等同 _session.Framework
 
@@ -70,7 +71,7 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     IEnumerator StartBattleAsync()
     {
-        if (!TryCreateSession())
+        if (!TryEnterBattle())
         {
             yield break;
         }
@@ -95,33 +96,21 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     // ── Session 创建 ──────────────────────────────────────────
 
-    bool TryCreateSession()
+    bool TryEnterBattle()
     {
-        var module = GamePlayModule.Instance;
-        if (module?.Director == null)
+        _flow = GameSceneFlow.Instance.EnsureBattleFlow();
+        if (_flow == null || !_flow.TryEnter())
         {
-            GameLog.Error(LogCategories.GamePlay, "GamePlayModule / Director is not ready.");
             return false;
         }
 
-        if (!ConfigManager.HasInstance)
+        _session = _flow.Session;
+        _framework = _session?.Framework;
+        if (_session == null || _framework == null)
         {
-            GameLog.Error(LogCategories.GamePlay, "ConfigManager is not ready.");
+            GameLog.Error(LogCategories.GamePlay, "BattleFlow session is not ready.");
             return false;
         }
-
-        try
-        {
-            ConfigManager.Instance.LoadTables();
-        }
-        catch (Exception ex)
-        {
-            GameLog.Error(LogCategories.GamePlay, $"Load config tables failed: {ex.Message}");
-            return false;
-        }
-
-        _session = module.Director.CreateSession();
-        _framework = _session.Framework;
 
         _onDamageDealt = OnDamageDealt;
         _framework.EventBus.Subscribe(_onDamageDealt);
@@ -567,12 +556,18 @@ public sealed class BattleBootstrap : MonoBehaviour
         _waveDirector = null;
         _monsterIds.Clear();
 
-        if (_session != null)
+        if (_flow != null)
         {
-            GamePlayModule.Instance?.Director?.DestroySession(_session);
-            _session = null;
+            _flow.Exit();
+            if (GameSceneFlow.HasInstance)
+            {
+                GameSceneFlow.Instance.ClearBattleFlow(_flow);
+            }
+
+            _flow = null;
         }
 
+        _session = null;
         _framework = null;
     }
 
@@ -582,14 +577,6 @@ public sealed class BattleBootstrap : MonoBehaviour
         {
             Destroy(_heroInstance);
             _heroInstance = null;
-        }
-
-        for (var i = 0; i < _monsterViews.Count; i++)
-        {
-            if (_monsterViews[i] != null)
-            {
-                BattleMonsterView.Unspawn(_monsterViews[i]);
-            }
         }
 
         _monsterViews.Clear();
