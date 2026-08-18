@@ -99,12 +99,12 @@ MainUIWindow → bundles/ui/mainuiwindow.unity3d
 
 在 `[UIWindow(..., releasePolicy: ..., delayUnloadSeconds: ...)]` 声明：
 
-| 策略 | Close 行为 | 再次 Show |
-|------|------------|-----------|
-| `DestroyImmediate`（默认） | Destroy 实例 + Dispose Handle | 重新 Load |
-| `HideOnly` | 隐藏并缓存，保留 Handle | 直接复用，`OnRefresh` |
-| `Cached` | 移出栈并缓存 | 直接复用，`OnRefresh` |
-| `HideAndDelayUnload` | 先缓存；超时未再打开则 Destroy + Dispose | 超时前复用；超时后重新 Load |
+| 策略 | Close 行为 | 再次 Show | `IsOpen` / `IsCached` |
+|------|------------|-----------|------------------------|
+| `DestroyImmediate`（默认） | Destroy 实例 + Dispose Handle | 重新 Load | 均 false |
+| `HideOnly` | 隐藏并移出栈，保留实例与 Handle | 走已打开分支，`OnRefresh` | `IsOpen` true；不进缓存 |
+| `Cached` | 移出栈并缓存 | `TryReviveCached` 快速复用 | `IsOpen` false；`IsCached` true |
+| `HideAndDelayUnload` | 先缓存；超时未再打开则 Destroy + Dispose | 超时前 `TryReviveCached`；超时后重新 Load | 等待中 `IsCached` true |
 
 `ForceDestroy<T>()` 可无视策略立即销毁（含缓存）。`Shutdown()` 销毁全部窗口与缓存。
 
@@ -122,5 +122,5 @@ new ConfigModule(),
 - **五层 Canvas**：`Bottom` / `UI` / `Top` / `Tips` / `System`
 - **全屏遮挡**：`fullScreen: true` 时隐藏其下方的已打开窗口（不销毁）
 - **事件绑定**：`AddUIEvent<T>` 在窗口销毁时自动取消订阅
-- **资源管理**：按 `UIReleasePolicy` 释放；`DestroyImmediate` 关即释 Handle
+- **资源管理**：按 `UIReleasePolicy` 释放；`HideOnly` 关后仍算已打开，`Cached` / `HideAndDelayUnload` 关后进缓存由 `TryReviveCached` 复用
 - **异步取消**：`ShowAsync` 返回 `UIShowHandle`；`Cancel` 会停协程、取消 Res 调度请求，并销毁未绑定的实例

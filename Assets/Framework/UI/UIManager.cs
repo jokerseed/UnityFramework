@@ -233,7 +233,7 @@ namespace Framework.UI
             return _opened.ContainsKey(typeof(TWindow));
         }
 
-        /// <summary>指定类型窗口是否已缓存（HideOnly / Cached / 延迟卸载等待中）。</summary>
+        /// <summary>指定类型窗口是否已缓存（<see cref="UIReleasePolicy.Cached"/> / <see cref="UIReleasePolicy.HideAndDelayUnload"/> 等待复用或延迟卸载中）。</summary>
         /// <typeparam name="TWindow">窗口类型。</typeparam>
         /// <returns>已缓存返回 true。</returns>
         public bool IsCached<TWindow>() where TWindow : UIWindow
@@ -247,15 +247,21 @@ namespace Framework.UI
             CancelAllPendingShows();
             CancelAllDelayedUnloads();
 
-            for (var i = _stack.Count - 1; i >= 0; i--)
+            var destroyed = new HashSet<UIWindow>();
+            foreach (var window in _opened.Values)
             {
-                DestroyWindow(_stack[i], force: true);
+                if (destroyed.Add(window))
+                {
+                    DestroyWindow(window, force: true);
+                }
             }
 
-            var cached = new List<UIWindow>(_cached.Values);
-            for (var i = 0; i < cached.Count; i++)
+            foreach (var window in _cached.Values)
             {
-                DestroyWindow(cached[i], force: true);
+                if (destroyed.Add(window))
+                {
+                    DestroyWindow(window, force: true);
+                }
             }
 
             _stack.Clear();
@@ -482,6 +488,8 @@ namespace Framework.UI
             switch (window.ReleasePolicy)
             {
                 case UIReleasePolicy.HideOnly:
+                    HideWindow(window);
+                    break;
                 case UIReleasePolicy.Cached:
                     CacheWindow(window);
                     break;
@@ -492,6 +500,17 @@ namespace Framework.UI
                     DestroyWindow(window, force: true);
                     break;
             }
+        }
+
+        void HideWindow(UIWindow window)
+        {
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            _stack.Remove(window);
+            window.SetVisible(false);
+            GameLog.Info(LogCategories.UI,
+                $"Hide {LogStyle.Name(windowType.Name)} policy={LogStyle.Value(window.ReleasePolicy)}");
+            RefreshVisibility();
         }
 
         void CacheWindow(UIWindow window)
