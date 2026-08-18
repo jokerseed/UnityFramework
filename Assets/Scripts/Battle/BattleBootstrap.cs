@@ -55,6 +55,7 @@ namespace Game
             }
 
             _presentation.Bind(_session.Framework, _setup.HeroId);
+            _input.Enable();
             _battleStarted = true;
             GameLog.Info(LogCategories.GamePlay, $"Battle started  session={LogStyle.Value(_session.SessionId.ToString())}");
         }
@@ -121,6 +122,7 @@ namespace Game
         {
             _battleStarted = false;
             Time.timeScale = 1f;
+            _input?.Dispose();
             _view?.Clear();
             CleanupSession();
             _setup?.TearDown();

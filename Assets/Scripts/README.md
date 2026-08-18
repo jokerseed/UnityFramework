@@ -213,10 +213,13 @@ Launch 场景
 
 `BattleInputController` 分成两个阶段：
 
-- `Sample(deltaTime)`：在渲染帧读取键盘输入，生成 `BattleInputFrame`
+- `Sample(deltaTime)`：在渲染帧通过 `Battle.BattleInputActions` 读取输入，生成 `BattleInputFrame`
 - `Apply(framework, heroId, ref inputFrame)`：在逻辑步里消费输入快照
+- `Enable()` / `Disable()` / `Dispose()`：战斗开始启用 `Battle` Action Map，退出时释放
 
-当前支持的操作：
+输入绑定定义在 `Assets/Settings/Input/Game.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
+
+当前支持的操作（键位可在 Input Actions 资产里改）：
 
 - `WASD`：移动
 - `J`：近战三连（带 `ComboBufferSeconds` 输入缓冲）

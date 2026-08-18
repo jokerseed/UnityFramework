@@ -1,14 +1,16 @@
+using Battle;
 using Framework.GamePlay;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using Framework.Core;
 using Framework.Logging;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Game
 {
     /// <summary>
-    /// 战斗输入：采集玩家操作并驱动 <see cref="GamePlayFramework"/>。
+    /// 战斗输入：通过 <see cref="BattleInputActions"/> 采样并驱动 <see cref="GamePlayFramework"/>。
     /// </summary>
     public sealed class BattleInputController
     {
@@ -21,19 +23,54 @@ namespace Game
         static readonly GameplayTag KnockedDownTag = new GameplayTag(BattleConstants.TagKnockedDown);
         static readonly GameplayTag DodgingTag = new GameplayTag(BattleConstants.TagDodging);
 
+        readonly BattleInputActions _actions = new BattleInputActions();
         float _meleeBuffer;
+        bool _enabled;
+
+        /// <summary>启用战斗 Action Map。</summary>
+        public void Enable()
+        {
+            if (_enabled)
+            {
+                return;
+            }
+
+            _actions.Battle.Enable();
+            _enabled = true;
+        }
+
+        /// <summary>禁用战斗 Action Map。</summary>
+        public void Disable()
+        {
+            if (!_enabled)
+            {
+                return;
+            }
+
+            _actions.Battle.Disable();
+            _enabled = false;
+        }
+
+        /// <summary>释放 Input Action 资源。</summary>
+        public void Dispose()
+        {
+            Disable();
+            _actions.Dispose();
+        }
 
         /// <summary>采样当前渲染帧输入，生成可供逻辑帧消费的输入快照。</summary>
         /// <param name="deltaTime">帧间隔。</param>
         /// <returns>本帧输入快照。</returns>
         public BattleInputFrame Sample(float deltaTime)
         {
-            if (Input.GetKeyDown(KeyCode.J))
+            var battle = _actions.Battle;
+            if (battle.Melee.WasPressedThisFrame())
             {
                 _meleeBuffer = ComboBufferSeconds;
             }
 
-            var moveDirection = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+            var move2 = battle.Move.ReadValue<Vector2>();
+            var moveDirection = new Vector3(move2.x, 0f, move2.y);
             var hasMoveInput = moveDirection.sqrMagnitude > 0.01f;
             if (hasMoveInput)
             {
@@ -46,8 +83,8 @@ namespace Game
                 MoveDirection = moveDirection,
                 HasMoveInput = hasMoveInput,
                 TriggerMelee = _meleeBuffer > 0f,
-                TriggerFireball = Input.GetKeyDown(KeyCode.K),
-                TriggerDodge = Input.GetKeyDown(KeyCode.LeftShift),
+                TriggerFireball = battle.Fireball.WasPressedThisFrame(),
+                TriggerDodge = battle.Dodge.WasPressedThisFrame(),
                 AimDirection = hasMoveInput ? moveDirection : Vector3.zero,
             };
         }
