@@ -214,7 +214,8 @@ namespace Framework.UI
 
             var metadata = ResolveMetadata(windowType);
             ResourceAssetHandle handle = default;
-            yield return ResourceManager.Instance.LoadAssetAsync<GameObject>(metadata.Location, loaded => handle = loaded);
+            yield return ResourceManager.Instance.LoadAssetAsync<GameObject>(
+                metadata.Location, loaded => handle = loaded, priority: 10);
 
             if (!handle.IsValid || !handle.Succeeded)
             {
@@ -225,7 +226,19 @@ namespace Framework.UI
                 yield break;
             }
 
-            var window = CreateWindowInstance<TWindow>(handle, metadata, userData);
+            GameObject instance = null;
+            yield return ResourceManager.Instance.InstantiateAsync(
+                handle, _layerRoots[metadata.Layer], go => instance = go, priority: 10);
+            if (instance == null)
+            {
+                handle.Dispose();
+                GameLog.Error(LogCategories.UI,
+                    $"Instantiate window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)}");
+                onComplete?.Invoke(null);
+                yield break;
+            }
+
+            var window = BindWindowInstance<TWindow>(instance, metadata, userData);
             window.AssetHandle = handle;
             onComplete?.Invoke(window);
         }
@@ -243,6 +256,15 @@ namespace Framework.UI
                     $"[UI] Instantiate window failed: {typeof(TWindow).Name}, location={metadata.Location}");
             }
 
+            return BindWindowInstance<TWindow>(instance, metadata, userData);
+        }
+
+        TWindow BindWindowInstance<TWindow>(
+            GameObject instance,
+            WindowMetadata metadata,
+            object userData) where TWindow : UIWindow, new()
+        {
+            var layerRoot = _layerRoots[metadata.Layer];
             var sortingOrder = (int)metadata.Layer * LayerOrderStep + _stack.Count * WindowOrderStep;
             var window = new TWindow();
             window.InternalCreate(this, instance, null, userData);

@@ -19,9 +19,11 @@ namespace Framework.Res
         readonly Dictionary<string, ResourceAssetHandle> _syncCache = new Dictionary<string, ResourceAssetHandle>();
 
         [SerializeField] ResourceInitOptions _initOptions = new ResourceInitOptions();
+        [SerializeField] ResourceSchedulerOptions _schedulerOptions = new ResourceSchedulerOptions();
 
         ResourcePackage _package;
         ResourceInitOptions _options;
+        ResourceScheduler _scheduler;
         bool _initialized;
         bool _stopped;
 
@@ -44,6 +46,29 @@ namespace Framework.Res
 
         /// <summary>当前使用的资源包名称。</summary>
         public string PackageName => _options != null ? _options.PackageName : ResourceInitOptions.DefaultPackageName;
+
+        /// <summary>分帧调度预算；未赋值时使用默认配置。</summary>
+        public ResourceSchedulerOptions SchedulerOptions
+        {
+            get
+            {
+                if (_schedulerOptions == null)
+                {
+                    _schedulerOptions = new ResourceSchedulerOptions();
+                }
+
+                return _schedulerOptions;
+            }
+        }
+
+        /// <summary>等待发起的异步加载数量。</summary>
+        public int PendingLoadCount => _scheduler != null ? _scheduler.PendingLoadCount : 0;
+
+        /// <summary>进行中的异步加载数量。</summary>
+        public int InFlightLoadCount => _scheduler != null ? _scheduler.InFlightCount : 0;
+
+        /// <summary>等待实例化的数量。</summary>
+        public int PendingInstantiateCount => _scheduler != null ? _scheduler.PendingInstantiateCount : 0;
 
         /// <summary>异步初始化资源包（请求版本号 + 加载 Manifest）。</summary>
         /// <param name="options">初始化选项；不可为 null。</param>
@@ -92,7 +117,17 @@ namespace Framework.Res
             }
 
             _initialized = true;
+            _scheduler?.Shutdown();
+            _scheduler = new ResourceScheduler(SchedulerOptions, StartScheduledLoad, StartScheduledUnload);
             GameLog.Info(LogCategories.Resource, $"Package {LogStyle.Ok("ready")}: {LogStyle.Name(options.PackageName)}  version={LogStyle.Value(versionOperation.PackageVersion)}");
+        }
+
+        void Update()
+        {
+            if (_initialized && !_stopped)
+            {
+                _scheduler?.Tick();
+            }
         }
 
         /// <summary>同步加载指定寻址的资源，返回封装句柄。</summary>
@@ -107,20 +142,96 @@ namespace Framework.Res
             return new ResourceAssetHandle(handle);
         }
 
-        /// <summary>异步加载指定寻址的资源，完成后通过回调返回句柄。</summary>
+        /// <summary>
+        /// 异步加载指定寻址的资源，完成后通过回调返回句柄。
+        /// 内部进入 <see cref="ResourceScheduler"/> 分帧队列，不在调用当帧立即发起 YooAsset 加载。
+        /// </summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
-        /// <param name="onComplete">加载完成后的回调；参数为已包装的资源句柄；可为 null。</param>
+        /// <param name="onComplete">加载完成后的回调；参数为已包装的资源句柄；可为 null。失败或取消时句柄无效。</param>
+        /// <param name="priority">优先级，数值越大越先处理；默认 0。</param>
         /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
-        public IEnumerator LoadAssetAsync<T>(string location, Action<ResourceAssetHandle> onComplete) where T : UnityEngine.Object
+        public IEnumerator LoadAssetAsync<T>(
+            string location,
+            Action<ResourceAssetHandle> onComplete,
+            int priority = 0) where T : UnityEngine.Object
+        {
+            var request = LoadAssetScheduled<T>(location, onComplete, priority);
+            while (!request.IsDone)
+            {
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// 将异步加载入队，立即返回请求句柄。完成时机由调度器按预算决定。
+        /// </summary>
+        /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
+        /// <param name="location">YooAsset 寻址字符串。</param>
+        /// <param name="onComplete">加载完成后的回调；可为 null。</param>
+        /// <param name="priority">优先级，数值越大越先处理；默认 0。</param>
+        /// <returns>可用于等待或取消的请求句柄。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
+        public ResourceRequestHandle LoadAssetScheduled<T>(
+            string location,
+            Action<ResourceAssetHandle> onComplete = null,
+            int priority = 0) where T : UnityEngine.Object
         {
             EnsureInitialized();
+            return _scheduler.EnqueueLoad(location, typeof(T), onComplete, priority);
+        }
 
-            var handle = _package.LoadAssetAsync<T>(location);
-            yield return handle;
+        /// <summary>
+        /// 将实例化入队；内部仍调用 <see cref="ResourceAssetHandle.InstantiateSync"/>，但按时间预算分帧执行。
+        /// </summary>
+        /// <param name="handle">已成功加载的资源句柄。</param>
+        /// <param name="parent">父 Transform；为 null 时实例化到场景根。</param>
+        /// <param name="onComplete">完成后的回调；失败时参数为 null。</param>
+        /// <param name="worldPositionStays">是否保持世界坐标；仅在 <paramref name="parent"/> 非 null 时有效。</param>
+        /// <param name="priority">优先级，数值越大越先处理；默认 0。</param>
+        /// <returns>可用于等待或取消的请求句柄。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
+        public ResourceRequestHandle InstantiateScheduled(
+            ResourceAssetHandle handle,
+            Transform parent = null,
+            Action<GameObject> onComplete = null,
+            bool worldPositionStays = false,
+            int priority = 0)
+        {
+            EnsureInitialized();
+            return _scheduler.EnqueueInstantiate(handle, parent, worldPositionStays, onComplete, priority);
+        }
 
-            var wrapped = new ResourceAssetHandle(handle);
-            onComplete?.Invoke(wrapped);
+        /// <summary>
+        /// 协程等待调度队列完成实例化。
+        /// </summary>
+        /// <param name="handle">已成功加载的资源句柄。</param>
+        /// <param name="parent">父 Transform；为 null 时实例化到场景根。</param>
+        /// <param name="onComplete">完成后的回调；失败时参数为 null。</param>
+        /// <param name="worldPositionStays">是否保持世界坐标。</param>
+        /// <param name="priority">优先级，数值越大越先处理；默认 0。</param>
+        /// <returns>协程迭代器。</returns>
+        public IEnumerator InstantiateAsync(
+            ResourceAssetHandle handle,
+            Transform parent = null,
+            Action<GameObject> onComplete = null,
+            bool worldPositionStays = false,
+            int priority = 0)
+        {
+            var request = InstantiateScheduled(handle, parent, onComplete, worldPositionStays, priority);
+            while (!request.IsDone)
+            {
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// 请求卸载未使用资源。多次调用会合并为一次；默认等 Load / Instantiate 队列空闲后再执行。
+        /// </summary>
+        public void RequestUnloadUnusedAssets()
+        {
+            EnsureInitialized();
+            _scheduler.RequestUnloadUnusedAssets();
         }
 
         /// <summary>异步加载指定寻址的场景，完成后通过回调返回句柄。</summary>
@@ -237,6 +348,8 @@ namespace Framework.Res
             }
 
             _stopped = true;
+            _scheduler?.Shutdown();
+            _scheduler = null;
             ReleaseCache();
             _initialized = false;
             _package = null;
@@ -303,9 +416,20 @@ namespace Framework.Res
             }
         }
 
+        AssetHandle StartScheduledLoad(string location, Type assetType)
+        {
+            return _package.LoadAssetAsync(location, assetType);
+        }
+
+        UnloadUnusedAssetsOperation StartScheduledUnload()
+        {
+            GameLog.Info(LogCategories.Resource, LogStyle.Muted("UnloadUnusedAssets started"));
+            return _package.UnloadUnusedAssetsAsync();
+        }
+
         void EnsureInitialized()
         {
-            if (!_initialized || _package == null)
+            if (!_initialized || _package == null || _scheduler == null)
             {
                 throw new InvalidOperationException("[Resource] ResourceManager is not initialized.");
             }

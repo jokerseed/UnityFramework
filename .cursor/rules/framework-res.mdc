@@ -21,7 +21,11 @@ alwaysApply: false
 | 模块编排 | `ResourceModule` 注册到 `GameBootstrap`；`Dependencies` 声明依赖 `ResourceModule` |
 | 包初始化 | `ResourceModule.InitializeAsync` → `ResourceManager.InitializeAsync`（业务代码不得自行 `YooAssets.Initialize`） |
 | 同步加载 Asset | `ResourceManager.Instance.LoadAssetSync<T>(location)` → `ResourceAssetHandle` |
-| 异步加载 Asset | `ResourceManager.Instance.LoadAssetAsync<T>(location, onComplete)` |
+| 异步加载 Asset | `ResourceManager.Instance.LoadAssetAsync<T>(location, onComplete)`（**进分帧调度**） |
+| 入队加载 / 可取消 | `LoadAssetScheduled<T>(location, onComplete, priority)` → `ResourceRequestHandle` |
+| 同步实例化 | `ResourceAssetHandle.InstantiateSync(...)`（**当帧执行，不进调度**） |
+| 分帧实例化 | `InstantiateAsync` / `InstantiateScheduled` |
+| 卸载未使用资源 | `ResourceManager.Instance.RequestUnloadUnusedAssets()`（合并、空闲帧执行） |
 | 异步加载场景 | `ResourceManager.Instance.LoadSceneAsync(location, sceneMode)` → `ResourceSceneHandle` |
 | 任意二进制 | `LoadBytes(location)` / `LoadBinary<T>(location, deserialize)` |
 | 释放单次句柄 | `ResourceAssetHandle.Dispose()` 或 `using var handle = ...` |
@@ -37,7 +41,9 @@ alwaysApply: false
 - 配置表 TextAsset 句柄由 `ConfigManager.ReleaseTableAssetCache()` 管理，**不要**与 Res 通用缓存混用同一套释放约定
 - **禁止**在业务代码中持有或调用 YooAsset 原生 `AssetHandle.Release()` / `UnloadAsset()` 等 API
 - **禁止**在 `Framework.Res` 之外调用 `YooAssets.Destroy()`、`DestroyPackage()` 等全局销毁 API
-- 实例化：`ResourceAssetHandle.InstantiateSync(...)`；销毁实例仍用 Unity `Destroy`，释放引用计数须 `Dispose` 句柄
+- 实例化：热路径用 `ResourceAssetHandle.InstantiateSync(...)`；异步打开用 `ResourceManager.InstantiateAsync` / `InstantiateScheduled`。销毁实例仍用 Unity `Destroy`，释放引用计数须 `Dispose` 句柄
+- 卸载未使用资源只能走 `ResourceManager.RequestUnloadUnusedAssets()`，**禁止**业务直接 `YooAssets` / `Resources.UnloadUnusedAssets`
+- `LoadAssetAsync` 已进入 `ResourceScheduler`：时间预算为主、个数上限为辅；`LoadAssetSync` / `LoadBytes` / `LoadSceneAsync` 不进调度
 
 ## 禁止（运行时业务代码）
 
@@ -51,7 +57,7 @@ alwaysApply: false
 **释放：**
 
 - 直接 `handle.Release()`（YooAsset 原生句柄）
-- 业务模块自行 `YooAssets.Destroy()` / `UnloadUnusedAssets` 替代 `ResourceManager.Shutdown`
+- 业务模块自行 `YooAssets.Destroy()` / `UnloadUnusedAssets` 替代 `ResourceManager.Shutdown` / `RequestUnloadUnusedAssets`
 - 只加载不释放、长期持有 `ResourceAssetHandle` 而不 `Dispose`
 
 ## 程序集边界
