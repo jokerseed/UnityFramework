@@ -2,6 +2,7 @@
     "name": "Game",
     "rootNamespace": "Game",
     "references": [
+        "Framework.Audio",
         "Framework.Bootstrap",
         "Framework.Config",
         "Framework.Core",

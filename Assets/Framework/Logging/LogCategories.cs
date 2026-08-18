@@ -47,5 +47,8 @@ namespace Framework.Logging
 
         /// <summary>网络模块。</summary>
         public const string Network = "Network";
+
+        /// <summary>音频模块。</summary>
+        public const string Audio = "Audio";
     }
 }

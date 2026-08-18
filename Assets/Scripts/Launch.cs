@@ -1,3 +1,4 @@
+using Framework.Audio;
 using Framework.Bootstrap;
 using Framework.Config;
 using Framework.Core;
@@ -32,6 +33,7 @@ public sealed class Launch : MonoBehaviour
             new ObjectPoolModule(),
             new NetworkModule(),
             new ResourceModule(),
+            new AudioModule(),
             new UIModule(),
             new ConfigModule(),
             new GamePlayModule(),

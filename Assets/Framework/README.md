@@ -43,6 +43,7 @@
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree/README.md](BehaviourTree/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
 | `Framework.Network` | TCP 网络频道（`NetworkManager` / `INetworkChannel`） | [Network/README.md](Network/README.md) |
+| `Framework.Audio` | 音频管理（`AudioManager` / BGM·SFX 双通道） | [Audio/README.md](Audio/README.md) |
 | `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
 | `Game` | 业务入口（Launch / 主界面 / Battle 演示） | [../../Scripts/README.md](../../Scripts/README.md) |
 | `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
