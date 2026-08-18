@@ -217,7 +217,7 @@ Launch 场景
 - `Apply(framework, heroId, ref inputFrame)`：在逻辑步里消费输入快照
 - `Enable()` / `Disable()` / `Dispose()`：战斗开始启用 `Battle` Action Map，退出时释放
 
-输入绑定定义在 `Assets/Settings/Input/Game.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
+输入绑定定义在 `Assets/Settings/Input/Battle.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
 
 当前支持的操作（键位可在 Input Actions 资产里改）：
 
