@@ -21,6 +21,7 @@
 | `ActorRegistry` | ActorId ↔ ECS Entity ↔ ASC 三向映射 |
 | `BattleCommandProcessor` | 刷写 Spawn / Damage / Heal / GE / Area / Displace |
 | `BattleAgent` / `BattleAiNodes` | GamePlay 侧 BT 叶子 |
+| `BattleIntentCommand` / `BattleIntentApplier` | 玩家与 AI 共用的 Move / Cast 行为指令与执行器 |
 | `EngageSlotAllocator` | 按追击目标把杂兵铺在环上，避免叠点 |
 | `BattleWaveDirector` | 杂兵槽位回收与刷波 |
 
@@ -74,6 +75,22 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 | `EffectConfigFactory` | Luban 效果行 → `GameplayEffectDef` |
 | `GamePlayConfigSetup` | `RegisterActorAbilities` 扩展方法 |
 | `BattleConfigApplier` | 对 ASC 应用 Luban 效果 |
+
+## 行为指令（玩家 / AI 共用）
+
+玩家与 AI 产出同一套 `BattleIntentCommand`（`Move` / `Cast`），由 `BattleIntentApplier` 执行。这与 `BattleCommandBuffer` **不是同一层**：
+
+| 层 | 类型 | 谁产出 | 谁消费 |
+|----|------|--------|--------|
+| 行为意图 | `BattleIntentCommand` | 玩家编码 / AI 叶子 | `BattleIntentApplier` → `SetActorVelocity` / `TryActivateAbility` |
+| 模拟结算 | `BattleCommandBuffer` | GAS / ECS 碰撞 | `BattleCommandProcessor`（Spawn / Damage / Heal 等） |
+
+约定：
+
+- 连招选择、火球瞄准、闪避朝向在 **编码时** 决定；`Apply` 只执行
+- 眩晕 / 倒地禁移动、闪避中不覆盖速度，留在 **执行器** 作为规则
+- 刷波、`CreateActor` 不是行为意图
+- 指令带来源 `Player` / `Ai` / `Replay`，只用于日志与回放过滤，不改变规则
 
 ## Tick 流程
 

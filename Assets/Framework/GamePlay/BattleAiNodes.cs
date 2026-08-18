@@ -1,7 +1,6 @@
 using Framework.BehaviourTree;
 using Framework.Core;
 using Framework.FixedMath;
-using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using UnityEngine;
 
@@ -116,7 +115,13 @@ namespace Framework.GamePlay
             BtTreeBuilder.Action(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
-                owner.Framework?.SetActorVelocity(owner.ActorId, Vector3.zero);
+                if (owner.Framework != null)
+                {
+                    BattleIntentApplier.Apply(
+                        owner.Framework,
+                        BattleIntentCommand.Move(owner.ActorId, Vector3.zero, Vector3.zero, BattleIntentSource.Ai));
+                }
+
                 return BtStatus.Success;
             });
 
@@ -144,19 +149,15 @@ namespace Framework.GamePlay
                     arrive = ArriveSlotRange;
                 }
 
-                FaceToward(owner, target.Position - self.Position);
-
+                var face = target.Position - self.Position;
                 var toDest = dest - self.Position;
                 toDest.y = 0f;
                 var distance = toDest.magnitude;
-                if (distance <= arrive)
-                {
-                    owner.Framework.SetActorVelocity(owner.ActorId, Vector3.zero);
-                    return BtStatus.Success;
-                }
-
-                owner.Framework.SetActorVelocity(owner.ActorId, toDest / distance * speed);
-                return BtStatus.Running;
+                var velocity = distance <= arrive ? Vector3.zero : toDest / distance * speed;
+                BattleIntentApplier.Apply(
+                    owner.Framework,
+                    BattleIntentCommand.Move(owner.ActorId, velocity, face, BattleIntentSource.Ai));
+                return distance <= arrive ? BtStatus.Success : BtStatus.Running;
             });
 
         /// <summary>动作：尝试激活技能；冷却中本帧 Failure。</summary>
@@ -181,21 +182,17 @@ namespace Framework.GamePlay
                     toTarget = Vector3.forward;
                 }
 
-                var context = new AbilityActivationContext(self.Position, toTarget, targetId);
-                var result = owner.Framework.TryActivateAbility(owner.ActorId, abilityId, context);
-                return result.Success ? BtStatus.Success : BtStatus.Failure;
+                var success = BattleIntentApplier.Apply(
+                    owner.Framework,
+                    BattleIntentCommand.Cast(
+                        owner.ActorId,
+                        abilityId,
+                        self.Position,
+                        toTarget,
+                        targetId,
+                        BattleIntentSource.Ai));
+                return success ? BtStatus.Success : BtStatus.Failure;
             });
-
-        static void FaceToward(BattleAiOwner owner, Vector3 toTarget)
-        {
-            toTarget.y = 0f;
-            if (toTarget.sqrMagnitude < 0.0001f)
-            {
-                return;
-            }
-
-            owner.Framework.Registry.SetForward(owner.ActorId, toTarget.normalized);
-        }
 
         static float HorizontalDistanceSqr(Vector3 a, Vector3 b)
         {

@@ -5,7 +5,7 @@
 | 原则 | 实现 |
 |------|------|
 | 单一数据源 | GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` |
-| 热路径命令化 | `BattleCommandBuffer` 批量刷；表现走 `IEventBus`（`ZeroGcEventBus`） |
+| 热路径命令化 | 模拟走 `BattleCommandBuffer`；玩家/AI 行为走 `BattleIntentCommand`（Move/Cast）；表现走 `IEventBus` |
 | 配置驱动 | Luban 导表 → `GamePlay.Data` 装配到 GAS |
 | 资源管线 | YooAsset 打包；运行时加载/释放统一走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |

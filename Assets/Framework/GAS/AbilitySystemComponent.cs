@@ -184,6 +184,21 @@ namespace Framework.GAS
             return TryActivateSpec(spec, context, battle, null, out _);
         }
 
+        /// <summary>查询技能当前是否可激活，不提交资源、不创建激活实例。</summary>
+        /// <param name="abilityId">技能 ID。</param>
+        /// <param name="context">激活上下文。</param>
+        /// <returns>可激活时 <see cref="AbilityActivationResult.Success"/> 为 true。</returns>
+        public AbilityActivationResult CanActivateAbility(string abilityId, in AbilityActivationContext context)
+        {
+            if (!TryGetSpecHandle(abilityId, out var handle) ||
+                !_grantedSpecs.TryGetValue(handle, out var spec))
+            {
+                return AbilityActivationResult.Failed(AbilityActivationFailureReason.AbilityNotFound);
+            }
+
+            return spec.Ability.CanActivate(this, context, spec);
+        }
+
         AbilityActivationResult TryActivateSpec(
             GameplayAbilitySpec spec,
             in AbilityActivationContext context,

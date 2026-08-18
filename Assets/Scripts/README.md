@@ -30,8 +30,8 @@ Assets/Scripts
 └── Battle/
     ├── BattleBootstrap.cs         战斗场景装配器
     ├── BattleSetup.cs             战斗启动与波次
-    ├── BattleInputFrame.cs        输入快照
-    ├── BattleInputController.cs   输入采样与应用
+    ├── BattleInputFrame.cs        设备输入快照
+    ├── BattleInputController.cs   采样 → 编码 Move/Cast → 统一 Apply
     ├── BattleViewBinder.cs        View 同步与插值
     ├── BattlePresentation.cs      事件表现与 HitStop
     ├── BattleCuePresenter.cs      Cue -> 简易可视化
@@ -207,33 +207,30 @@ Launch 场景
 - `TriggerDodge`
 - `AimDirection`
 
-它的意义不只是让代码更整洁，更关键的是：**为帧同步或固定步长逻辑预留了输入命令层**。以后如果接网络同步、录制回放、AI 输入替换，都会从这里继续往下扩。
+它的意义不只是让代码更整洁，更关键的是：把设备输入变成可重复消费的快照。真正进模拟的是下一步编码出的 `BattleIntentCommand`。
 
 ### `BattleInputController`
 
-`BattleInputController` 分成两个阶段：
+`BattleInputController` 分成三个阶段：
 
 - `Sample(deltaTime)`：在渲染帧通过 `Battle.BattleInputActions` 读取输入，生成 `BattleInputFrame`
-- `Apply(framework, heroId, ref inputFrame)`：在逻辑步里消费输入快照
+- `Apply(...)`：在逻辑步里把快照编码为 `Move` / `Cast`，再交给 `BattleIntentApplier` 执行
 - `Enable()` / `Disable()` / `Dispose()`：战斗开始启用 `Battle` Action Map，退出时释放
 
-输入绑定定义在 `Assets/Settings/Input/Battle.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
+输入绑定定义在 `Assets/Settings/Input/Game.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
 
 当前支持的操作（键位可在 Input Actions 资产里改）：
 
 - `WASD`：移动
-- `J`：近战三连（带 `ComboBufferSeconds` 输入缓冲）
-- `K`：火球
-- `Left Shift`：闪避
+- `J`：近战三连（带 `ComboBufferSeconds` 输入缓冲；编码时用 `CanActivateAbility` 选段）
+- `K`：火球（编码时锁定最近敌人与朝向）
+- `Left Shift`：闪避（编码时用移动方向作为朝向）
 
-实现上还处理了几个关键状态：
+眩晕 / 倒地禁移动、闪避中不覆盖速度等规则在 `BattleIntentApplier` 里统一执行，玩家与 AI 走同一套。
 
-- 眩晕时不能移动
-- 倒地时不能移动
-- 闪避标签存在时不再覆盖位移
-- 一次性命令在逻辑步消费后会清掉，避免一个渲染帧触发多次
+一次性命令在逻辑步消费后会清掉，避免一个渲染帧触发多次。
 
-相比最早直接在 `Update()` 里操作 `GamePlayFramework` 的写法，现在的输入层已经更接近“命令化输入”。
+相比最早直接在 `Update()` 里操作 `GamePlayFramework` 的写法，现在已经是「设备快照 → 行为指令 → 统一执行」。
 
 ### `BattlePresentation`
 
@@ -324,7 +321,7 @@ Launch 场景
 
 ### 3. 输入采样和逻辑推进解耦
 
-输入先采样成 `BattleInputFrame`，再在固定逻辑步里消费，而不是每次 `Update()` 直接写玩法状态。这是后续帧同步、回放、网络对战最关键的前置条件之一。
+输入先采样成 `BattleInputFrame`，逻辑步再编码为 `BattleIntentCommand`，由 `BattleIntentApplier` 执行。玩家与 AI 共用 Move / Cast，不写进 `BattleCommandBuffer`。这是后续帧同步、回放最关键的前置条件之一。
 
 ### 4. 表现同步晚于逻辑推进
 
@@ -371,7 +368,7 @@ BattleBootstrap.OnDestroy
 
 - 还没有完整的“战斗结束 -> 回 Launch -> 重新打开主界面”闭环
 - 还没有 Loading / 结算 / 失败界面
-- 输入虽然已经命令化了一步，但还没有网络帧同步协议
+- 输入虽然已经编码为 `BattleIntentCommand`，但还没有网络帧同步协议
 - 目前表现仍以简化球体、简单日志和对象池为主，尚未接 Animator / Timeline / 正式特效
 - 当前战斗内容偏 Demo，更多是用来验证 `Framework.GamePlay + GAS + ECS + Res + UI` 之间的拼装方式
 
@@ -379,12 +376,12 @@ BattleBootstrap.OnDestroy
 
 1. 补齐退出战斗与回到 Launch 的完整闭环
 2. 加入 Loading / 预加载 / BGM 切换
-3. 把输入帧进一步改造成可同步的命令流
+3. 把 `BattleIntentCommand` 接到可同步 / 可回放的命令流
 4. 在 `BattleViewBinder` 之上增加更正式的动画与特效表现层
 
 ## 使用建议
 
 - 如果要新增一个业务场景，优先参考 `GameSceneFlow + BattleFlow + BattleBootstrap` 这套分层，不要把所有逻辑堆进一个 MonoBehaviour。
 - 如果要新增战斗技能演示，优先改 `BattleSetup` 的 Actor 能力注册，再在 `BattlePresentation` / `BattleCuePresenter` 补表现。
-- 如果要接网络同步，优先从 `BattleInputFrame` 与 `BattleSession.Tick()` 下手，而不是直接改 View 层。
+- 如果要接网络同步，优先从 `BattleIntentCommand` 与 `BattleSession.Tick()` 下手，而不是直接改 View 层。
 - 如果要改资源释放策略，优先沿着 `BattleSession.Scope -> BattleFlow.Exit -> RequestUnusedAssetsCleanup` 这条链路梳理。

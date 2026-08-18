@@ -140,6 +140,24 @@ namespace Framework.GamePlay
             return actor.AbilitySystem.TryActivateAbility(abilityId, context, _battleContext);
         }
 
+        /// <summary>查询技能当前是否可激活，不提交资源。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="abilityId">技能 ID。</param>
+        /// <param name="context">激活上下文。</param>
+        /// <returns>可激活时 Success 为 true。</returns>
+        public AbilityActivationResult CanActivateAbility(
+            ActorId actorId,
+            string abilityId,
+            in AbilityActivationContext context)
+        {
+            if (!_registry.TryGet(actorId, out var actor))
+            {
+                return AbilityActivationResult.Failed(AbilityActivationFailureReason.CustomBlocked);
+            }
+
+            return actor.AbilitySystem.CanActivateAbility(abilityId, context);
+        }
+
         /// <summary>按 Spec 句柄激活技能。</summary>
         public AbilityActivationResult TryActivateAbility(
             ActorId actorId,

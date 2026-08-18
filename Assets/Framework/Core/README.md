@@ -43,7 +43,7 @@ Core/
 | `BattleContext` | 将 `Commands` + `Presentation`（`IEventBus`）打包，供 GAS 使用 |
 | `BattleConstants` | GAS 属性名、标签与物理默认值 |
 | `PersistentSingleton<T>` | 懒加载 + `DontDestroyOnLoad` 常驻单例 |
-| `BattleCommandBuffer` | 模拟热路径命令批量刷写（生成投射物、结算伤害） |
+| `BattleCommandBuffer` | 模拟热路径命令批量刷写（生成投射物、结算伤害）；不含玩家 / AI 行为意图 |
 | `ITickable` | `GamePlayFramework`、`World` 的统一 Tick 契约 |
 
 ## PersistentSingleton 用法
