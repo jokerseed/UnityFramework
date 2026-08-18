@@ -1,6 +1,6 @@
 # Framework.GamePlay
 
-玩法主入口：编排 GAS 规则与 ECS 模拟，提供 `GamePlayFramework` 与 Bootstrap 模块 `GamePlayModule`。
+玩法主入口：编排 GAS 规则与 ECS 模拟，通过 **BattleDirector / BattleSession** 支持多战斗并行。
 
 ## 程序集
 
@@ -8,19 +8,61 @@
 |---|---|
 | 程序集 | `Framework.GamePlay` |
 | 命名空间 | `Framework.GamePlay` / `Framework.GamePlay.Data` |
-| 依赖 | `Framework.Core`、`Framework.Events`、`Framework.GAS`、`Framework.ECS`、`Framework.Logging`、`Framework.Config`、`Framework.BehaviourTree`、`Framework.FixedMath` |
+| 依赖 | `Framework.Core`、`Framework.Events`、`Framework.GAS`、`Framework.ECS`、`Framework.Logging`、`Framework.Res`、`Framework.Config`、`Framework.BehaviourTree`、`Framework.FixedMath` |
 
 ## 核心类型
 
 | 类型 | 职责 |
 |------|------|
-| `GamePlayModule` | `IGameModule` 实现，创建并持有 `GamePlayFramework` |
-| `GamePlayFramework` | 玩法运行时入口：创建 Actor、注册技能、驱动 Tick |
+| `GamePlayModule` | `IGameModule` 实现，持有 `BattleDirector` |
+| `BattleDirector` | Session 工厂 + 集中 Tick：`CreateSession` / `DestroySession` / `GetSession` / `Tick(dt)` |
+| `BattleSession` | 一场战斗的独立会话：持有独立 `GamePlayFramework` + `ResourceScope` + ActorId 分配器 |
+| `GamePlayFramework` | 玩法运行时：创建 Actor、注册技能、驱动单场 Tick |
 | `ActorRegistry` | ActorId ↔ ECS Entity ↔ ASC 三向映射 |
 | `BattleCommandProcessor` | 刷写 Spawn / Damage / Heal / GE / Area / Displace |
-| `BattleAgent` / `BattleAiNodes` | GamePlay 侧 BT 叶子，不反向引用 BehaviourTree 业务 |
+| `BattleAgent` / `BattleAiNodes` | GamePlay 侧 BT 叶子 |
 | `EngageSlotAllocator` | 按追击目标把杂兵铺在环上，避免叠点 |
 | `BattleWaveDirector` | 杂兵槽位回收与刷波 |
+
+## 架构分层
+
+```
+全局常驻
+└── GamePlayModule
+    └── BattleDirector（Session 工厂 + 集中 Tick）
+        ├── Session 1 → GamePlayFramework + ResourceScope + ActorId 命名空间
+        ├── Session 2 → ...
+        └── ...
+
+场景级（业务层 Game）
+└── BattleBootstrap : MonoBehaviour
+    ├── Start  → Director.CreateSession → 加载 GO → 创建 Actor
+    ├── Update → 读输入 + session.Framework.Tick(dt) + 同步 GO
+    └── OnDestroy → Director.DestroySession → Destroy GO
+```
+
+## BattleSession
+
+每个 Session 是**一场战斗的完整规则实例**，彼此完全隔离：
+
+- 独立 `GamePlayFramework`（ECS World / ActorRegistry / EventBus）
+- 独立 `ResourceScope`（资源随 Session 释放）
+- ActorId 从 1 自增，不跨 Session 冲突
+
+```csharp
+var director = GamePlayModule.Instance.Director;
+
+// 创建战斗
+var session = director.CreateSession();
+var heroId = session.AllocateActorId();
+session.Framework.CreateActor(heroId, pos, 100f, teamId: 1);
+
+// 每帧（或由 Director.Tick 集中驱动）
+session.Framework.Tick(Time.deltaTime);
+
+// 结束战斗
+director.DestroySession(session); // Framework.Dispose + Scope.Dispose
+```
 
 ## GamePlay.Data（配置装配层）
 
@@ -45,52 +87,25 @@ GamePlayFramework.Tick(deltaTime)
 
 ## Bootstrap 集成
 
+```csharp
+// Launch.cs
+new GamePlayModule(), // 无外部依赖；Config 由业务层按需加载
 ```
-Launch → ConfigModule → GamePlayModule
-```
+
+## 典型用法（业务层）
 
 ```csharp
-using Framework.GamePlay;
+// BattleBootstrap.cs（场景级 MonoBehaviour）
+var session = GamePlayModule.Instance.Director.CreateSession();
+var heroId = session.AllocateActorId();
+session.Framework.CreateActor(heroId, heroPos, 120f, teamId: 1);
+session.Framework.RegisterActorAbilities(heroId, 1, new[] { "Fireball", "Slash" }, tables);
 
-var framework = GamePlayModule.Instance.Framework;
-```
+// Update
+session.Framework.Tick(Time.deltaTime);
 
-## 典型用法
-
-```csharp
-using Framework.GamePlay;
-using Framework.GamePlay.Data;
-
-var framework = new GamePlayFramework();
-framework.RegisterActorAbilities(actorId, teamId: 1, abilityIds, ConfigManager.Instance.LoadTables());
-framework.Tick(Time.deltaTime);
-```
-
-## 完整示例（战斗演示）
-
-进 Battle 场景后由业务入口接管，见 `Assets/Scripts/BattleBootstrap.cs`：
-
-```csharp
-using Framework.Config;
-using Framework.Core;
-using Framework.GamePlay;
-using Framework.GamePlay.Data;
-
-var framework = GamePlayModule.Instance.Framework;
-framework.CreateActor(heroId, heroPos, 100f, teamId: 1);
-framework.CreateActor(monsterId, monsterPos, 100f, teamId: 2);
-framework.RegisterActorAbilities(heroId, 1, new[] { "Fireball", "Slash" }, ConfigManager.Instance.LoadTables());
-framework.RegisterActorAbilities(monsterId, 2, new[] { "Slash" }, ConfigManager.Instance.GetTables());
-
-void Update()
-{
-    // WASD 移动；J 近战三连（扇形多目标），K 火球
-    framework.TryActivateAbility(heroId, "Slash", new AbilityActivationContext(origin, dir));
-    framework.SetBattleAgent(monsterId, BattleAiNodes.CreateMeleeChaserAgent("MobSlash", heroId));
-// 树拓扑：Assets/Bundles/BehaviourTrees/MeleeChaser.bt.json（YooAsset 寻址 bundles/behaviourtrees/meleechaser.unity3d）
-    framework.Tick(Time.deltaTime);
-}
-// 场景退出：DestroyActor + Unsubscribe；不要 Dispose 模块持有的 Framework
+// OnDestroy
+GamePlayModule.Instance.Director.DestroySession(session);
 ```
 
 ## 行为验证示例
@@ -98,25 +113,22 @@ void Update()
 - 英雄 WASD 移动；J 近战 Slash→Slash2→Slash3（第三段霸体+倒地）；K 火球；Left Shift 闪避无敌
 - 12 只怪物槽位常驻：全灭约 2 秒后在英雄周围复活为下一波（生命随波次增加）
 - 杂兵按方位角占位围攻，走槽位、面朝英雄；远距只朝槽位走，靠近后才跑完整 BT
-- 无技能/效果的 ASC 跳过 Tick
 - 英雄造成伤害时短暂 hit-stop
-- 近战命中带击退冲量；Actor 圆形挤开避免叠模
+- 近战命中带击退冲量；Actor 圆形挤开避免叠模（完全重叠时随机方向推开）
 - Fireball 命中扣血；BoomShot 只走爆炸范围伤（不双算直击）
-- 配置表 `ability.xlsx` / `effect.xlsx` / `cue.xlsx` 覆盖 AOE、穿透、护盾、DOT、消耗、Cue 表现
-- 技能可配 `cooldown_group` / `asset_tags` / `owned_tags` / `cancel_tags`；`CancelAbilitiesWithTag` 按 Tag 打断
-- 战斗演示 `BattleCuePresenter` 按 `tbcue` 播放球体 Cue（Add 跟随 Actor）
 
 ## 依赖关系
 
 ```
 GamePlay
- ├── Config      (Tables 只读)
+ ├── Config      (Tables 只读，业务层按需加载)
  ├── Data        (Tables → GAS Def 装配)
+ ├── Res         (BattleSession 持有 ResourceScope)
  ├── Core / GAS / ECS
  └── BehaviourTree / FixedMath（AI Agent）
 ```
 
 ## 被谁使用
 
-- `Assets/Scripts/Launch.cs` — `GamePlayModule`
-- 业务层 — `GamePlayModule.Instance.Framework` 或自行创建实例
+- `Assets/Scripts/Launch.cs` — 注册 `GamePlayModule`
+- `Assets/Scripts/Battle/BattleBootstrap.cs` — 向 `Director` 申请 Session，驱动战斗表现

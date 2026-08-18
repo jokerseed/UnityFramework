@@ -247,26 +247,20 @@ namespace Framework.UI
             CancelAllPendingShows();
             CancelAllDelayedUnloads();
 
-            var destroyed = new HashSet<UIWindow>();
-            foreach (var window in _opened.Values)
-            {
-                if (destroyed.Add(window))
-                {
-                    DestroyWindow(window, force: true);
-                }
-            }
-
+            var toDestroy = new HashSet<UIWindow>(_opened.Values);
             foreach (var window in _cached.Values)
             {
-                if (destroyed.Add(window))
-                {
-                    DestroyWindow(window, force: true);
-                }
+                toDestroy.Add(window);
             }
 
             _stack.Clear();
             _opened.Clear();
             _cached.Clear();
+
+            foreach (var window in toDestroy)
+            {
+                DestroyWindow(window, force: true);
+            }
 
             foreach (var pair in _layerRoots)
             {

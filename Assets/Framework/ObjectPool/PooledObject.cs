@@ -123,9 +123,12 @@ namespace Framework.ObjectPool
             }
 
             var name = _pool.Name;
-            ObjectPoolManager.Instance.DestroyObjectPool<TSelf>(name);
             _pool = null;
             _factory = null;
+            if (ObjectPoolManager.HasInstance)
+            {
+                ObjectPoolManager.Instance.DestroyObjectPool<TSelf>(name);
+            }
         }
 
         static void EnsureReady()

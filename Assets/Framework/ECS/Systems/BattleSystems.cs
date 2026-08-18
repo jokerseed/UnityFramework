@@ -173,14 +173,25 @@ namespace Framework.ECS.Systems
                     delta.y = 0f;
                     var minDist = _radii[i] + _radii[j];
                     var distSq = delta.sqrMagnitude;
-                    if (distSq >= minDist * minDist || distSq < 0.0001f)
+                    if (distSq >= minDist * minDist)
                     {
                         continue;
                     }
 
-                    var dist = Mathf.Sqrt(distSq);
-                    var overlap = (minDist - dist) * 0.5f;
-                    var axis = delta / dist;
+                    Vector3 axis;
+                    float overlap;
+                    if (distSq < 0.0001f)
+                    {
+                        var angle = (i * 2654435761u ^ j * 340573321u) % 628 * 0.01f;
+                        axis = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                        overlap = minDist * 0.5f;
+                    }
+                    else
+                    {
+                        var dist = Mathf.Sqrt(distSq);
+                        overlap = (minDist - dist) * 0.5f;
+                        axis = delta / dist;
+                    }
                     _pushes[i] += axis * overlap;
                     _pushes[j] -= axis * overlap;
                 }
