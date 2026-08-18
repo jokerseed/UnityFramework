@@ -17,6 +17,8 @@
         "Framework.ObjectPool",
         "Framework.Res",
         "Framework.UI",
+        "Unity.InputSystem",
+        "Generated.input",
         "Generated.Luban"
     ],
     "includePlatforms": [],

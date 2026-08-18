@@ -18,6 +18,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 
 - 始终打开仓库根目录 `Framework/`（含 `Assets/`、`Framework.sln`）
 - 模块文档：`Assets/Framework/<模块>/README.md`，总览见 `Assets/Framework/README.md`
+- 业务层文档：`Assets/Scripts/README.md`
 
 ## 程序集职责
 
@@ -70,6 +71,28 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 
 - **不**单独维护 `Samples` / `Tests` 程序集；演示与验证用例写在各模块 README
 - 新增模块时同步更新对应 `README.md`
+- **改 `Assets/Framework/**` 或 `Assets/Scripts/**` 时，须自行判断并同步更新对应 README**（见下表）
+- 判断标准：若改动会影响模块职责、对外 API、运行流程、目录结构、依赖关系或使用方式，**必须**更新 README；纯内部重构且对外行为与文档描述不变时可不改
+- 同一 PR / 任务内完成代码与文档，避免 README 长期滞后
+
+| 改动范围 | 对应 README |
+|----------|-------------|
+| `Assets/Framework/<模块>/` | `Assets/Framework/<模块>/README.md` |
+| 跨模块架构、程序集职责、总览 | `Assets/Framework/README.md` |
+| `Assets/Scripts/`（Launch、Flow、Battle、UI 等） | `Assets/Scripts/README.md` |
+
+**通常需要更新 README 的情况：**
+
+- 新增 / 删除 public 类型、模块入口、场景流程类
+- 修改模块职责、Tick 顺序、生命周期、资源加载 / 释放策略
+- 调整目录结构、命名约定、依赖关系（含 `Dependencies`、asmdef）
+- 新增或变更演示用法、配置项、Editor 菜单路径
+
+**通常可不更新 README 的情况：**
+
+- 仅修 bug，行为与已有文档一致
+- 内部实现重构，对外 API 与使用方式不变
+- 注释、格式化、无行为差异的命名微调
 
 ## 工具链
 
@@ -85,6 +108,7 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 - 最小改动范围，匹配现有命名与 asmdef 边界
 - **枚举必须加注释**：枚举类型与每个成员都要有 `/// <summary>`（详见 `framework-csharp.mdc`）
 - **对外 API 必须加 XML 注释**：`public`/`protected` 类型与成员须有 `///`，方法精确到每个 `<param>` / `<typeparam>` / `<returns>`（详见 `framework-csharp.mdc`）
+- **改 Framework / Scripts 时同步 README**：按上文「示例与文档」对照表判断并更新；Agent 改代码后须在回复中说明是否已更新 README 及原因
 - 未经明确要求不提交 git、不新建无关文档
 - 回复使用简体中文
 - **Git 提交说明用简体中文**：用户明确要求提交时，`commit message` 用中文写「为什么」，1～2 句即可；不要用英文 Conventional Commits 当默认风格

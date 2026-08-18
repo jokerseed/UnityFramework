@@ -10,7 +10,7 @@ def main() -> int:
     conf_root = Path(__file__).resolve().parent
     workspace = conf_root.parent.parent
     codegen_path = conf_root / "codegen.json"
-    code_dir = workspace / "Assets" / "Generated" / "Luban"
+    code_dir = workspace / "Assets" / "Generated" / "Luban" / "Scripts"
 
     if not codegen_path.is_file():
         print(f"[ERROR] missing {codegen_path}")

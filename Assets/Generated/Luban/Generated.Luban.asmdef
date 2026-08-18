@@ -2,11 +2,11 @@
     "name": "Generated.Luban",
     "rootNamespace": "",
     "references": [
-        "Luban.Runtime"
+        "GUID:2a81c6962524d424a8ef5072bd3b0fa0"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

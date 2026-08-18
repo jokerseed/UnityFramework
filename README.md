@@ -76,7 +76,8 @@ Config\Luban\gen_client.bat
 
 | 类型 | 路径 |
 |------|------|
-| C# | `Assets/Generated/Luban/` |
+| C#（Luban） | `Assets/Generated/Luban/` |
+| C#（Input） | `Assets/Generated/Input/` |
 | 二进制 | `Assets/Bundles/Configs/*.bytes` |
 | JSON（调试） | `Config/Luban/Output/json/` |
 
@@ -207,7 +208,10 @@ Framework/
 ├── Assets/
 │   ├── Scripts/                    # 业务程序集 Game（Launch、BattleBootstrap）
 │   ├── Framework/                  # 框架源码（各模块 README）
-│   ├── Generated/Luban/            # Luban 生成 C#（勿手改）
+│   ├── Generated/                  # 工具生成代码（勿手改）
+│   │   ├── Luban/                  # Luban 配置 C#
+│   │   └── Input/                  # Input System 包装类
+│   ├── Settings/Input/             # Input Actions 资产
 │   └── Bundles/                    # 场景、配置、Prefab（YooAsset 收集）
 ├── Config/Luban/                   # 策划表 & 打表脚本
 ├── Packages/manifest.json          # UPM：Luban Runtime、YooAsset
@@ -256,7 +260,7 @@ Framework/
 | [GamePlay](Assets/Framework/GamePlay/README.md) | 玩法入口与战斗示例 |
 | [Lockstep](Assets/Framework/Lockstep/README.md) | 锁步基座与缺口说明 |
 | [BehaviourTree](Assets/Framework/BehaviourTree/README.md) | AI 行为树 |
-| [Generated/Luban](Assets/Generated/README.md) | 生成代码说明 |
+| [Generated](Assets/Generated/README.md) | Luban / Input 生成代码说明 |
 
 ---
 

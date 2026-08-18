@@ -2,5 +2,5 @@
   "codeTypePrefix": "Cfg",
   "exemptTypeNames": [],
   "enforceOnGenerate": true,
-  "comment": "约束 Assets/Generated/Luban 下全部生成 .cs（含 manager/Tables、bean、enum、table）的文件名与类型名须带 codeTypePrefix。数据文件名可用 table 的 output 属性保持不变。"
+  "comment": "约束 Assets/Generated/Luban/ 下全部生成 .cs（含 manager/Tables、bean、enum、table）的文件名与类型名须带 codeTypePrefix。Input 导出见 Assets/Generated/Input/。数据文件名可用 table 的 output 属性保持不变。"
 }

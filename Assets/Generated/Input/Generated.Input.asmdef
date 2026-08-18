@@ -1,16 +1,12 @@
 {
-    "name": "Framework.Config",
-    "rootNamespace": "Framework.Config",
+    "name": "Generated.input",
+    "rootNamespace": "",
     "references": [
-        "Framework.Core",
-        "Framework.Res",
-        "Framework.Logging",
-        "Luban.Runtime",
-        "Generated.Luban"
+        "GUID:75469ad4d38634e559750d17036d5f7c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
