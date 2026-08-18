@@ -14,8 +14,8 @@
 
 | 类型 | 场景 | 职责 |
 |------|------|------|
-| `Launch` | `Bundles/Scenes/Launch.unity` | `GameBootstrap.SetModules` / `Run`，打开主界面 |
-| `MainUIWindow` | Launch 流程中打开 | 「进入游戏」→ 加载 Battle 场景 |
-| `BattleBootstrap` | `Bundles/Scenes/Battle.unity` | 创建 Actor、连招/火球/闪避演示、12 槽刷波、占位围攻、hit-stop |
+| `Launch` | `Bundles/Scenes/Launch.unity` | `GameBootstrap.SetModules` / `Run`，`ShowAsync` 打开主界面 |
+| `MainUIWindow` | Launch 流程中打开 | 「进入游戏」→ `LoadMainSceneAsync` 进 Battle |
+| `BattleBootstrap` | `Bundles/Scenes/Battle.unity` | 异步 Preload 模型（Scheduler + Scope）、杂兵 `BattleMonsterView` 池、12 槽刷波 |
 
 框架模块不要引用本程序集；演示与产品业务都从这里往下接 `Framework.*`。

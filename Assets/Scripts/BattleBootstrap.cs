@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Framework.Config;
 using Framework.Core;
+using Framework.Coroutine;
 using Framework.ECS.Components;
 using Framework.GamePlay;
 using Framework.GamePlay.Data;
@@ -9,6 +11,7 @@ using Framework.GAS.Abilities;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
 using Framework.Logging;
+using Framework.ObjectPool;
 using Framework.Res;
 using UnityEngine;
 
@@ -46,11 +49,10 @@ public sealed class BattleBootstrap : MonoBehaviour
     readonly BattleCuePresenter _cuePresenter = new BattleCuePresenter();
     bool _battleStarted;
 
-    ResourceAssetHandle _heroHandle;
-    ResourceAssetHandle _monsterHandle;
+    ResourceScope _battleScope;
     GameObject _heroInstance;
     readonly List<ActorId> _monsterIds = new List<ActorId>(MonsterCount);
-    readonly List<GameObject> _monsterInstances = new List<GameObject>(MonsterCount);
+    readonly List<BattleMonsterView> _monsterViews = new List<BattleMonsterView>(MonsterCount);
     BattleWaveDirector _waveDirector;
     float _meleeBuffer;
     float _hitStopUntilUnscaled;
@@ -61,15 +63,29 @@ public sealed class BattleBootstrap : MonoBehaviour
 
     void Start()
     {
+        GameCoroutine.StartGlobal(StartBattleAsync());
+    }
+
+    IEnumerator StartBattleAsync()
+    {
         if (!TryBindFramework())
         {
-            return;
+            yield break;
         }
 
-        SpawnModels();
+        _battleScope = ResourceScope.Create("Battle");
+        yield return SpawnModelsAsync();
+        if (_heroInstance == null || _monsterViews.Count == 0)
+        {
+            GameLog.Error(LogCategories.GamePlay, "Battle models failed to spawn; gameplay not started.");
+            CleanupBattleResources();
+            yield break;
+        }
+
         if (!TryCreateActors())
         {
-            return;
+            CleanupBattleResources();
+            yield break;
         }
 
         _battleStarted = true;
@@ -305,81 +321,87 @@ public sealed class BattleBootstrap : MonoBehaviour
         }
     }
 
-    void SpawnModels()
+    IEnumerator SpawnModelsAsync()
     {
+        if (_battleScope == null)
+        {
+            GameLog.Error(LogCategories.GamePlay, "Battle resource scope is not created.");
+            yield break;
+        }
+
         var res = ResourceManager.Instance;
         if (res == null || !res.IsInitialized)
         {
             GameLog.Error(LogCategories.GamePlay, "ResourceManager is not ready; cannot spawn battle models.");
-            return;
+            yield break;
         }
 
-        _heroInstance = SpawnModel(res, ResourceAddresses.MaleSword01Prefab, HeroPosition, "Hero", out _heroHandle);
-        _monsterHandle = res.LoadAssetSync<GameObject>(ResourceAddresses.AxeKnightPrefab);
-        if (!_monsterHandle.IsValid || !_monsterHandle.Succeeded)
+        ResourceAssetHandle heroHandle = default;
+        ResourceAssetHandle monsterHandle = default;
+        yield return _battleScope.LoadAsync<GameObject>(
+            ResourceAddresses.MaleSword01Prefab, h => heroHandle = h, priority: 10);
+        if (!heroHandle.IsValid || !heroHandle.Succeeded)
         {
             GameLog.Error(LogCategories.GamePlay,
-                $"Load model failed: {LogStyle.Name("Monster")}  error={_monsterHandle.Error}");
-            _monsterHandle.Dispose();
-            _monsterHandle = default;
-            return;
+                $"Load model failed: {LogStyle.Name("Hero")}  error={heroHandle.Error}");
+            yield break;
         }
+
+        yield return _battleScope.LoadAsync<GameObject>(
+            ResourceAddresses.AxeKnightPrefab, h => monsterHandle = h, priority: 10);
+        if (!monsterHandle.IsValid || !monsterHandle.Succeeded)
+        {
+            GameLog.Error(LogCategories.GamePlay,
+                $"Load model failed: {LogStyle.Name("Monster")}  error={monsterHandle.Error}");
+            yield break;
+        }
+
+        GameObject heroGo = null;
+        yield return res.InstantiateAsync(heroHandle, null, go => heroGo = go, priority: 10);
+        if (heroGo == null)
+        {
+            GameLog.Error(LogCategories.GamePlay, $"Instantiate model failed: {LogStyle.Name("Hero")}");
+            yield break;
+        }
+
+        heroGo.name = "Hero";
+        heroGo.transform.SetPositionAndRotation(HeroPosition, FaceCamera);
+        _heroInstance = heroGo;
+
+        var monsterPrefab = monsterHandle.GetAsset<GameObject>();
+        if (monsterPrefab == null)
+        {
+            GameLog.Error(LogCategories.GamePlay, "Monster prefab asset is null.");
+            yield break;
+        }
+
+        BattleMonsterView.Configure(monsterPrefab);
+        BattleMonsterView.Setup();
 
         for (var i = 0; i < MonsterCount; i++)
         {
-            var instance = _monsterHandle.InstantiateSync();
-            if (instance == null)
+            var view = BattleMonsterView.SpawnAt(
+                MonsterSpawnPosition(i),
+                FaceCamera,
+                "Monster_" + (FirstMonsterId + (uint)i));
+            _monsterViews.Add(view);
+            if (i < MonsterCount - 1)
             {
-                continue;
+                yield return null;
             }
-
-            instance.name = "Monster_" + (FirstMonsterId + (uint)i);
-            instance.transform.SetPositionAndRotation(MonsterSpawnPosition(i), FaceCamera);
-            _monsterInstances.Add(instance);
         }
 
         GameLog.Info(LogCategories.GamePlay,
-            $"Battle models spawned  Hero={LogStyle.Name(_heroInstance != null ? _heroInstance.name : "null")}  Monsters={LogStyle.Value(_monsterInstances.Count.ToString())}");
-    }
-
-    static GameObject SpawnModel(
-        ResourceManager res,
-        string location,
-        Vector3 position,
-        string instanceName,
-        out ResourceAssetHandle handle)
-    {
-        handle = res.LoadAssetSync<GameObject>(location);
-        if (!handle.IsValid || !handle.Succeeded)
-        {
-            GameLog.Error(LogCategories.GamePlay,
-                $"Load model failed: {LogStyle.Name(instanceName)}  location={LogStyle.Value(location)}  error={handle.Error}");
-            handle.Dispose();
-            handle = default;
-            return null;
-        }
-
-        var instance = handle.InstantiateSync();
-        if (instance == null)
-        {
-            GameLog.Error(LogCategories.GamePlay, $"Instantiate model failed: {LogStyle.Name(instanceName)}");
-            handle.Dispose();
-            handle = default;
-            return null;
-        }
-
-        instance.name = instanceName;
-        instance.transform.SetPositionAndRotation(position, FaceCamera);
-        return instance;
+            $"Battle models spawned  Hero={LogStyle.Name(_heroInstance.name)}  Monsters={LogStyle.Value(_monsterViews.Count.ToString())}");
     }
 
     void SyncModelTransforms()
     {
         SyncOne(_heroInstance, HeroId);
-        var count = Mathf.Min(_monsterInstances.Count, _monsterIds.Count);
+        var count = Mathf.Min(_monsterViews.Count, _monsterIds.Count);
         for (var i = 0; i < count; i++)
         {
-            SyncOne(_monsterInstances[i], _monsterIds[i]);
+            SyncOne(_monsterViews[i].View, _monsterIds[i]);
         }
     }
 
@@ -576,41 +598,40 @@ public sealed class BattleBootstrap : MonoBehaviour
         _monsterIds.Clear();
     }
 
-    void OnDestroy()
+    void CleanupBattleResources()
     {
-        _battleStarted = false;
-        Time.timeScale = 1f;
-        ClearProjectileViews();
-        CleanupActors();
-        // Framework 由 GamePlayModule 持有，场景退出时不 Dispose。
-
         if (_heroInstance != null)
         {
             Destroy(_heroInstance);
             _heroInstance = null;
         }
 
-        for (var i = 0; i < _monsterInstances.Count; i++)
+        for (var i = 0; i < _monsterViews.Count; i++)
         {
-            if (_monsterInstances[i] != null)
+            if (_monsterViews[i] != null)
             {
-                Destroy(_monsterInstances[i]);
+                BattleMonsterView.Unspawn(_monsterViews[i]);
             }
         }
 
-        _monsterInstances.Clear();
-
-        if (_heroHandle.IsValid)
+        _monsterViews.Clear();
+        if (BattleMonsterView.IsReady)
         {
-            _heroHandle.Dispose();
-            _heroHandle = default;
+            BattleMonsterView.TearDown();
         }
 
-        if (_monsterHandle.IsValid)
-        {
-            _monsterHandle.Dispose();
-            _monsterHandle = default;
-        }
+        _battleScope?.Dispose();
+        _battleScope = null;
+    }
+
+    void OnDestroy()
+    {
+        _battleStarted = false;
+        Time.timeScale = 1f;
+        ClearProjectileViews();
+        CleanupActors();
+        CleanupBattleResources();
+        // Framework 由 GamePlayModule 持有，场景退出时不 Dispose。
 
         _framework = null;
     }

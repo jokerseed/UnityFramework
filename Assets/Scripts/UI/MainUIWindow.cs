@@ -10,7 +10,12 @@ namespace Game
 /// <summary>
 /// 首页窗口：展示「进入游戏」按钮，点击后关闭首页并加载战斗场景。
 /// </summary>
-[UIWindow(UILayer.UI, fullScreen: true, location: ResourceAddresses.MainPrefab)]
+[UIWindow(
+    UILayer.UI,
+    fullScreen: true,
+    location: ResourceAddresses.MainPrefab,
+    releasePolicy: UIReleasePolicy.HideAndDelayUnload,
+    delayUnloadSeconds: 60f)]
 public sealed class MainUIWindow : UIWindow
 {
     Button _enterGameButton;
@@ -36,7 +41,7 @@ public sealed class MainUIWindow : UIWindow
     static IEnumerator LoadBattleScene()
     {
         GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
-        yield return ResourceManager.Instance.LoadSceneAsync(ResourceAddresses.BattleScene);
+        yield return ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
         GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
     }
 

@@ -17,6 +17,9 @@ namespace Framework.Res
     public sealed class ResourceManager : PersistentSingleton<ResourceManager>
     {
         readonly Dictionary<string, ResourceAssetHandle> _syncCache = new Dictionary<string, ResourceAssetHandle>();
+        readonly List<ResourceSceneHandle> _additiveHandles = new List<ResourceSceneHandle>(4);
+
+        ResourceSceneHandle _mainSceneHandle;
 
         [SerializeField] ResourceInitOptions _initOptions = new ResourceInitOptions();
         [SerializeField] ResourceSchedulerOptions _schedulerOptions = new ResourceSchedulerOptions();
@@ -69,6 +72,18 @@ namespace Framework.Res
 
         /// <summary>等待实例化的数量。</summary>
         public int PendingInstantiateCount => _scheduler != null ? _scheduler.PendingInstantiateCount : 0;
+
+        /// <summary>Unity 当前激活场景。</summary>
+        public Scene ActiveScene => SceneManager.GetActiveScene();
+
+        /// <summary>最近一次 <see cref="LoadMainSceneAsync"/> 成功加载的主场景；尚未加载或已切换时为无效 Scene。</summary>
+        public Scene CurrentMainScene => _mainSceneHandle.IsValid ? _mainSceneHandle.Scene : default;
+
+        /// <summary>当前登记的主场景句柄；无效表示尚未通过 <see cref="LoadMainSceneAsync"/> 加载。</summary>
+        public ResourceSceneHandle CurrentMainSceneHandle => _mainSceneHandle;
+
+        /// <summary>当前登记的 Additive 场景句柄（只读副本）。</summary>
+        public IReadOnlyList<ResourceSceneHandle> AdditiveSceneHandles => _additiveHandles;
 
         /// <summary>异步初始化资源包（请求版本号 + 加载 Manifest）。</summary>
         /// <param name="options">初始化选项；不可为 null。</param>
@@ -158,10 +173,7 @@ namespace Framework.Res
             int priority = 0) where T : UnityEngine.Object
         {
             var request = LoadAssetScheduled<T>(location, onComplete, priority);
-            while (!request.IsDone)
-            {
-                yield return null;
-            }
+            yield return request;
         }
 
         /// <summary>
@@ -221,10 +233,7 @@ namespace Framework.Res
             int priority = 0)
         {
             var request = InstantiateScheduled(handle, parent, onComplete, worldPositionStays, priority);
-            while (!request.IsDone)
-            {
-                yield return null;
-            }
+            yield return request;
         }
 
         /// <summary>
@@ -247,20 +256,61 @@ namespace Framework.Res
             Action<ResourceSceneHandle> onComplete = null)
         {
             EnsureInitialized();
+            yield return LoadSceneInternal(location, sceneMode, onComplete);
+        }
 
-            var handle = _package.LoadSceneAsync(location, sceneMode);
-            yield return handle;
+        /// <summary>
+        /// 以 Single 模式加载主场景：释放旧主场景句柄，并 Dispose 全部已登记 Additive 句柄。
+        /// Unity 会卸掉旧场景，此处只负责 YooAsset 引用计数。
+        /// </summary>
+        /// <param name="location">YooAsset 场景寻址字符串。</param>
+        /// <param name="onComplete">加载完成后的回调；参数为新主场景句柄；可为 null。</param>
+        /// <returns>协程迭代器。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化，或场景加载失败。</exception>
+        public IEnumerator LoadMainSceneAsync(string location, Action<ResourceSceneHandle> onComplete = null)
+        {
+            EnsureInitialized();
+            ReleaseMainSceneHandle();
+            ReleaseAllAdditiveHandles();
 
-            var wrapped = new ResourceSceneHandle(handle);
-            if (!wrapped.IsValid || !wrapped.Succeeded)
+            ResourceSceneHandle loaded = default;
+            yield return LoadSceneInternal(location, LoadSceneMode.Single, handle => loaded = handle);
+            _mainSceneHandle = loaded;
+            onComplete?.Invoke(loaded);
+        }
+
+        /// <summary>以 Additive 模式加载场景，并将句柄登记到内部列表。</summary>
+        /// <param name="location">YooAsset 场景寻址字符串。</param>
+        /// <param name="onComplete">加载完成后的回调；参数为已登记的场景句柄；可为 null。</param>
+        /// <returns>协程迭代器。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化，或场景加载失败。</exception>
+        public IEnumerator LoadAdditiveSceneAsync(string location, Action<ResourceSceneHandle> onComplete = null)
+        {
+            EnsureInitialized();
+
+            ResourceSceneHandle loaded = default;
+            yield return LoadSceneInternal(location, LoadSceneMode.Additive, handle => loaded = handle);
+            _additiveHandles.Add(loaded);
+            onComplete?.Invoke(loaded);
+        }
+
+        /// <summary>
+        /// 卸载并释放指定 Additive 场景句柄。须为 <see cref="LoadAdditiveSceneAsync"/> 返回的句柄。
+        /// </summary>
+        /// <param name="handle">要卸载的 Additive 场景句柄。</param>
+        /// <returns>协程迭代器。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
+        public IEnumerator UnloadAdditiveSceneAsync(ResourceSceneHandle handle)
+        {
+            EnsureInitialized();
+            if (!handle.IsValid)
             {
-                throw new InvalidOperationException(
-                    $"[Resource] Load scene failed: location={location}, error={wrapped.Error}");
+                yield break;
             }
 
-            GameLog.Info(LogCategories.Resource,
-                $"Scene {LogStyle.Ok("loaded")}: {LogStyle.Name(wrapped.SceneName)}  location={LogStyle.Value(location)}");
-            onComplete?.Invoke(wrapped);
+            RemoveAdditiveHandle(handle);
+            yield return handle.UnloadAsync();
+            handle.Dispose();
         }
 
         /// <summary>同步加载寻址资源的原始字节。</summary>
@@ -353,6 +403,8 @@ namespace Framework.Res
             _scheduler?.Shutdown();
             _scheduler = null;
             ReleaseCache();
+            ReleaseMainSceneHandle();
+            ReleaseAllAdditiveHandles();
             _initialized = false;
             _package = null;
             _options = null;
@@ -434,6 +486,63 @@ namespace Framework.Res
             if (!_initialized || _package == null || _scheduler == null)
             {
                 throw new InvalidOperationException("[Resource] ResourceManager is not initialized.");
+            }
+        }
+
+        IEnumerator LoadSceneInternal(
+            string location,
+            LoadSceneMode sceneMode,
+            Action<ResourceSceneHandle> onComplete)
+        {
+            var handle = _package.LoadSceneAsync(location, sceneMode);
+            yield return handle;
+
+            var wrapped = new ResourceSceneHandle(handle);
+            if (!wrapped.IsValid || !wrapped.Succeeded)
+            {
+                wrapped.Dispose();
+                throw new InvalidOperationException(
+                    $"[Resource] Load scene failed: location={location}, mode={sceneMode}, error={wrapped.Error}");
+            }
+
+            GameLog.Info(LogCategories.Resource,
+                $"Scene {LogStyle.Ok("loaded")}: {LogStyle.Name(wrapped.SceneName)}  mode={LogStyle.Value(sceneMode)}  location={LogStyle.Value(location)}");
+            onComplete?.Invoke(wrapped);
+        }
+
+        void ReleaseMainSceneHandle()
+        {
+            if (!_mainSceneHandle.IsValid)
+            {
+                _mainSceneHandle = default;
+                return;
+            }
+
+            _mainSceneHandle.Dispose();
+            _mainSceneHandle = default;
+        }
+
+        void ReleaseAllAdditiveHandles()
+        {
+            for (var i = 0; i < _additiveHandles.Count; i++)
+            {
+                if (_additiveHandles[i].IsValid)
+                {
+                    _additiveHandles[i].Dispose();
+                }
+            }
+
+            _additiveHandles.Clear();
+        }
+
+        void RemoveAdditiveHandle(ResourceSceneHandle handle)
+        {
+            for (var i = _additiveHandles.Count - 1; i >= 0; i--)
+            {
+                if (_additiveHandles[i].Equals(handle))
+                {
+                    _additiveHandles.RemoveAt(i);
+                }
             }
         }
 

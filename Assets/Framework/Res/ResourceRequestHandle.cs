@@ -1,11 +1,11 @@
+using System.Collections;
 using UnityEngine;
 
-namespace Framework.Res
-{
+namespace Framework.Res{
     /// <summary>
-    /// 调度队列中的一次资源请求。可用于等待完成或取消尚未开始的工作。
+    /// 调度队列中的一次资源请求。可用于等待完成、取消尚未开始的工作，或 <c>yield return request</c> 协程等待。
     /// </summary>
-    public sealed class ResourceRequestHandle
+    public sealed class ResourceRequestHandle : IEnumerator
     {
         /// <summary>请求序号。</summary>
         public int Id { get; internal set; }
@@ -39,6 +39,17 @@ namespace Framework.Res
         public void Cancel()
         {
             Scheduler?.Cancel(this);
+        }
+
+        /// <inheritdoc />
+        object IEnumerator.Current => null;
+
+        /// <inheritdoc />
+        bool IEnumerator.MoveNext() => !IsDone;
+
+        /// <inheritdoc />
+        void IEnumerator.Reset()
+        {
         }
     }
 }

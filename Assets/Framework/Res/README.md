@@ -25,6 +25,7 @@ YooAsset 资源管线封装：**通用**加载、释放、反序列化统一入�
 | `ResourceAddresses` | 寻址规则 |
 | `ResourceAssetHandle` | 资源句柄，`Dispose` / `InstantiateSync` |
 | `ResourceSceneHandle` | 场景句柄 |
+| `ResourceScope` | 作用域批量持有 Asset 句柄，`Dispose` 统一释放 |
 
 ## 调度思路
 
@@ -77,7 +78,8 @@ Enqueue → Pending（同 location + Type 挂到已有组）
 | `RequestUnloadUnusedAssets` | 是（合并） |
 | `LoadAssetSync` | **否**（热路径 / 启动读表） |
 | `LoadBytes` / `LoadBinary` | **否** |
-| `LoadSceneAsync` | **否**（切场景本身就是整帧级操作） |
+| `LoadSceneAsync` | **否**（底层 API；业务优先用下方场景生命周期 API） |
+| `LoadMainSceneAsync` / `LoadAdditiveSceneAsync` | **否**（切场景本身就是整帧级操作） |
 | `ResourceAssetHandle.InstantiateSync` | **否**（调用方当帧立刻实例化） |
 
 `UIManager.Show` 仍同步加载+同步实例化；`ShowAsync` 走调度（Load 再 Instantiate）。
@@ -93,8 +95,9 @@ using var handle = res.LoadAssetSync<GameObject>(ResourceAddresses.MainPrefab);
 // 异步协程（内部入队，用法与以前相同）
 yield return res.LoadAssetAsync<GameObject>(location, h => handle = h);
 
-// 入队并拿到请求句柄（可 Cancel）
+// 入队并拿到请求句柄（可 Cancel，亦可 yield return 等待）
 var request = res.LoadAssetScheduled<AudioClip>(location, clipHandle => { }, priority: 0);
+yield return request;
 request.Cancel();
 
 // 分帧实例化
@@ -102,7 +105,36 @@ yield return res.InstantiateAsync(handle, parent, go => instance = go, priority:
 
 // 合并卸载未使用资源（禁止业务直接调 YooAsset UnloadUnusedAssets）
 res.RequestUnloadUnusedAssets();
+
+// 主场景（Single：自动 Dispose 旧主场景 + 全部 Additive 句柄）
+yield return res.LoadMainSceneAsync(ResourceAddresses.BattleScene);
+
+// Additive 子场景（天气 / 房间等）
+ResourceSceneHandle weather = default;
+yield return res.LoadAdditiveSceneAsync(ResourceAddresses.Scene("Weather"), h => weather = h);
+yield return res.UnloadAdditiveSceneAsync(weather);
+
+var active = res.ActiveScene;
+var main = res.CurrentMainScene;
 ```
+
+### 资源作用域（Scope 持 Asset）
+
+```csharp
+using var battle = ResourceScope.Create("Battle");
+
+// 同步 / 异步加载会自动登记句柄
+var heroPrefab = battle.LoadSync<GameObject>(ResourceAddresses.MaleSword01Prefab);
+yield return battle.LoadAsync<AudioClip>(location, clip => { });
+
+var instance = heroPrefab.InstantiateSync(); // Instance 由业务 / Pool 管理
+Destroy(instance);
+
+// 出战斗：批量 Release 本域全部 Asset
+battle.Dispose();
+```
+
+约定：**Scope 持 Asset（Prefab / Clip 等 Handle），ObjectPool 持 Instance（GameObject）**。Scope 结束前应先清空池或 Destroy 实例，再 `Dispose`。
 
 `priority` 越大越先处理；同优先级 FIFO。UI 异步打开默认 `10`。同一 `location + Type` 的多次 `LoadAssetAsync` / `LoadAssetScheduled` 会合并为一次 YooAsset 加载，取消其中一笔不影响其他等待者。
 
@@ -126,13 +158,26 @@ res.RequestUnloadUnusedAssets();
 
 | 操作 | API |
 |------|-----|
+| 作用域批量持有 Asset | `ResourceScope.Create(name)` → `LoadSync` / `LoadAsync` / `Track` → `Dispose` |
 | 单次加载释放 | `using var handle = ...` 或 `handle.Dispose()` |
 | 通用 bytes 缓存释放 | `ResourceManager.Instance.ReleaseCache()` |
 | 卸载未使用资源 | `ResourceManager.Instance.RequestUnloadUnusedAssets()` |
 | 配置 TextAsset 缓存 | `ConfigManager.ReleaseTableAssetCache()` |
 | 模块/应用关闭 | `ResourceModule.Shutdown()` → 取消调度队列 → `ResourceManager.Shutdown()` |
 
-Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，协程等待会结束；`onComplete` 收到无效句柄或 null。
+### 场景生命周期
+
+| 操作 | API |
+|------|-----|
+| 切换主场景（Single） | `LoadMainSceneAsync(location)` — 自动 `Dispose` 旧主场景句柄与全部 Additive 句柄 |
+| 加载 Additive | `LoadAdditiveSceneAsync(location)` — 登记到内部列表 |
+| 卸载 Additive | `UnloadAdditiveSceneAsync(handle)` — `UnloadAsync` + `Dispose` + 移出列表 |
+| 查询 | `ActiveScene`（Unity 激活场景）、`CurrentMainScene` / `CurrentMainSceneHandle` |
+| 底层直调 | `LoadSceneAsync(location, mode)` — 不维护生命周期，业务优先用上面三个 |
+
+Single 切走后 Unity 会卸旧场景，但 **YooAsset 句柄须手动 `Dispose`**；Additive 列表由 `ResourceManager` 维护，不能指望 Unity 卸场景就自动 Release。
+
+Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，协程等待会结束；`onComplete` 收到无效句柄或 null。场景句柄在 Shutdown 时一并释放。
 
 **禁止**在业务代码中直接调用 YooAsset 的 `Release` / `Destroy` / `UnloadUnusedAssets`。
 

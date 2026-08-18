@@ -22,11 +22,12 @@ alwaysApply: false
 | 包初始化 | `ResourceModule.InitializeAsync` → `ResourceManager.InitializeAsync`（业务代码不得自行 `YooAssets.Initialize`） |
 | 同步加载 Asset | `ResourceManager.Instance.LoadAssetSync<T>(location)` → `ResourceAssetHandle` |
 | 异步加载 Asset | `ResourceManager.Instance.LoadAssetAsync<T>(location, onComplete)`（**进分帧调度**） |
+| 作用域批量 Asset | `ResourceScope.Create(name)` → `LoadSync` / `LoadAsync` → `Dispose` |
 | 入队加载 / 可取消 | `LoadAssetScheduled<T>(location, onComplete, priority)` → `ResourceRequestHandle` |
 | 同步实例化 | `ResourceAssetHandle.InstantiateSync(...)`（**当帧执行，不进调度**） |
 | 分帧实例化 | `InstantiateAsync` / `InstantiateScheduled` |
 | 卸载未使用资源 | `ResourceManager.Instance.RequestUnloadUnusedAssets()`（合并、空闲帧执行） |
-| 异步加载场景 | `ResourceManager.Instance.LoadSceneAsync(location, sceneMode)` → `ResourceSceneHandle` |
+| 异步加载场景 | `LoadMainSceneAsync` / `LoadAdditiveSceneAsync` / `UnloadAdditiveSceneAsync`；底层 `LoadSceneAsync(location, mode)` |
 | 任意二进制 | `LoadBytes(location)` / `LoadBinary<T>(location, deserialize)` |
 | 释放单次句柄 | `ResourceAssetHandle.Dispose()` 或 `using var handle = ...` |
 | 释放通用 bytes 缓存 | `ResourceManager.Instance.ReleaseCache()`（`LoadBytes(..., cache: true)`） |
@@ -43,7 +44,9 @@ alwaysApply: false
 - **禁止**在 `Framework.Res` 之外调用 `YooAssets.Destroy()`、`DestroyPackage()` 等全局销毁 API
 - 实例化：热路径用 `ResourceAssetHandle.InstantiateSync(...)`；异步打开用 `ResourceManager.InstantiateAsync` / `InstantiateScheduled`。销毁实例仍用 Unity `Destroy`，释放引用计数须 `Dispose` 句柄
 - 卸载未使用资源只能走 `ResourceManager.RequestUnloadUnusedAssets()`，**禁止**业务直接 `YooAssets` / `Resources.UnloadUnusedAssets`
-- `LoadAssetAsync` 已进入 `ResourceScheduler`：时间预算为主、个数上限为辅；同一 `location + Type` 合并为一次 YooAsset 加载；`LoadAssetSync` / `LoadBytes` / `LoadSceneAsync` 不进调度
+- `LoadAssetAsync` 已进入 `ResourceScheduler`：时间预算为主、个数上限为辅；同一 `location + Type` 合并为一次 YooAsset 加载；`LoadAssetSync` / `LoadBytes` 不进调度
+- **场景**：业务优先 `LoadMainSceneAsync` / `LoadAdditiveSceneAsync` / `UnloadAdditiveSceneAsync`；Single 切换须 `Dispose` 旧句柄；Additive 句柄由 `ResourceManager` 登记维护
+- **作用域**：战斗/关卡等批量资源用 `ResourceScope` 持 Asset；`Dispose` 统一 Release；Instance 由 Pool 或业务 `Destroy`，不归 Scope
 
 ## 禁止（运行时业务代码）
 

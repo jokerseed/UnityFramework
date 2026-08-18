@@ -77,7 +77,7 @@ public sealed class BulletObject : PooledObject<BulletObject>
 
 | 层级 | 职责 |
 |------|------|
-| 子类静态构造 + `EnsurePool` | prefab 加载、容量、`SetupPool` |
+| 子类静态构造 + `EnsurePool` | prefab 加载、容量、`SetupPool`（Prefab Asset 建议由 `ResourceScope` 或静态缓存持有 Handle） |
 | `PooledObject<T>` | 懒初始化、`Spawn` / `Unspawn` / `TearDown` |
 | 业务代码 | 只调 `T.Spawn()` / `T.Unspawn(obj)`，**不传 pool/prefab** |
 

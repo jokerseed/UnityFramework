@@ -69,8 +69,13 @@ public sealed class Launch : MonoBehaviour
 
     static void ShowMainPage()
     {
-        UIManager.Instance.Show<MainUIWindow>();
-        GameLog.Info(LogCategories.Launch, "Main page shown");
+        UIManager.Instance.ShowAsync<MainUIWindow>(onComplete: window =>
+        {
+            if (window != null)
+            {
+                GameLog.Info(LogCategories.Launch, "Main page shown");
+            }
+        });
     }
 
     static void OnGroupFailed(ModuleGroup group, System.Exception error)

@@ -22,7 +22,9 @@ namespace Framework.UI
 
         readonly List<UIWindow> _stack = new List<UIWindow>(16);
         readonly Dictionary<Type, UIWindow> _opened = new Dictionary<Type, UIWindow>(16);
+        readonly Dictionary<Type, UIWindow> _cached = new Dictionary<Type, UIWindow>(8);
         readonly Dictionary<Type, UIShowHandle> _pendingShows = new Dictionary<Type, UIShowHandle>(8);
+        readonly Dictionary<Type, ICoroutineHandle> _delayUnloadTimers = new Dictionary<Type, ICoroutineHandle>(4);
         readonly Dictionary<UILayer, Transform> _layerRoots = new Dictionary<UILayer, Transform>(8);
 
         Transform _uiRoot;
@@ -68,6 +70,12 @@ namespace Framework.UI
 
             var windowType = typeof(TWindow);
             CancelPendingShow(windowType);
+            CancelDelayedUnload(windowType);
+            if (TryReviveCached<TWindow>(windowType, userData, out var revived))
+            {
+                return revived;
+            }
+
             if (_opened.TryGetValue(windowType, out var existing))
             {
                 existing.UserData = userData;
@@ -102,6 +110,13 @@ namespace Framework.UI
             EnsureInitialized();
 
             var windowType = typeof(TWindow);
+            CancelDelayedUnload(windowType);
+            if (TryReviveCached<TWindow>(windowType, userData, out var cached))
+            {
+                onComplete?.Invoke(cached);
+                return UIShowHandle.Settled;
+            }
+
             if (_opened.TryGetValue(windowType, out var existing))
             {
                 existing.UserData = userData;
@@ -147,17 +162,58 @@ namespace Framework.UI
                 return cancelledPending;
             }
 
-            DestroyWindow(window);
+            CloseWindow(window);
             return true;
         }
 
-        /// <summary>关闭全部已打开窗口，并取消尚未完成的异步打开。</summary>
+        /// <summary>
+        /// 强制销毁指定类型窗口（忽略 <see cref="UIReleasePolicy"/> 缓存/延迟卸载）。
+        /// </summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>销毁了已打开或已缓存实例时返回 true。</returns>
+        public bool ForceDestroy<TWindow>() where TWindow : UIWindow
+        {
+            return ForceDestroy(typeof(TWindow));
+        }
+
+        /// <summary>
+        /// 强制销毁指定类型窗口（忽略 <see cref="UIReleasePolicy"/> 缓存/延迟卸载）。
+        /// </summary>
+        /// <param name="windowType">窗口类型，不可为 null。</param>
+        /// <returns>销毁了已打开或已缓存实例时返回 true。</returns>
+        public bool ForceDestroy(Type windowType)
+        {
+            if (windowType == null)
+            {
+                return false;
+            }
+
+            var cancelledPending = CancelPendingShow(windowType);
+            CancelDelayedUnload(windowType);
+
+            var destroyed = false;
+            if (_opened.TryGetValue(windowType, out var opened))
+            {
+                DestroyWindow(opened, force: true);
+                destroyed = true;
+            }
+
+            if (_cached.TryGetValue(windowType, out var cached))
+            {
+                DestroyWindow(cached, force: true);
+                destroyed = true;
+            }
+
+            return destroyed || cancelledPending;
+        }
+
+        /// <summary>关闭全部已打开窗口，并取消尚未完成的异步打开；各窗口按自身释放策略处理。</summary>
         public void CloseAll()
         {
             CancelAllPendingShows();
             for (var i = _stack.Count - 1; i >= 0; i--)
             {
-                DestroyWindow(_stack[i]);
+                CloseWindow(_stack[i]);
             }
         }
 
@@ -177,10 +233,34 @@ namespace Framework.UI
             return _opened.ContainsKey(typeof(TWindow));
         }
 
-        /// <summary>关闭并销毁全部窗口，释放 UI 根节点。</summary>
+        /// <summary>指定类型窗口是否已缓存（HideOnly / Cached / 延迟卸载等待中）。</summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>已缓存返回 true。</returns>
+        public bool IsCached<TWindow>() where TWindow : UIWindow
+        {
+            return _cached.ContainsKey(typeof(TWindow));
+        }
+
+        /// <summary>关闭并销毁全部窗口（含缓存），释放 UI 根节点。</summary>
         public void Shutdown()
         {
-            CloseAll();
+            CancelAllPendingShows();
+            CancelAllDelayedUnloads();
+
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                DestroyWindow(_stack[i], force: true);
+            }
+
+            var cached = new List<UIWindow>(_cached.Values);
+            for (var i = 0; i < cached.Count; i++)
+            {
+                DestroyWindow(cached[i], force: true);
+            }
+
+            _stack.Clear();
+            _opened.Clear();
+            _cached.Clear();
 
             foreach (var pair in _layerRoots)
             {
@@ -238,15 +318,7 @@ namespace Framework.UI
                     loaded => operation.SetAssetHandle(loaded),
                     priority: 10);
                 operation.SetRequest(loadRequest);
-                while (!loadRequest.IsDone)
-                {
-                    if (operation.IsCancelled)
-                    {
-                        yield break;
-                    }
-
-                    yield return null;
-                }
+                yield return loadRequest;
 
                 if (operation.IsCancelled)
                 {
@@ -277,15 +349,7 @@ namespace Framework.UI
                     },
                     priority: 10);
                 operation.SetRequest(instantiateRequest);
-                while (!instantiateRequest.IsDone)
-                {
-                    if (operation.IsCancelled)
-                    {
-                        yield break;
-                    }
-
-                    yield return null;
-                }
+                yield return instantiateRequest;
 
                 if (operation.IsCancelled)
                 {
@@ -379,6 +443,8 @@ namespace Framework.UI
             var layerRoot = _layerRoots[metadata.Layer];
             var sortingOrder = (int)metadata.Layer * LayerOrderStep + _stack.Count * WindowOrderStep;
             var window = new TWindow();
+            window.ReleasePolicy = metadata.ReleasePolicy;
+            window.DelayUnloadSeconds = metadata.DelayUnloadSeconds;
             window.InternalCreate(this, instance, null, userData);
             window.SetupWindow(layerRoot, metadata.Layer, metadata.FullScreen, sortingOrder);
 
@@ -386,25 +452,130 @@ namespace Framework.UI
             return window;
         }
 
-        void RegisterWindow(UIWindow window)
+        bool TryReviveCached<TWindow>(Type windowType, object userData, out TWindow window)
+            where TWindow : UIWindow, new()
         {
-            var windowType = window.GetType();
-            _opened[windowType] = window;
-            BringToTop(window);
-            RefreshVisibility();
-            GameLog.Info(LogCategories.UI, $"Open {LogStyle.Name(windowType.Name)} layer={LogStyle.Value(window.Layer)}");
+            if (!_cached.TryGetValue(windowType, out var cached))
+            {
+                window = null;
+                return false;
+            }
+
+            _cached.Remove(windowType);
+            cached.UserData = userData;
+            cached.SetVisible(true);
+            RegisterWindow(cached);
+            cached.OnRefresh();
+            window = (TWindow)cached;
+            GameLog.Info(LogCategories.UI,
+                $"Revive cached {LogStyle.Name(windowType.Name)} policy={LogStyle.Value(cached.ReleasePolicy)}");
+            return true;
         }
 
-        void DestroyWindow(UIWindow window)
+        void CloseWindow(UIWindow window)
         {
             if (window == null)
             {
                 return;
             }
 
+            switch (window.ReleasePolicy)
+            {
+                case UIReleasePolicy.HideOnly:
+                case UIReleasePolicy.Cached:
+                    CacheWindow(window);
+                    break;
+                case UIReleasePolicy.HideAndDelayUnload:
+                    ScheduleDelayedUnload(window);
+                    break;
+                default:
+                    DestroyWindow(window, force: true);
+                    break;
+            }
+        }
+
+        void CacheWindow(UIWindow window)
+        {
             var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            _stack.Remove(window);
+            _opened.Remove(windowType);
+            window.SetVisible(false);
+            _cached[windowType] = window;
+            GameLog.Info(LogCategories.UI,
+                $"Close {LogStyle.Name(windowType.Name)} cached policy={LogStyle.Value(window.ReleasePolicy)}");
+            RefreshVisibility();
+        }
+
+        void ScheduleDelayedUnload(UIWindow window)
+        {
+            CacheWindow(window);
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            var handle = GameCoroutine.StartGlobal(DelayedUnloadCoroutine(windowType, window.DelayUnloadSeconds));
+            _delayUnloadTimers[windowType] = handle;
+        }
+
+        IEnumerator DelayedUnloadCoroutine(Type windowType, float delaySeconds)
+        {
+            yield return new WaitForSeconds(delaySeconds);
+            _delayUnloadTimers.Remove(windowType);
+            if (!_cached.TryGetValue(windowType, out var window))
+            {
+                yield break;
+            }
+
+            _cached.Remove(windowType);
+            DestroyWindow(window, force: true);
+            GameLog.Info(LogCategories.UI,
+                $"Delay unload {LogStyle.Name(windowType.Name)} after {LogStyle.Value(delaySeconds)}s");
+        }
+
+        void CancelDelayedUnload(Type windowType)
+        {
+            if (windowType == null || !_delayUnloadTimers.TryGetValue(windowType, out var handle))
+            {
+                return;
+            }
+
+            handle.Stop();
+            _delayUnloadTimers.Remove(windowType);
+        }
+
+        void CancelAllDelayedUnloads()
+        {
+            if (_delayUnloadTimers.Count == 0)
+            {
+                return;
+            }
+
+            var timers = new List<ICoroutineHandle>(_delayUnloadTimers.Values);
+            for (var i = 0; i < timers.Count; i++)
+            {
+                timers[i].Stop();
+            }
+
+            _delayUnloadTimers.Clear();
+        }
+
+        void DestroyWindow(UIWindow window, bool force)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            if (!force && window.ReleasePolicy != UIReleasePolicy.DestroyImmediate)
+            {
+                CloseWindow(window);
+                return;
+            }
+
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
             _opened.Remove(windowType);
             _stack.Remove(window);
+            _cached.Remove(windowType);
 
             var gameObject = window.GameObject;
             var assetHandle = window.AssetHandle;
@@ -415,9 +586,22 @@ namespace Framework.UI
                 Destroy(gameObject);
             }
 
-            assetHandle.Dispose();
-            GameLog.Info(LogCategories.UI, $"Close {LogStyle.Name(windowType.Name)}");
+            if (assetHandle.IsValid)
+            {
+                assetHandle.Dispose();
+            }
+
+            GameLog.Info(LogCategories.UI, $"Destroy {LogStyle.Name(windowType.Name)}");
             RefreshVisibility();
+        }
+
+        void RegisterWindow(UIWindow window)
+        {
+            var windowType = window.GetType();
+            _opened[windowType] = window;
+            BringToTop(window);
+            RefreshVisibility();
+            GameLog.Info(LogCategories.UI, $"Open {LogStyle.Name(windowType.Name)} layer={LogStyle.Value(window.Layer)}");
         }
 
         void BringToTop(UIWindow window)
@@ -542,21 +726,32 @@ namespace Framework.UI
             return new WindowMetadata(
                 attribute?.Layer ?? UILayer.UI,
                 attribute?.FullScreen ?? false,
-                string.IsNullOrEmpty(attribute?.Location) ? UIPaths.Window(windowType) : attribute.Location);
+                string.IsNullOrEmpty(attribute?.Location) ? UIPaths.Window(windowType) : attribute.Location,
+                attribute?.ReleasePolicy ?? UIReleasePolicy.DestroyImmediate,
+                attribute?.DelayUnloadSeconds ?? 30f);
         }
 
         readonly struct WindowMetadata
         {
-            public WindowMetadata(UILayer layer, bool fullScreen, string location)
+            public WindowMetadata(
+                UILayer layer,
+                bool fullScreen,
+                string location,
+                UIReleasePolicy releasePolicy,
+                float delayUnloadSeconds)
             {
                 Layer = layer;
                 FullScreen = fullScreen;
                 Location = location;
+                ReleasePolicy = releasePolicy;
+                DelayUnloadSeconds = delayUnloadSeconds;
             }
 
             public UILayer Layer { get; }
             public bool FullScreen { get; }
             public string Location { get; }
+            public UIReleasePolicy ReleasePolicy { get; }
+            public float DelayUnloadSeconds { get; }
         }
 
         /// <inheritdoc />
