@@ -14,14 +14,14 @@ namespace Framework.GamePlay.Data
     /// <summary>从 Luban 技能表创建 <see cref="GameplayAbility"/> / <see cref="GameplayAbilityDef"/>。</summary>
     public sealed class AbilityConfigFactory
     {
-        readonly System.Func<ActorId, Vector3, FP, ActorId> _queryNearestEnemy;
+        readonly System.Func<ActorId, TSVector, FP, ActorId> _queryNearestEnemy;
         readonly ConeEnemyQuery _queryCone;
 
         /// <summary>构造技能配置工厂。</summary>
         /// <param name="queryNearestEnemy">最近敌人查询委托。</param>
         /// <param name="queryCone">扇形敌对查询委托；近战扇形技能需要。</param>
         public AbilityConfigFactory(
-            System.Func<ActorId, Vector3, FP, ActorId> queryNearestEnemy,
+            System.Func<ActorId, TSVector, FP, ActorId> queryNearestEnemy,
             ConeEnemyQuery queryCone = null)
         {
             _queryNearestEnemy = queryNearestEnemy;

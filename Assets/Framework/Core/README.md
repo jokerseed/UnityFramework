@@ -67,7 +67,8 @@ AudioManager.DestroyInstance();
 
 - **命令 vs 事件**：模拟走 `BattleCommandBuffer`，表现走 `Framework.Events.IEventBus`
 - **随机**：战斗模拟使用 `IDeterministicRandom.Next01()`（返回 `FP`；由 GamePlay 注入 `TSRandom`），禁止 `UnityEngine.Random`
-- **命令标量**：`SpawnProjectile` / `ApplyDamage` / `ApplyHeal` / `ApplyAreaEffect` 的速度、半径、伤害、半角等为 `FP`；位移 `Offset` 为 `TSVector`。位置/朝向仍为 `Vector3`（由意图位姿写入）
+- **命令标量与位姿**：`SpawnProjectile` / `ApplyAreaEffect` 的位置与朝向为 `TSVector`；速度、半径、伤害、半角等为 `FP`；位移 `Offset` 为 `TSVector`
+- **物理常量**：`BattleConstants` 中击退时长、碰撞半径、空间格子、默认法力/暴击倍率为 `FP`
 - **零上层依赖**：Core 不引用 GAS、ECS、Config、Res、Bootstrap；事件契约与实现均在 `Framework.Events`
 
 ## 被谁使用

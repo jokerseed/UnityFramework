@@ -93,8 +93,8 @@ namespace Framework.GAS.Abilities.Builtin
             {
                 Caster = owner.ActorId,
                 AbilityId = instance.Spec.Def.AbilityId,
-                Origin = context.Origin,
-                Direction = context.Direction,
+                Origin = FPConversions.ToVector3(context.Origin),
+                Direction = FPConversions.ToVector3(context.Direction),
                 PrimaryTarget = primaryTarget
             });
 
@@ -102,8 +102,8 @@ namespace Framework.GAS.Abilities.Builtin
             {
                 Actor = owner.ActorId,
                 CueTag = $"Cue.{instance.Spec.Def.AbilityId}.Cast",
-                Position = context.Origin,
-                Direction = context.Direction,
+                Position = FPConversions.ToVector3(context.Origin),
+                Direction = FPConversions.ToVector3(context.Direction),
                 Action = GameplayCueAction.Execute
             });
         }
@@ -487,10 +487,9 @@ namespace Framework.GAS.Abilities.Builtin
             BattleContext battle)
         {
             ProjectileAbility.PublishCast(owner, instance, battle, instance.Context.PrimaryTarget);
-            var direction = instance.Context.Direction;
+            var dir = instance.Context.Direction;
             if (_distance > FP.Zero)
             {
-                var dir = FPConversions.ToFP(direction);
                 dir.y = FP.Zero;
                 if (dir.sqrMagnitude > FP.Zero)
                 {

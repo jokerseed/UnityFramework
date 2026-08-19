@@ -148,7 +148,7 @@ namespace Framework.GAS.Abilities.Tasks
                 return;
             }
 
-            var origin = _owner.CuePosition;
+            var origin = _owner.CueSimPosition;
             var direction = Instance.Context.Direction;
             _queryCone(_owner.ActorId, origin, direction, _halfAngleDegrees, _range, _scratch);
             for (var i = 0; i < _scratch.Count; i++)
@@ -180,7 +180,7 @@ namespace Framework.GAS.Abilities.Tasks
 
                 if (_knockback > FP.Zero)
                 {
-                    var dir = FPConversions.ToFP(direction);
+                    var dir = direction;
                     dir.y = FP.Zero;
                     if (dir.sqrMagnitude > FP.Zero)
                     {

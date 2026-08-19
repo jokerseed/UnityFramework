@@ -1,5 +1,4 @@
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.Core.Commands
 {
@@ -13,10 +12,10 @@ namespace Framework.Core.Commands
         public string AbilityId;
 
         /// <summary>投射物的初始世界坐标。</summary>
-        public Vector3 Position;
+        public TSVector Position;
 
         /// <summary>投射物的飞行方向（单位向量）。</summary>
-        public Vector3 Direction;
+        public TSVector Direction;
 
         /// <summary>投射物飞行速度（米/秒）。</summary>
         public FP Speed;
@@ -108,7 +107,7 @@ namespace Framework.Core.Commands
         public ActorId Source;
 
         /// <summary>圆心。</summary>
-        public Vector3 Origin;
+        public TSVector Origin;
 
         /// <summary>半径。</summary>
         public FP Radius;
@@ -132,6 +131,6 @@ namespace Framework.Core.Commands
         public FP HalfAngleDegrees;
 
         /// <summary>扇形朝向；圆形时可忽略。</summary>
-        public Vector3 Direction;
+        public TSVector Direction;
     }
 }

@@ -1,5 +1,5 @@
 using Framework.Core;
-using UnityEngine;
+using Framework.FixedMath;
 
 namespace Framework.GamePlay
 {
@@ -18,19 +18,19 @@ namespace Framework.GamePlay
         public ActorId ActorId { get; set; }
 
         /// <summary><see cref="BattleIntentKind.Move"/> 的世界速度；零向量表示停步。</summary>
-        public Vector3 MoveVelocity { get; set; }
+        public TSVector MoveVelocity { get; set; }
 
         /// <summary>期望朝向；平方长度过小时沿用当前朝向或移动方向。</summary>
-        public Vector3 FaceDirection { get; set; }
+        public TSVector FaceDirection { get; set; }
 
         /// <summary><see cref="BattleIntentKind.Cast"/> 的技能 ID。</summary>
         public string AbilityId { get; set; }
 
         /// <summary>施法原点。</summary>
-        public Vector3 Origin { get; set; }
+        public TSVector Origin { get; set; }
 
         /// <summary>施法方向。</summary>
-        public Vector3 Direction { get; set; }
+        public TSVector Direction { get; set; }
 
         /// <summary>主目标；无效时表示无锁定目标。</summary>
         public ActorId TargetId { get; set; }
@@ -43,8 +43,8 @@ namespace Framework.GamePlay
         /// <returns>移动指令。</returns>
         public static BattleIntentCommand Move(
             ActorId actorId,
-            Vector3 velocity,
-            Vector3 faceDirection,
+            TSVector velocity,
+            TSVector faceDirection,
             BattleIntentSource source)
         {
             return new BattleIntentCommand
@@ -68,8 +68,8 @@ namespace Framework.GamePlay
         public static BattleIntentCommand Cast(
             ActorId actorId,
             string abilityId,
-            Vector3 origin,
-            Vector3 direction,
+            TSVector origin,
+            TSVector direction,
             ActorId targetId,
             BattleIntentSource source)
         {

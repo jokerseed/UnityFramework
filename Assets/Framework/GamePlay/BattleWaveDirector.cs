@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -10,10 +9,10 @@ namespace Framework.GamePlay
     {
         readonly List<ActorId> _slots;
         readonly ActorId _heroId;
-        readonly float _baseHealth;
-        readonly float _waveDelay;
+        readonly FP _baseHealth;
+        readonly FP _waveDelay;
         readonly string _abilityId;
-        float _allDeadTimer;
+        FP _allDeadTimer;
         int _wave = 1;
 
         /// <summary>本波怪物近战技能 ID。</summary>
@@ -39,15 +38,15 @@ namespace Framework.GamePlay
             _heroId = heroId;
             _baseHealth = baseHealth;
             _abilityId = abilityId;
-            _waveDelay = waveDelay > 0f ? waveDelay : 2f;
+            _waveDelay = waveDelay > 0f ? waveDelay : (FP)2;
         }
 
         /// <summary>若本波全灭则计时，到点后把槽位复活到英雄周围。</summary>
         /// <param name="framework">玩法框架。</param>
-        /// <param name="heroPosition">英雄当前位置。</param>
+        /// <param name="heroPosition">英雄当前仿真坐标。</param>
         /// <param name="deltaTime">帧间隔。</param>
         /// <returns>若本帧刷出新一波返回 true。</returns>
-        public bool Tick(GamePlayFramework framework, Vector3 heroPosition, float deltaTime)
+        public bool Tick(GamePlayFramework framework, TSVector heroPosition, FP deltaTime)
         {
             if (framework == null || _slots == null || _slots.Count == 0)
             {
@@ -65,7 +64,7 @@ namespace Framework.GamePlay
 
             if (alive > 0)
             {
-                _allDeadTimer = 0f;
+                _allDeadTimer = FP.Zero;
                 return false;
             }
 
@@ -76,23 +75,22 @@ namespace Framework.GamePlay
             }
 
             _wave++;
-            _allDeadTimer = 0f;
-            var health = _baseHealth + (_wave - 1) * 8f;
+            _allDeadTimer = FP.Zero;
+            var health = _baseHealth + (FP)(_wave - 1) * (FP)8;
             SpawnRing(framework, heroPosition, health);
             return true;
         }
 
-        void SpawnRing(GamePlayFramework framework, Vector3 heroPosition, float health)
+        void SpawnRing(GamePlayFramework framework, TSVector heroPosition, FP health)
         {
             var count = _slots.Count;
             var radius = (FP)4.2f;
-            var hero = FPConversions.ToFP(heroPosition);
             var waveBias = (FP)_wave * (FP)0.35f;
             for (var i = 0; i < count; i++)
             {
                 var angle = FP.Pi * 2 * i / count + waveBias;
-                var position = hero + new TSVector(TSMath.Cos(angle) * radius, 0, TSMath.Sin(angle) * radius);
-                framework.ReviveActor(_slots[i], FPConversions.ToVector3(position), health);
+                var position = heroPosition + new TSVector(TSMath.Cos(angle) * radius, 0, TSMath.Sin(angle) * radius);
+                framework.ReviveActor(_slots[i], position, health);
             }
         }
     }

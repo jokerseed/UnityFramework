@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using Battle;
+using Framework.Core;
+using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.GAS.Abilities;
-using Framework.Core;
 using UnityEngine;
 
 namespace Game
@@ -16,12 +17,12 @@ namespace Game
         const float FireballCastHeight = 1.2f;
         const string DodgeAbilityId = "Dodge";
         const float HeroMoveSpeed = 3.5f;
-        const float ComboBufferSeconds = 0.28f;
+        static readonly FP ComboBufferSeconds = (FP)0.28f;
         static readonly string[] MeleeComboIds = { "Slash3", "Slash2", "Slash" };
 
         readonly BattleInputActions _actions = new BattleInputActions();
         BattleInputFrame _pending;
-        float _meleeBuffer;
+        FP _meleeBuffer;
         bool _enabled;
 
         /// <summary>启用战斗 Action Map。</summary>
@@ -75,7 +76,7 @@ namespace Game
 
             _pending.MoveDirection = moveDirection;
             _pending.HasMoveInput = hasMoveInput;
-            _pending.TriggerMelee = _meleeBuffer > 0f;
+            _pending.TriggerMelee = _meleeBuffer > FP.Zero;
             _pending.TriggerFireball = _pending.TriggerFireball || battle.Fireball.WasPressedThisFrame();
             _pending.TriggerDodge = _pending.TriggerDodge || battle.Dodge.WasPressedThisFrame();
             _pending.AimDirection = hasMoveInput ? moveDirection : Vector3.zero;
@@ -90,10 +91,10 @@ namespace Game
             GamePlayFramework framework,
             ActorId heroId,
             List<BattleIntentCommand> dest,
-            float fixedDeltaTime)
+            FP fixedDeltaTime)
         {
             EncodePending(framework, heroId, dest);
-            _meleeBuffer = Mathf.Max(0f, _meleeBuffer - fixedDeltaTime);
+            _meleeBuffer = TSMath.Max(FP.Zero, _meleeBuffer - fixedDeltaTime);
         }
 
         void EncodePending(
@@ -101,10 +102,9 @@ namespace Game
             ActorId heroId,
             List<BattleIntentCommand> dest)
         {
-            var velocity = _pending.HasMoveInput
-                ? _pending.MoveDirection * HeroMoveSpeed
-                : Vector3.zero;
-            var face = _pending.HasMoveInput ? _pending.MoveDirection : Vector3.zero;
+            var moveDir = FPConversions.ToFP(_pending.HasMoveInput ? _pending.MoveDirection : Vector3.zero);
+            var velocity = moveDir * (FP)HeroMoveSpeed;
+            var face = _pending.HasMoveInput ? moveDir : TSVector.zero;
             dest.Add(BattleIntentCommand.Move(heroId, velocity, face, BattleIntentSource.Player));
 
             TryEncodeMelee(framework, heroId, dest);
@@ -127,13 +127,13 @@ namespace Game
                 !framework.TryGetActor(heroId, out var asc) ||
                 asc.IsDead)
             {
-                _meleeBuffer = 0f;
+                _meleeBuffer = FP.Zero;
                 _pending.TriggerMelee = false;
                 return;
             }
 
-            var forward = framework.Registry.GetForward(heroId);
-            var context = new AbilityActivationContext(hero.Position, forward);
+            var forward = framework.Registry.GetSimForward(heroId);
+            var context = new AbilityActivationContext(hero.SimPosition, forward);
             for (var i = 0; i < MeleeComboIds.Length; i++)
             {
                 if (!framework.CanActivateAbility(heroId, MeleeComboIds[i], context).Success)
@@ -144,11 +144,11 @@ namespace Game
                 dest.Add(BattleIntentCommand.Cast(
                     heroId,
                     MeleeComboIds[i],
-                    hero.Position,
+                    hero.SimPosition,
                     forward,
                     ActorId.Invalid,
                     BattleIntentSource.Player));
-                _meleeBuffer = 0f;
+                _meleeBuffer = FP.Zero;
                 _pending.TriggerMelee = false;
                 return;
             }
@@ -164,16 +164,22 @@ namespace Game
                 return;
             }
 
-            var targetId = framework.QueryNearestEnemy(heroId, hero.Position, 20f);
-            var origin = hero.Position + Vector3.up * FireballCastHeight;
+            var targetId = framework.QueryNearestEnemy(heroId, hero.SimPosition, (FP)20);
+            var origin = hero.SimPosition + TSVector.up * (FP)FireballCastHeight;
             var direction = _pending.AimDirection.sqrMagnitude > 0.0001f
-                ? _pending.AimDirection
-                : framework.Registry.GetForward(heroId);
+                ? FPConversions.ToFP(_pending.AimDirection)
+                : framework.Registry.GetSimForward(heroId);
+            direction.y = FP.Zero;
+            if (direction.sqrMagnitude > FP.EN4)
+            {
+                direction.Normalize();
+            }
+
             if (framework.Registry.TryGet(targetId, out var target))
             {
-                var toTarget = target.Position - hero.Position;
-                toTarget.y = 0f;
-                if (toTarget.sqrMagnitude > 0.0001f)
+                var toTarget = target.SimPosition - hero.SimPosition;
+                toTarget.y = FP.Zero;
+                if (toTarget.sqrMagnitude > FP.EN4)
                 {
                     direction = toTarget.normalized;
                 }
@@ -199,16 +205,21 @@ namespace Game
                 return;
             }
 
-            var forward = framework.Registry.GetForward(heroId);
+            var forward = framework.Registry.GetSimForward(heroId);
             if (_pending.HasMoveInput)
             {
-                forward = _pending.MoveDirection;
+                forward = FPConversions.ToFP(_pending.MoveDirection);
+                forward.y = FP.Zero;
+                if (forward.sqrMagnitude > FP.EN4)
+                {
+                    forward.Normalize();
+                }
             }
 
             dest.Add(BattleIntentCommand.Cast(
                 heroId,
                 DodgeAbilityId,
-                hero.Position,
+                hero.SimPosition,
                 forward,
                 ActorId.Invalid,
                 BattleIntentSource.Player));

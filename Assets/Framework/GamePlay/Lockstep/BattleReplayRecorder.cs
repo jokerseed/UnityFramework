@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Framework.FixedMath;
 
 namespace Framework.GamePlay
 {
@@ -31,9 +32,9 @@ namespace Framework.GamePlay
 
         /// <summary>导出不可变录像快照，后续录制不影响该快照。</summary>
         /// <param name="seed">本场随机种子。</param>
-        /// <param name="fixedDeltaTime">固定步长。</param>
+        /// <param name="fixedDeltaTime">固定步长（定点）。</param>
         /// <returns>录像带。</returns>
-        public BattleReplayTape ToTape(int seed, float fixedDeltaTime)
+        public BattleReplayTape ToTape(int seed, FP fixedDeltaTime)
         {
             return new BattleReplayTape(seed, fixedDeltaTime, _frames.ToArray());
         }

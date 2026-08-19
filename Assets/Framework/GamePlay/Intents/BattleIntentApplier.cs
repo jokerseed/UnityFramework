@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using Framework.Logging;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -63,7 +63,7 @@ namespace Framework.GamePlay
 
             if (asc.Tags.HasTag(StunnedTag) || asc.Tags.HasTag(KnockedDownTag))
             {
-                framework.SetActorVelocity(command.ActorId, Vector3.zero);
+                framework.SetActorVelocity(command.ActorId, TSVector.zero);
                 return false;
             }
 
@@ -80,30 +80,28 @@ namespace Framework.GamePlay
         static bool ApplyCast(GamePlayFramework framework, in BattleIntentCommand command)
         {
             if (string.IsNullOrEmpty(command.AbilityId) ||
-                !framework.Registry.TryGet(command.ActorId, out var actor))
+                !framework.Registry.TryGet(command.ActorId, out _))
             {
                 return false;
             }
 
             var direction = command.Direction;
-            if (direction.sqrMagnitude > 0.0001f)
+            direction.y = FP.Zero;
+            if (direction.sqrMagnitude > FP.EN4)
             {
-                direction.y = 0f;
-                if (direction.sqrMagnitude > 0.0001f)
-                {
-                    direction.Normalize();
-                    framework.Registry.SetForward(command.ActorId, direction);
-                }
+                direction.Normalize();
+                framework.Registry.SetForward(command.ActorId, direction);
             }
             else
             {
-                direction = framework.Registry.GetForward(command.ActorId);
+                direction = framework.Registry.GetSimForward(command.ActorId);
             }
 
             var origin = command.Origin;
-            if (origin.sqrMagnitude < 0.0001f)
+            if (origin.sqrMagnitude < FP.EN4 &&
+                framework.Registry.TryGetSimPosition(command.ActorId, out var sim))
             {
-                origin = actor.Position;
+                origin = sim;
             }
 
             var context = new AbilityActivationContext(origin, direction, command.TargetId);
@@ -116,11 +114,11 @@ namespace Framework.GamePlay
             return success;
         }
 
-        static void TrySetFace(GamePlayFramework framework, ActorId actorId, Vector3 face, Vector3 velocity)
+        static void TrySetFace(GamePlayFramework framework, ActorId actorId, TSVector face, TSVector velocity)
         {
-            var dir = face.sqrMagnitude > 0.0001f ? face : velocity;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 0.0001f)
+            var dir = face.sqrMagnitude > FP.EN4 ? face : velocity;
+            dir.y = FP.Zero;
+            if (dir.sqrMagnitude < FP.EN4)
             {
                 return;
             }

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Framework.Core;
 using Framework.FixedMath;
 using Framework.GAS.Abilities;
-using UnityEngine;
 
 namespace Framework.GAS.Targeting
 {
@@ -15,8 +14,8 @@ namespace Framework.GAS.Targeting
     /// <param name="results">输出列表；查询前会被清空。</param>
     public delegate void ConeEnemyQuery(
         ActorId source,
-        Vector3 origin,
-        Vector3 direction,
+        TSVector origin,
+        TSVector direction,
         FP halfAngleDegrees,
         FP range,
         List<ActorId> results);
@@ -38,13 +37,13 @@ namespace Framework.GAS.Targeting
     /// <summary>近战：选择主目标或范围内最近敌人（由 GamePlay 注入查询）。</summary>
     public sealed class MeleeTargetSelector : ITargetSelector
     {
-        readonly System.Func<ActorId, Vector3, FP, ActorId> _queryNearestEnemy;
+        readonly System.Func<ActorId, TSVector, FP, ActorId> _queryNearestEnemy;
 
         /// <summary>创建近战目标选择器。</summary>
         /// <param name="queryNearestEnemy">
         /// 查询最近敌人的委托，参数依次为：施法者 ID、世界坐标起点、搜索半径；返回最近敌人 ID（无则为无效值）。
         /// </param>
-        public MeleeTargetSelector(System.Func<ActorId, Vector3, FP, ActorId> queryNearestEnemy)
+        public MeleeTargetSelector(System.Func<ActorId, TSVector, FP, ActorId> queryNearestEnemy)
         {
             _queryNearestEnemy = queryNearestEnemy;
         }

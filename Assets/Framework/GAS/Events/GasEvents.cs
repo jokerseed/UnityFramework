@@ -1,4 +1,5 @@
 using Framework.Core;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GAS.Events
@@ -135,7 +136,7 @@ namespace Framework.GAS.Events
         public ActorId Instigator;
         /// <summary>目标。</summary>
         public ActorId Target;
-        /// <summary>可选目标位置。</summary>
-        public Vector3 TargetLocation;
+        /// <summary>可选目标位置（仿真坐标）。</summary>
+        public TSVector TargetSimLocation;
     }
 }

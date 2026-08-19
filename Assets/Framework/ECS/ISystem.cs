@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Framework.FixedMath;
 
 namespace Framework.ECS
 {
@@ -42,7 +43,7 @@ namespace Framework.ECS
 
         /// <summary>每帧由 World.Tick 驱动，执行系统逻辑。</summary>
         /// <param name="world">拥有该系统的 ECS 世界实例。</param>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
-        void Update(World world, float deltaTime);
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）。</param>
+        void Update(World world, FP deltaTime);
     }
 }

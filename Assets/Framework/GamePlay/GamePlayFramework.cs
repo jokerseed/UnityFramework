@@ -36,8 +36,8 @@ namespace Framework.GamePlay
         readonly List<ActorId> _agentOrder = new List<ActorId>(16);
         readonly TSRandom _random;
         List<BattleIntentCommand> _intentSink;
-        const float FullAiRangeSqr = 64f;
-        const float FarChaseSpeed = 2.2f;
+        static readonly FP FullAiRangeSqr = (FP)64;
+        static readonly FP FarChaseSpeed = (FP)2.2f;
 
         /// <summary>本场战斗确定性随机源。</summary>
         public TSRandom Random => _random;
@@ -94,15 +94,15 @@ namespace Framework.GamePlay
             int teamId = 0)
         {
             var asc = new AbilitySystemComponent(actorId);
-            asc.InitializeCombatAttributes(maxHealth, BattleConstants.DefaultMaxMana);
+            asc.InitializeCombatAttributes((FP)maxHealth, BattleConstants.DefaultMaxMana);
             asc.Attributes.GetOrCreate(BattleConstants.Attack, 10f);
             asc.Attributes.GetOrCreate(BattleConstants.Defense, 0f);
-            asc.CuePosition = position;
-            asc.CueDirection = Vector3.forward;
+            asc.CueSimPosition = FPConversions.ToFP(position);
+            asc.CueSimDirection = TSVector.forward;
             asc.CueManager = _cueManager;
             asc.Random = _battleContext.Random;
 
-            _registry.Create(actorId, position, maxHealth, teamId, asc);
+            _registry.Create(actorId, FPConversions.ToFP(position), (FP)maxHealth, teamId, asc);
             return asc;
         }
 
@@ -224,7 +224,7 @@ namespace Framework.GamePlay
         /// <summary>半径内目标查询。</summary>
         public void QueryTargetsInRadius(
             ActorId source,
-            Vector3 origin,
+            TSVector origin,
             FP radius,
             TargetDataFilter filter,
             List<ActorId> results)
@@ -242,8 +242,8 @@ namespace Framework.GamePlay
         /// <summary>扇形目标查询。</summary>
         public void QueryTargetsInCone(
             ActorId source,
-            Vector3 origin,
-            Vector3 direction,
+            TSVector origin,
+            TSVector direction,
             FP halfAngleDegrees,
             FP range,
             TargetDataFilter filter,
@@ -264,7 +264,7 @@ namespace Framework.GamePlay
         /// <param name="origin">查询中心的世界坐标。</param>
         /// <param name="range">查询范围半径（世界单位）。</param>
         /// <returns>范围内最近敌方的 <see cref="ActorId"/>；无有效目标时返回 <see cref="ActorId.Invalid"/>。</returns>
-        public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, FP range) =>
+        public ActorId QueryNearestEnemy(ActorId source, TSVector origin, FP range) =>
             _registry.QueryNearestEnemy(source, origin, range);
 
         /// <summary>查询扇形内敌对 Actor，供近战扇形技能注入。</summary>
@@ -276,8 +276,8 @@ namespace Framework.GamePlay
         /// <param name="results">输出列表；查询前会被清空。</param>
         public void QueryEnemiesInCone(
             ActorId source,
-            Vector3 origin,
-            Vector3 direction,
+            TSVector origin,
+            TSVector direction,
             FP halfAngleDegrees,
             FP range,
             List<ActorId> results)
@@ -295,7 +295,7 @@ namespace Framework.GamePlay
         /// <summary>设置 Actor 移动速度；定身时会被 Tick 清零。</summary>
         /// <param name="actorId">目标 Actor。</param>
         /// <param name="velocity">世界空间速度。</param>
-        public void SetActorVelocity(ActorId actorId, Vector3 velocity) =>
+        public void SetActorVelocity(ActorId actorId, TSVector velocity) =>
             _registry.SetVelocity(actorId, velocity);
 
         /// <summary>为 Actor 绑定行为树 Agent；同一 Actor 重复绑定会替换。</summary>
@@ -315,7 +315,7 @@ namespace Framework.GamePlay
         /// <param name="attacker">攻击者。</param>
         /// <param name="point">槽位坐标。</param>
         /// <returns>已分配槽位时返回 true。</returns>
-        public bool TryGetEngagePoint(ActorId attacker, out Vector3 point) =>
+        public bool TryGetEngagePoint(ActorId attacker, out TSVector point) =>
             _engageSlots.TryGetPoint(attacker, out point);
 
         /// <summary>销毁指定 Actor，同时移除其 ECS 实体及注册表记录。</summary>
@@ -331,18 +331,19 @@ namespace Framework.GamePlay
         /// <param name="position">复活坐标。</param>
         /// <param name="maxHealth">复活后最大生命。</param>
         /// <returns>成功复活返回 true。</returns>
-        public bool ReviveActor(ActorId actorId, Vector3 position, float maxHealth)
+        public bool ReviveActor(ActorId actorId, TSVector position, FP maxHealth)
         {
-            if (!_registry.TryGet(actorId, out var actor) || maxHealth <= 0f)
+            if (!_registry.TryGet(actorId, out var actor) || maxHealth <= FP.Zero)
             {
                 return false;
             }
 
             actor.AbilitySystem.ResetForReuse(_presentationBus, maxHealth);
-            actor.AbilitySystem.CuePosition = position;
+            actor.AbilitySystem.CueSimPosition = position;
+            actor.AbilitySystem.CueSimDirection = TSVector.forward;
             actor.AbilitySystem.CueManager = _cueManager;
             _registry.ClearKnockback(actorId);
-            _registry.SetVelocity(actorId, Vector3.zero);
+            _registry.SetVelocity(actorId, TSVector.zero);
             _registry.SetPosition(actorId, position);
             _registry.MarkAlive(actorId);
             return true;
@@ -355,7 +356,7 @@ namespace Framework.GamePlay
         /// <param name="dest">输出列表；已有玩家指令应保留，本方法只追加。</param>
         /// <param name="fixedDeltaTime">逻辑步长，驱动行为树时间。</param>
         /// <exception cref="ArgumentNullException"><paramref name="dest"/> 为 null。</exception>
-        public void CollectAiIntents(List<BattleIntentCommand> dest, float fixedDeltaTime)
+        public void CollectAiIntents(List<BattleIntentCommand> dest, FP fixedDeltaTime)
         {
             if (dest == null)
             {
@@ -385,8 +386,8 @@ namespace Framework.GamePlay
         /// <summary>
         /// 执行一帧战斗逻辑（不含 AI 编码）。
         /// </summary>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
-        public void Tick(float deltaTime)
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）。</param>
+        public void Tick(FP deltaTime)
         {
             var grid = _world.GetSingleton<SpatialHashGrid>();
             if (grid != null)
@@ -415,6 +416,8 @@ namespace Framework.GamePlay
             _registry.SyncPositionsFromEcs();
         }
 
+        void ITickable.Tick(float deltaTime) => Tick((FP)deltaTime);
+
         void SyncCuePose()
         {
             foreach (var pair in _registry.Actors)
@@ -425,6 +428,8 @@ namespace Framework.GamePlay
                     continue;
                 }
 
+                actor.AbilitySystem.CueSimPosition = actor.SimPosition;
+                actor.AbilitySystem.CueSimDirection = _registry.GetSimForward(actor.ActorId);
                 actor.AbilitySystem.CuePosition = actor.Position;
                 actor.AbilitySystem.CueDirection = _registry.GetForward(actor.ActorId);
             }
@@ -443,12 +448,12 @@ namespace Framework.GamePlay
                     asc.Tags.HasTag(stunned) ||
                     asc.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
                 {
-                    _registry.SetVelocity(actor.ActorId, Vector3.zero);
+                    _registry.SetVelocity(actor.ActorId, TSVector.zero);
                 }
             }
         }
 
-        void TickAgents(float deltaTime)
+        void TickAgents(FP deltaTime)
         {
             _engageSlots.Rebuild(_registry, _agents);
             var stunned = new GameplayTag(BattleConstants.TagStunned);
@@ -488,29 +493,29 @@ namespace Framework.GamePlay
                 return false;
             }
 
-            var toFocus = focus.Position - actor.Position;
-            toFocus.y = 0f;
+            var toFocus = focus.SimPosition - actor.SimPosition;
+            toFocus.y = FP.Zero;
             if (toFocus.sqrMagnitude <= FullAiRangeSqr)
             {
                 return false;
             }
 
-            var dest = focus.Position;
+            var dest = focus.SimPosition;
             if (_engageSlots.TryGetPoint(actor.ActorId, out var slot))
             {
                 dest = slot;
             }
 
-            var toDest = dest - actor.Position;
-            toDest.y = 0f;
+            var toDest = dest - actor.SimPosition;
+            toDest.y = FP.Zero;
             var distance = toDest.magnitude;
-            if (distance < 0.001f)
+            if (distance < (FP)0.001f)
             {
                 return true;
             }
 
             var dir = toDest / distance;
-            var face = toFocus.sqrMagnitude > 0.0001f ? toFocus.normalized : dir;
+            var face = toFocus.sqrMagnitude > FP.EN4 ? toFocus.normalized : dir;
             SubmitIntent(BattleIntentCommand.Move(actor.ActorId, dir * FarChaseSpeed, face, BattleIntentSource.Ai));
             return true;
         }
@@ -524,7 +529,7 @@ namespace Framework.GamePlay
                 if (actor.AbilitySystem.IsDead)
                 {
                     _registry.MarkDead(actor.ActorId);
-                    _registry.SetVelocity(actor.ActorId, Vector3.zero);
+                    _registry.SetVelocity(actor.ActorId, TSVector.zero);
                 }
             }
         }

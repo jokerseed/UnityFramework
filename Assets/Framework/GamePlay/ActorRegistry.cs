@@ -29,8 +29,11 @@ namespace Framework.GamePlay
         /// <summary>Actor 所属队伍编号；同队视为友方，不同队视为敌方。</summary>
         public int TeamId { get; }
 
-        /// <summary>Actor 在世界空间的当前位置，由 <see cref="ActorRegistry.SyncPositionsFromEcs"/> 每帧更新。</summary>
+        /// <summary>Actor 在世界空间的当前位置（表现缓存），由 <see cref="ActorRegistry.SyncPositionsFromEcs"/> 每帧更新。</summary>
         public Vector3 Position { get; internal set; }
+
+        /// <summary>Actor 仿真世界坐标（定点），逻辑链统一读取此字段。</summary>
+        public TSVector SimPosition { get; internal set; }
 
         /// <summary>创建一个 BattleActor 数据容器。</summary>
         /// <param name="actorId">Actor 唯一 ID。</param>
@@ -72,8 +75,8 @@ namespace Framework.GamePlay
         /// <exception cref="InvalidOperationException">指定 <paramref name="actorId"/> 已存在时抛出。</exception>
         public BattleActor Create(
             ActorId actorId,
-            Vector3 position,
-            float maxHealth,
+            TSVector position,
+            FP maxHealth,
             int teamId,
             AbilitySystemComponent asc)
         {
@@ -82,13 +85,17 @@ namespace Framework.GamePlay
                 throw new InvalidOperationException($"Actor {actorId} already exists.");
             }
 
-            var actor = new BattleActor(actorId, asc, teamId) { Position = position };
+            var actor = new BattleActor(actorId, asc, teamId)
+            {
+                Position = FPConversions.ToVector3(position),
+                SimPosition = position
+            };
             var entity = _world.CreateEntity();
             actor.EcsEntity = entity;
 
             _world.AddComponent(entity, new TransformComponent
             {
-                Position = FPConversions.ToFP(position),
+                Position = position,
                 Forward = TSVector.forward
             });
             _world.AddComponent(entity, new ActorLinkComponent { ActorId = actorId });
@@ -144,10 +151,10 @@ namespace Framework.GamePlay
             _world.AddComponent(entity, new CombatStateComponent { IsAlive = isAlive });
         }
 
-        /// <summary>写入 Actor 世界坐标（同时更新 ECS 与 <see cref="BattleActor.Position"/>）。</summary>
+        /// <summary>写入 Actor 世界坐标（同时更新 ECS、<see cref="BattleActor.SimPosition"/> 与表现缓存）。</summary>
         /// <param name="actorId">目标 Actor。</param>
-        /// <param name="position">世界坐标。</param>
-        public void SetPosition(ActorId actorId, Vector3 position)
+        /// <param name="position">世界坐标（定点）。</param>
+        public void SetPosition(ActorId actorId, TSVector position)
         {
             if (!_actors.TryGetValue(actorId, out var actor) || !TryGetEntity(actorId, out var entity))
             {
@@ -159,9 +166,26 @@ namespace Framework.GamePlay
                 transform = new TransformComponent { Forward = TSVector.forward };
             }
 
-            transform.Position = FPConversions.ToFP(position);
+            transform.Position = position;
             _world.AddComponent(entity, transform);
-            actor.Position = position;
+            actor.SimPosition = position;
+            actor.Position = FPConversions.ToVector3(position);
+        }
+
+        /// <summary>尝试读取 Actor 仿真坐标。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="position">输出仿真坐标。</param>
+        /// <returns>Actor 存在时返回 true。</returns>
+        public bool TryGetSimPosition(ActorId actorId, out TSVector position)
+        {
+            if (_actors.TryGetValue(actorId, out var actor))
+            {
+                position = actor.SimPosition;
+                return true;
+            }
+
+            position = default;
+            return false;
         }
 
         /// <summary>移除击退冲量。</summary>
@@ -181,7 +205,7 @@ namespace Framework.GamePlay
         /// <param name="origin">查询中心的世界坐标。</param>
         /// <param name="range">查询范围半径（世界单位）；超出范围的 Actor 不会被返回。</param>
         /// <returns>范围内最近敌方的 <see cref="ActorId"/>；无有效目标时返回 <see cref="ActorId.Invalid"/>。</returns>
-        public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, FP range)
+        public ActorId QueryNearestEnemy(ActorId source, TSVector origin, FP range)
         {
             if (!_actors.TryGetValue(source, out var sourceActor))
             {
@@ -196,8 +220,7 @@ namespace Framework.GamePlay
 
             ActorId best = ActorId.Invalid;
             var bestDistance = FP.MaxValue;
-            var originFp = FPConversions.ToFP(origin);
-            var candidates = grid.QueryNearby(originFp, range);
+            var candidates = grid.QueryNearby(origin, range);
 
             for (var i = 0; i < candidates.Count; i++)
             {
@@ -216,7 +239,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var distance = TSVector.Distance(originFp, position);
+                var distance = TSVector.Distance(origin, position);
                 if (distance > range || distance >= bestDistance)
                 {
                     continue;
@@ -234,7 +257,7 @@ namespace Framework.GamePlay
         /// <param name="radius">半径。</param>
         /// <param name="filter">筛选条件。</param>
         /// <param name="results">输出列表（调用前清空）。</param>
-        public void QueryTargetsInRadius(Vector3 origin, FP radius, GAS.Targeting.TargetDataFilter filter, List<ActorId> results)
+        public void QueryTargetsInRadius(TSVector origin, FP radius, GAS.Targeting.TargetDataFilter filter, List<ActorId> results)
         {
             results.Clear();
             if (!_actors.TryGetValue(filter.Source, out var sourceActor))
@@ -248,8 +271,7 @@ namespace Framework.GamePlay
                 return;
             }
 
-            var originFp = FPConversions.ToFP(origin);
-            var candidates = grid.QueryNearby(originFp, radius);
+            var candidates = grid.QueryNearby(origin, radius);
             for (var i = 0; i < candidates.Count; i++)
             {
                 if (!TryResolveActor(candidates[i], out var target, out var position))
@@ -272,7 +294,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var distance = TSVector.Distance(originFp, position);
+                var distance = TSVector.Distance(origin, position);
                 if (distance > radius)
                 {
                     continue;
@@ -294,8 +316,8 @@ namespace Framework.GamePlay
 
         /// <summary>在扇形范围内查询符合筛选条件的 Actor 列表。</summary>
         public void QueryTargetsInCone(
-            Vector3 origin,
-            Vector3 direction,
+            TSVector origin,
+            TSVector direction,
             FP halfAngleDegrees,
             FP range,
             GAS.Targeting.TargetDataFilter filter,
@@ -313,8 +335,7 @@ namespace Framework.GamePlay
                 return;
             }
 
-            var originFp = FPConversions.ToFP(origin);
-            var forward = FPConversions.ToFP(direction);
+            var forward = direction;
             forward.y = FP.Zero;
             if (forward.sqrMagnitude <= FP.Zero)
             {
@@ -325,7 +346,7 @@ namespace Framework.GamePlay
                 forward.Normalize();
             }
 
-            var candidates = grid.QueryNearby(originFp, range);
+            var candidates = grid.QueryNearby(origin, range);
             var minDist = FP.EN3;
 
             for (var i = 0; i < candidates.Count; i++)
@@ -350,7 +371,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var toTarget = position - originFp;
+                var toTarget = position - origin;
                 toTarget.y = FP.Zero;
                 var distance = toTarget.magnitude;
                 if (distance > range || distance <= minDist)
@@ -395,7 +416,7 @@ namespace Framework.GamePlay
             }
             else
             {
-                position = FPConversions.ToFP(actor.Position);
+                position = actor.SimPosition;
             }
 
             return true;
@@ -421,15 +442,15 @@ namespace Framework.GamePlay
 
         /// <summary>设置 Actor 的 ECS 速度；定身时由调用方传零向量。</summary>
         /// <param name="actorId">目标 Actor。</param>
-        /// <param name="velocity">世界空间速度。</param>
-        public void SetVelocity(ActorId actorId, Vector3 velocity)
+        /// <param name="velocity">世界空间速度（定点）。</param>
+        public void SetVelocity(ActorId actorId, TSVector velocity)
         {
             if (!TryGetEntity(actorId, out var entity))
             {
                 return;
             }
 
-            _world.AddComponent(entity, new VelocityComponent { Value = FPConversions.ToFP(velocity) });
+            _world.AddComponent(entity, new VelocityComponent { Value = velocity });
         }
 
         /// <summary>对 Actor 施加击退冲量（写入 <see cref="KnockbackComponent"/>）。</summary>
@@ -472,7 +493,23 @@ namespace Framework.GamePlay
             ApplyKnockback(actorId, offset);
         }
 
-        /// <summary>读取 Actor 朝向；无 Transform 时返回 <see cref="Vector3.forward"/>。</summary>
+        /// <summary>读取 Actor 仿真朝向；无 Transform 时返回 <see cref="TSVector.forward"/>。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <returns>朝向向量。</returns>
+        public TSVector GetSimForward(ActorId actorId)
+        {
+            if (!TryGetEntity(actorId, out var entity) ||
+                !_world.TryGetComponent(entity, out TransformComponent transform))
+            {
+                return TSVector.forward;
+            }
+
+            return transform.Forward.sqrMagnitude > FP.Zero
+                ? transform.Forward
+                : TSVector.forward;
+        }
+
+        /// <summary>读取 Actor 朝向（表现）；无 Transform 时返回 <see cref="Vector3.forward"/>。</summary>
         /// <param name="actorId">目标 Actor。</param>
         /// <returns>朝向向量。</returns>
         public Vector3 GetForward(ActorId actorId)
@@ -488,10 +525,10 @@ namespace Framework.GamePlay
                 : Vector3.forward;
         }
 
-        /// <summary>写入 Actor 朝向。</summary>
+        /// <summary>写入 Actor 朝向（定点）。</summary>
         /// <param name="actorId">目标 Actor。</param>
         /// <param name="forward">朝向。</param>
-        public void SetForward(ActorId actorId, Vector3 forward)
+        public void SetForward(ActorId actorId, TSVector forward)
         {
             if (!TryGetEntity(actorId, out var entity) ||
                 !_world.TryGetComponent(entity, out TransformComponent transform))
@@ -499,13 +536,15 @@ namespace Framework.GamePlay
                 return;
             }
 
-            transform.Forward = forward.sqrMagnitude > 0f
-                ? FPConversions.ToFP(forward.normalized)
+            var dir = forward;
+            dir.y = FP.Zero;
+            transform.Forward = dir.sqrMagnitude > FP.Zero
+                ? dir.normalized
                 : TSVector.forward;
             _world.AddComponent(entity, transform);
         }
 
-        /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.Position"/>，每帧 Tick 末尾调用。</summary>
+        /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.SimPosition"/> 与表现缓存，每帧 Tick 末尾调用。</summary>
         public void SyncPositionsFromEcs()
         {
             foreach (var pair in _actors)
@@ -518,6 +557,7 @@ namespace Framework.GamePlay
 
                 if (_world.TryGetComponent(actor.EcsEntity, out TransformComponent transform))
                 {
+                    actor.SimPosition = transform.Position;
                     actor.Position = transform.ToUnityPosition();
                 }
             }

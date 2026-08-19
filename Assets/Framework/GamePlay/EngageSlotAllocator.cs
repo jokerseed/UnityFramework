@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GamePlay
@@ -11,14 +12,14 @@ namespace Framework.GamePlay
     /// </summary>
     public sealed class EngageSlotAllocator
     {
-        const float DefaultMinRadius = 1.45f;
-        const float DefaultMaxRadius = 1.85f;
-        const float SlotSpacing = 1.05f;
+        static readonly FP DefaultMinRadius = (FP)1.45f;
+        static readonly FP DefaultMaxRadius = (FP)1.85f;
+        static readonly FP SlotSpacing = (FP)1.05f;
 
-        readonly Dictionary<uint, Vector3> _points = new Dictionary<uint, Vector3>(32);
+        readonly Dictionary<uint, TSVector> _points = new Dictionary<uint, TSVector>(32);
         readonly List<ActorId> _focusIds = new List<ActorId>(8);
         readonly List<ActorId> _ring = new List<ActorId>(32);
-        readonly Dictionary<uint, float> _angles = new Dictionary<uint, float>(32);
+        readonly Dictionary<uint, FP> _angles = new Dictionary<uint, FP>(32);
         readonly Comparison<ActorId> _compareAngle;
 
         /// <summary>创建围攻槽位分配器。</summary>
@@ -35,8 +36,8 @@ namespace Framework.GamePlay
         public void Rebuild(
             ActorRegistry registry,
             Dictionary<ActorId, BattleAgent> agents,
-            float minRadius = DefaultMinRadius,
-            float maxRadius = DefaultMaxRadius)
+            FP minRadius = default,
+            FP maxRadius = default)
         {
             _points.Clear();
             if (registry == null || agents == null || agents.Count == 0)
@@ -44,7 +45,7 @@ namespace Framework.GamePlay
                 return;
             }
 
-            var min = minRadius > 0f ? minRadius : DefaultMinRadius;
+            var min = minRadius > FP.Zero ? minRadius : DefaultMinRadius;
             var max = maxRadius >= min ? maxRadius : DefaultMaxRadius;
 
             _focusIds.Clear();
@@ -70,7 +71,7 @@ namespace Framework.GamePlay
         /// <param name="attacker">攻击者 Actor。</param>
         /// <param name="point">槽位坐标。</param>
         /// <returns>本帧已分配槽位时返回 true。</returns>
-        public bool TryGetPoint(ActorId attacker, out Vector3 point) =>
+        public bool TryGetPoint(ActorId attacker, out TSVector point) =>
             _points.TryGetValue(attacker.Value, out point);
 
         bool ContainsFocus(ActorId focus)
@@ -90,8 +91,8 @@ namespace Framework.GamePlay
             ActorRegistry registry,
             Dictionary<ActorId, BattleAgent> agents,
             ActorId focus,
-            float minRadius,
-            float maxRadius)
+            FP minRadius,
+            FP maxRadius)
         {
             _ring.Clear();
             _angles.Clear();
@@ -112,10 +113,10 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var delta = actor.Position - focusActor.Position;
-                delta.y = 0f;
+                var delta = actor.SimPosition - focusActor.SimPosition;
+                delta.y = FP.Zero;
                 _ring.Add(pair.Key);
-                _angles[pair.Key.Value] = Mathf.Atan2(delta.z, delta.x);
+                _angles[pair.Key.Value] = TSMath.Atan2(delta.z, delta.x);
             }
 
             var count = _ring.Count;
@@ -126,19 +127,20 @@ namespace Framework.GamePlay
 
             _ring.Sort(_compareAngle);
 
-            var packed = count * SlotSpacing / (Mathf.PI * 2f);
-            var radius = Mathf.Clamp(packed, minRadius, maxRadius);
-            var step = (Mathf.PI * 2f) / count;
+            var twoPi = FP.Pi * 2;
+            var packed = (FP)count * SlotSpacing / twoPi;
+            var radius = TSMath.Clamp(packed, minRadius, maxRadius);
+            var step = twoPi / count;
             var baseAngle = _angles[_ring[0].Value];
-            var origin = focusActor.Position;
+            var origin = focusActor.SimPosition;
 
             for (var i = 0; i < count; i++)
             {
                 var angle = baseAngle + step * i;
-                _points[_ring[i].Value] = new Vector3(
-                    origin.x + Mathf.Cos(angle) * radius,
+                _points[_ring[i].Value] = new TSVector(
+                    origin.x + TSMath.Cos(angle) * radius,
                     origin.y,
-                    origin.z + Mathf.Sin(angle) * radius);
+                    origin.z + TSMath.Sin(angle) * radius);
             }
         }
 

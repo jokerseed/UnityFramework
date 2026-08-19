@@ -214,7 +214,7 @@ Launch 场景
 `BattleInputController` 分成三个阶段：
 
 - `Sample(unscaledDeltaTime)`：渲染帧锁存 `BattleInputFrame`（含一次性按键 OR）
-- `Encode(...)`：逻辑步把锁存编码为 `Move` / `Cast`，写入 `BattleIntentFrame`
+- `Encode(...)`：逻辑步把锁存编码为 `Move` / `Cast`（`Sample` 仍读 Unity `Vector2`，`Encode` 边界一次转 `TSVector` / `FP`），写入 `BattleIntentFrame`；近战缓冲 `_meleeBuffer` 按会话 `FixedDeltaTime`（`FP`）衰减
 - `Enable()` / `Disable()` / `Dispose()`：战斗开始启用 `Battle` Action Map，退出时释放
 
 真正执行在 `LocalLockstepHost`：入队 → 出队 → `BattleIntentApplier`。
@@ -360,8 +360,9 @@ BattleBootstrap.OnDestroy
 - 输入采样与固定步长应用
 - 意图帧队列 + 单机 `LocalLockstepHost`（玩家 + AI 同帧）
 - 逻辑帧 checksum + 内存录像；F8 影子 Session 对拍
-- 位移 / 碰撞定点（`TSVector` / `FP`）
-- 技能仿真定点（伤害、冷却、范围、属性；表现事件仍为 float）
+- 位移 / 碰撞 / 意图 / AI / 命令位姿定点（`TSVector` / `FP`）
+- 逻辑固定步长、连招缓冲、刷波复活位、ASC Tick 均为 `FP`（表现事件仍为 float）
+- 技能仿真定点（伤害、冷却、范围、属性；`GameplayEventData.TargetSimLocation` 为 `TSVector`）
 - 会话级种子随机（暴击 / AI）
 - 表现层 HitStop（不改 `Time.timeScale`）
 - Hero 近战 / 火球 / 闪避

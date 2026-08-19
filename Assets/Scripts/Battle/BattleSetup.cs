@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Framework.Config;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.GamePlay.Data;
 using Framework.Logging;
@@ -165,14 +166,14 @@ namespace Game
         /// <summary>驱动波次刷新。</summary>
         /// <param name="framework">玩法框架。</param>
         /// <param name="deltaTime">帧间隔。</param>
-        public void TickWaves(GamePlayFramework framework, float deltaTime)
+        public void TickWaves(GamePlayFramework framework, FP deltaTime)
         {
             if (_waveDirector == null || !framework.Registry.TryGet(HeroId, out var hero))
             {
                 return;
             }
 
-            if (_waveDirector.Tick(framework, hero.Position, deltaTime))
+            if (_waveDirector.Tick(framework, hero.SimPosition, deltaTime))
             {
                 GameLog.Info(LogCategories.GamePlay, $"Wave {LogStyle.Value(_waveDirector.Wave.ToString())}");
             }

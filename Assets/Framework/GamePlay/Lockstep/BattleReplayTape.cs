@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Framework.FixedMath;
 
 namespace Framework.GamePlay
 {
@@ -33,17 +34,17 @@ namespace Framework.GamePlay
         /// <summary>创建会话时使用的随机种子。</summary>
         public int Seed { get; }
 
-        /// <summary>逻辑固定步长（秒）。</summary>
-        public float FixedDeltaTime { get; }
+        /// <summary>逻辑固定步长（秒，定点）。</summary>
+        public FP FixedDeltaTime { get; }
 
         /// <summary>按帧号递增的录像。</summary>
         public IReadOnlyList<BattleReplayFrame> Frames { get; }
 
         /// <summary>构造录像带。</summary>
         /// <param name="seed">随机种子。</param>
-        /// <param name="fixedDeltaTime">固定步长。</param>
+        /// <param name="fixedDeltaTime">固定步长（定点）。</param>
         /// <param name="frames">帧列表；不可为 null。</param>
-        public BattleReplayTape(int seed, float fixedDeltaTime, IReadOnlyList<BattleReplayFrame> frames)
+        public BattleReplayTape(int seed, FP fixedDeltaTime, IReadOnlyList<BattleReplayFrame> frames)
         {
             Seed = seed;
             FixedDeltaTime = fixedDeltaTime;

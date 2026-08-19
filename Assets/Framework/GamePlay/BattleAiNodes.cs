@@ -15,7 +15,8 @@ namespace Framework.GamePlay
 
         const float DefaultMoveSpeed = 2.2f;
         const float DefaultMeleeRange = 2f;
-        const float ArriveSlotRange = 0.28f;
+        static readonly FP ArriveSlotRange = (FP)0.28f;
+        static readonly FP ArriveSlotRangeSqr = ArriveSlotRange * ArriveSlotRange;
 
         /// <summary>
         /// 从热更资源加载近战追击树拓扑（参数请用 <see cref="ApplyMeleeChaserBlackboard"/> 写入 Agent 黑板）。
@@ -96,6 +97,7 @@ namespace Framework.GamePlay
             BtTreeBuilder.Condition(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
+                var rangeFp = (FP)range;
                 if (owner.Framework == null ||
                     !owner.Framework.Registry.TryGet(owner.ActorId, out var self) ||
                     !owner.Framework.Registry.TryGet(targetId, out var target))
@@ -103,13 +105,13 @@ namespace Framework.GamePlay
                     return false;
                 }
 
-                if (Vector3.Distance(self.Position, target.Position) <= range)
+                if (TSVector.Distance(self.SimPosition, target.SimPosition) <= rangeFp)
                 {
                     return true;
                 }
 
                 return owner.Framework.TryGetEngagePoint(owner.ActorId, out var slot) &&
-                       HorizontalDistanceSqr(self.Position, slot) <= ArriveSlotRange * ArriveSlotRange;
+                       HorizontalDistanceSqr(self.SimPosition, slot) <= ArriveSlotRangeSqr;
             });
 
         /// <summary>动作：停步。</summary>
@@ -121,7 +123,7 @@ namespace Framework.GamePlay
                 if (owner.Framework != null)
                 {
                     owner.Framework.SubmitIntent(
-                        BattleIntentCommand.Move(owner.ActorId, Vector3.zero, Vector3.zero, BattleIntentSource.Ai));
+                        BattleIntentCommand.Move(owner.ActorId, TSVector.zero, TSVector.zero, BattleIntentSource.Ai));
                 }
 
                 return BtStatus.Success;
@@ -136,6 +138,8 @@ namespace Framework.GamePlay
             BtTreeBuilder.Action(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
+                var speedFp = (FP)speed;
+                var arrive = (FP)stopRange;
                 if (owner.Framework == null ||
                     !owner.Framework.Registry.TryGet(owner.ActorId, out var self) ||
                     !owner.Framework.Registry.TryGet(targetId, out var target))
@@ -143,19 +147,18 @@ namespace Framework.GamePlay
                     return BtStatus.Failure;
                 }
 
-                var dest = target.Position;
-                var arrive = stopRange;
+                var dest = target.SimPosition;
                 if (owner.Framework.TryGetEngagePoint(owner.ActorId, out var slot))
                 {
                     dest = slot;
                     arrive = ArriveSlotRange;
                 }
 
-                var face = target.Position - self.Position;
-                var toDest = dest - self.Position;
-                toDest.y = 0f;
+                var face = target.SimPosition - self.SimPosition;
+                var toDest = dest - self.SimPosition;
+                toDest.y = FP.Zero;
                 var distance = toDest.magnitude;
-                var velocity = distance <= arrive ? Vector3.zero : toDest / distance * speed;
+                var velocity = distance <= arrive ? TSVector.zero : toDest / distance * speedFp;
                 owner.Framework.SubmitIntent(
                     BattleIntentCommand.Move(owner.ActorId, velocity, face, BattleIntentSource.Ai));
                 return distance <= arrive ? BtStatus.Success : BtStatus.Running;
@@ -176,14 +179,14 @@ namespace Framework.GamePlay
                     return BtStatus.Failure;
                 }
 
-                var toTarget = target.Position - self.Position;
-                toTarget.y = 0f;
-                if (toTarget.sqrMagnitude < 0.0001f)
+                var toTarget = target.SimPosition - self.SimPosition;
+                toTarget.y = FP.Zero;
+                if (toTarget.sqrMagnitude < FP.EN4)
                 {
-                    toTarget = Vector3.forward;
+                    toTarget = TSVector.forward;
                 }
 
-                var context = new AbilityActivationContext(self.Position, toTarget, targetId);
+                var context = new AbilityActivationContext(self.SimPosition, toTarget, targetId);
                 if (!owner.Framework.CanActivateAbility(owner.ActorId, abilityId, context).Success)
                 {
                     return BtStatus.Failure;
@@ -193,14 +196,14 @@ namespace Framework.GamePlay
                     BattleIntentCommand.Cast(
                         owner.ActorId,
                         abilityId,
-                        self.Position,
+                        self.SimPosition,
                         toTarget,
                         targetId,
                         BattleIntentSource.Ai));
                 return BtStatus.Success;
             });
 
-        static float HorizontalDistanceSqr(Vector3 a, Vector3 b)
+        static FP HorizontalDistanceSqr(TSVector a, TSVector b)
         {
             var dx = a.x - b.x;
             var dz = a.z - b.z;

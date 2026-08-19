@@ -1,4 +1,5 @@
 using System;
+using Framework.FixedMath;
 
 namespace Framework.GamePlay
 {
@@ -48,7 +49,7 @@ namespace Framework.GamePlay
         public int Tick(
             float unscaledDeltaTime,
             Action<BattleIntentFrame> fillFrame,
-            Action<float> afterFixedStep = null)
+            Action<FP> afterFixedStep = null)
         {
             if (fillFrame == null)
             {

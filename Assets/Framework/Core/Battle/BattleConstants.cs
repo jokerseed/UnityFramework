@@ -1,3 +1,5 @@
+using Framework.FixedMath;
+
 namespace Framework.Core
 {
     /// <summary>战斗框架常量：GAS 属性名、标签字符串与物理参数默认值。</summary>
@@ -37,7 +39,7 @@ namespace Framework.Core
         public const string IncomingDamageMultiplier = "IncomingDamageMultiplier";
 
         /// <summary>未配置暴击倍率时的默认值。</summary>
-        public const float DefaultCritMultiplier = 2f;
+        public static readonly FP DefaultCritMultiplier = (FP)2;
 
         /// <summary>死亡状态标签。</summary>
         public const string TagDead = "State.Dead";
@@ -79,19 +81,19 @@ namespace Framework.Core
         public const string TagDodging = "State.Dodging";
 
         /// <summary>击退冲量默认持续秒数。</summary>
-        public const float DefaultKnockbackDuration = 0.16f;
+        public static readonly FP DefaultKnockbackDuration = (FP)0.16f;
 
         /// <summary>冷却效果 ID 前缀，完整 ID 为 <c>Cooldown.{abilityId}</c>。</summary>
         public const string CooldownEffectPrefix = "Cooldown.";
 
         /// <summary>Actor 碰撞体默认半径（米）。</summary>
-        public const float DefaultActorCollisionRadius = 0.5f;
+        public static readonly FP DefaultActorCollisionRadius = (FP)0.5f;
 
         /// <summary>空间分区格子边长（米），影响宽相位碰撞精度与性能。</summary>
-        public const float SpatialCellSize = 2f;
+        public static readonly FP SpatialCellSize = (FP)2;
 
         /// <summary>默认最大法力。</summary>
-        public const float DefaultMaxMana = 100f;
+        public static readonly FP DefaultMaxMana = (FP)100;
 
         /// <summary>
         /// 是否为可耗尽资源属性（当前值由伤害/消耗改写，不能被 Modifier 全量重算覆盖）。

@@ -16,7 +16,7 @@
 |------|------|
 | `GamePlayModule` | `IGameModule` 实现，持有 `BattleDirector` |
 | `BattleDirector` | Session 工厂 + 集中 Tick：`CreateSession` / `DestroySession` / `GetSession` / `Tick(dt)` |
-| `BattleSession` | 一场战斗的独立会话：持有独立 `GamePlayFramework` + `ResourceScope` + ActorId 分配器 |
+| `BattleSession` | 一场战斗的独立会话：持有独立 `GamePlayFramework` + `ResourceScope` + ActorId 分配器；`FixedDeltaTime` 为 `FP` |
 | `GamePlayFramework` | 玩法运行时：创建 Actor、注册技能、驱动单场 Tick |
 | `ActorRegistry` | ActorId ↔ ECS Entity ↔ ASC 三向映射 |
 | `BattleCommandProcessor` | 刷写 Spawn / Damage / Heal / GE / Area / Displace |
@@ -93,6 +93,9 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 约定：
 
 - 连招选择、火球瞄准、闪避朝向在 **编码时** 决定；`Apply` 只执行
+- `BattleIntentCommand` 速度 / 朝向 / 施法原点与方向均为 `TSVector`；`BattleActor.SimPosition` 为逻辑链权威位姿，`Position` 保留给 ViewBinder
+- AI / 围攻槽位 / 远距追击全程读 `SimPosition`；黑板运行时读 `FP`，JSON 配置 float 只在装配时转一次
+- 刷波环上坐标与 `ReviveActor` 直接用 `TSVector` / `SimPosition`，不做 FP→Vector3→FP 往返
 - 眩晕 / 倒地禁移动、闪避中不覆盖速度，留在 **执行器** 作为规则
 - 刷波、`CreateActor` 不是行为意图
 - 指令带来源 `Player` / `Ai` / `Replay`，只用于日志与回放过滤，不改变规则
@@ -100,13 +103,13 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 
 ## 单机锁步 Host
 
-`LocalLockstepHost` 用 `Time.unscaledDeltaTime` 追赶 `BattleSession.FixedDeltaTime`：
+`LocalLockstepHost` 用 `Time.unscaledDeltaTime`（仅渲染追赶累加器）追赶 `BattleSession.FixedDeltaTime`（`FP` 逻辑步长）。每个逻辑步的 `beforeFixedStep` / `afterFixedStep`、`CollectAiIntents`、`Framework.Tick`、刷波与录像带均携带该 `FP`：
 
 ```
 fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequeue → BattleIntentApplier → Framework.Tick → 刷波 → checksum / 录像
 ```
 
-单机入队后立即出队。联机时同一队列可改为等远端帧到齐再出队。逻辑步不受 `Time.timeScale` 影响。位移 / 碰撞 / 技能仿真数值（伤害、冷却、范围、属性、伤害管线）为定点 `FP`；表现事件仍发 float。超大数值结算不要用 Q31.32。
+单机入队后立即出队。联网时同一队列可改为等远端帧到齐再出队。逻辑步不受 `Time.timeScale` 影响。意图、AI、位姿查询、命令缓冲位姿与物理常量均为定点（`FP` / `TSVector`）；表现事件与 `BattleActor.Position` 仍为 float / `Vector3`。超大数值结算不要用 Q31.32。
 
 战斗中按 **F8** 会用当前录像在影子 Session 上重放指令（不跑 AI 收集），逐帧比对 `BattleFrameChecksum`。
 

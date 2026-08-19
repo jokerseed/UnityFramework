@@ -30,7 +30,7 @@ ECS/
 
 | 能力 | 类型 |
 |------|------|
-| System Phase | `EcsSystemPhase.Simulate` / `Cleanup` |
+| System Phase | `EcsSystemPhase.Simulate` / `Cleanup`；`ISystem.Update` / `World.Tick` 的 `deltaTime` 为 `FP` |
 | 组件查询 | `world.ForEach<TDriver, TRequired>(...)` |
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
 | 空间索引 | `SpatialHashGrid`（定点格子 + HashSet 池化） + `SpatialIndexService.RebuildActors` |
@@ -82,6 +82,7 @@ GAS 查询与 ECS 碰撞各重建一次 Actor 空间索引：查询前用「上�
 - ECS 通过 `ActorLinkComponent.ActorId` 关联 GAS 的 `AbilitySystemComponent`
 - `ActorRegistry` 目标查询走 `SpatialHashGrid` broadphase + GAS Tag narrowphase
 - 碰撞命中时写入 `ApplyDamageCommand` 到 `BattleCommandBuffer`，由 GamePlay 刷写后交给 GAS 结算
+- 投射物爆炸写入 `ApplyAreaEffectCommand`，`Origin` / `Direction` 为 `TSVector`（来自 `TransformComponent.Position`）
 - **不在 ECS 组件中存储生命值/攻击力**，避免双源数据
 
 ## Query 示例
@@ -90,7 +91,7 @@ GAS 查询与 ECS 碰撞各重建一次 Actor 空间索引：查询前用「上�
 // 只遍历同时拥有 Velocity 与 Transform 的实体
 world.ForEach<VelocityComponent, TransformComponent>((entityId, velocity, transform) =>
 {
-    transform.Position += velocity.Value * (FP)deltaTime;
+    transform.Position += velocity.Value * deltaTime;
     world.GetStorage<TransformComponent>().Add(entityId, transform);
 });
 ```

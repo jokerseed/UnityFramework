@@ -1,4 +1,5 @@
 using System;
+using Framework.FixedMath;
 
 namespace Framework.GamePlay
 {
@@ -75,7 +76,7 @@ namespace Framework.GamePlay
         public static BattleReplayVerifyResult Run(
             BattleReplayTape tape,
             BattleSession session,
-            Action<float> afterFixedStep = null)
+            Action<FP> afterFixedStep = null)
         {
             if (tape == null)
             {
@@ -93,7 +94,7 @@ namespace Framework.GamePlay
             {
                 var recorded = frames[i];
                 session.Tick(
-                    tape.FixedDeltaTime,
+                    tape.FixedDeltaTime.AsFloat(),
                     _ => BattleIntentApplier.ApplyAll(session.Framework, recorded.Commands),
                     afterFixedStep);
 

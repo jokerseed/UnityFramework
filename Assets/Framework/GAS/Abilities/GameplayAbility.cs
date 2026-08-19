@@ -2,8 +2,6 @@ using System.Collections.Generic;
 using Framework.Core;
 using Framework.FixedMath;
 using Framework.GAS.Tags;
-using UnityEngine;
-
 namespace Framework.GAS.Abilities
 {
     /// <summary>
@@ -143,11 +141,11 @@ namespace Framework.GAS.Abilities
     /// <summary>技能激活上下文，描述激活瞬间的空间信息与目标。</summary>
     public readonly struct AbilityActivationContext
     {
-        /// <summary>技能发射/施放起点（世界坐标）。</summary>
-        public Vector3 Origin { get; }
+        /// <summary>技能发射/施放起点（世界坐标，定点）。</summary>
+        public TSVector Origin { get; }
 
-        /// <summary>施放方向（已归一化）；若传入零向量则默认为 <see cref="Vector3.forward"/>。</summary>
-        public Vector3 Direction { get; }
+        /// <summary>施放方向（已归一化，y=0）；若传入零向量则默认为 <see cref="TSVector.forward"/>。</summary>
+        public TSVector Direction { get; }
 
         /// <summary>主目标单位 ID；无目标时为默认值（<see cref="ActorId.IsValid"/> 为 false）。</summary>
         public ActorId PrimaryTarget { get; }
@@ -157,17 +155,28 @@ namespace Framework.GAS.Abilities
 
         /// <summary>构造技能激活上下文。</summary>
         /// <param name="origin">施放起点（世界坐标）。</param>
-        /// <param name="direction">施放方向；零向量时自动设为 <see cref="Vector3.forward"/>。</param>
+        /// <param name="direction">施放方向；零向量时自动设为 <see cref="TSVector.forward"/>。</param>
         /// <param name="primaryTarget">主目标 ID；无目标传 default。</param>
         /// <param name="range">有效范围（米）；0 表示由技能自定义。</param>
         public AbilityActivationContext(
-            Vector3 origin,
-            Vector3 direction,
+            TSVector origin,
+            TSVector direction,
             ActorId primaryTarget = default,
             FP range = default)
         {
             Origin = origin;
-            Direction = direction.sqrMagnitude > 0f ? direction.normalized : Vector3.forward;
+            var dir = direction;
+            dir.y = FP.Zero;
+            if (dir.sqrMagnitude > FP.Zero)
+            {
+                dir.Normalize();
+                Direction = dir;
+            }
+            else
+            {
+                Direction = TSVector.forward;
+            }
+
             PrimaryTarget = primaryTarget;
             Range = range;
         }

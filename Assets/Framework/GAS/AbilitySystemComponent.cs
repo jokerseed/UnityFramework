@@ -56,11 +56,17 @@ namespace Framework.GAS
         /// <summary>Cue 管理器；为 null 时直接向 EventBus 发布 <see cref="GameplayCueEvent"/>。</summary>
         public IGameplayCueManager CueManager { get; set; }
 
-        /// <summary>Cue 使用的世界坐标；由 GamePlay 每帧同步。</summary>
+        /// <summary>Cue 使用的世界坐标（表现）；由 GamePlay 每帧从 <see cref="CueSimPosition"/> 同步。</summary>
         public Vector3 CuePosition { get; set; }
 
-        /// <summary>Cue 使用的朝向；由 GamePlay 每帧同步。</summary>
+        /// <summary>Cue 使用的朝向（表现）；由 GamePlay 每帧从 <see cref="CueSimDirection"/> 同步。</summary>
         public Vector3 CueDirection { get; set; } = Vector3.forward;
+
+        /// <summary>Cue 与逻辑查询使用的仿真坐标（定点）。</summary>
+        public TSVector CueSimPosition { get; set; }
+
+        /// <summary>Cue 与逻辑查询使用的仿真朝向（定点）。</summary>
+        public TSVector CueSimDirection { get; set; } = TSVector.forward;
 
         /// <summary>创建与指定单位绑定的技能系统组件。</summary>
         /// <param name="actorId">所属单位标识符。</param>
@@ -626,24 +632,23 @@ namespace Framework.GAS
         }
 
         /// <summary>每帧驱动激活技能 Task 与效果 Tick；已死亡或无活跃内容时跳过。</summary>
-        /// <param name="deltaTime">帧间隔（秒）。</param>
+        /// <param name="deltaTime">帧间隔（秒，定点）。</param>
         /// <param name="eventBus">事件总线。</param>
-        public void Tick(float deltaTime, IEventBus eventBus)
+        public void Tick(FP deltaTime, IEventBus eventBus)
         {
             if (IsDead)
             {
                 return;
             }
 
-            var dt = (FP)deltaTime;
             if (_activeInstances.Count > 0)
             {
-                TickActiveAbilities(dt, eventBus);
+                TickActiveAbilities(deltaTime, eventBus);
             }
 
             if (_activeEffects.Count > 0)
             {
-                TickEffects(dt, eventBus);
+                TickEffects(deltaTime, eventBus);
             }
         }
 
@@ -694,13 +699,13 @@ namespace Framework.GAS
 
         /// <summary>初始化生命属性。</summary>
         /// <param name="maxHealth">最大生命。</param>
-        public void InitializeHealth(float maxHealth) =>
+        public void InitializeHealth(FP maxHealth) =>
             InitializeCombatAttributes(maxHealth, BattleConstants.DefaultMaxMana);
 
         /// <summary>初始化生命、法力、护盾与暴击等战斗属性。</summary>
         /// <param name="maxHealth">最大生命。</param>
         /// <param name="maxMana">最大法力。</param>
-        public void InitializeCombatAttributes(float maxHealth, float maxMana)
+        public void InitializeCombatAttributes(FP maxHealth, FP maxMana)
         {
             Attributes.GetOrCreate(BattleConstants.MaxHealth, maxHealth).SetBaseValue(maxHealth);
             Attributes.GetOrCreate(BattleConstants.Health, maxHealth).SetCurrentValue(maxHealth);
@@ -717,7 +722,7 @@ namespace Framework.GAS
         /// <summary>清空持续效果与控制状态并回满资源，供 Actor 池回收复用。</summary>
         /// <param name="eventBus">事件总线；不可为 null。</param>
         /// <param name="maxHealth">复活后的最大生命。</param>
-        public void ResetForReuse(IEventBus eventBus, float maxHealth)
+        public void ResetForReuse(IEventBus eventBus, FP maxHealth)
         {
             if (eventBus == null)
             {
@@ -1151,8 +1156,8 @@ namespace Framework.GAS
                 }
 
                 var context = new AbilityActivationContext(
-                    eventData.TargetLocation,
-                    Vector3.forward,
+                    eventData.TargetSimLocation,
+                    TSVector.forward,
                     eventData.Target);
 
                 var info = new AbilityActivationInfo

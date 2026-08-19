@@ -33,11 +33,11 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 近战扇形 | `MeleeSweepAbility` / `MeleeSweepTask`（前摇、窗口、后摇，每目标只结算一次） |
 | 闪避 | `DashAbility`：自身 IFrame + 朝向冲刺 |
 | 霸体 / 倒地 | 眩晕不打断霸体；倒地无视霸体并禁手禁移 |
-| 定点仿真 | 冷却 / 范围 / 伤害 / 属性 / GE 时长与 Modifier 为 `FP`；表现事件仍发 float |
+| 定点仿真 | 冷却 / 范围 / 伤害 / 属性 / GE 时长与 Modifier 为 `FP`；`AbilityActivationContext` 位姿为 `TSVector`；表现事件仍发 float |
 
 ## 定点约定
 
-技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(float)` 入口每帧转一次 `FP`（固定步长下同一 float 位型对应同一 `FP`）。超大数值战斗结算不要用 Q31.32。
+技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。`AbilityActivationContext.Origin` / `Direction` 与 ASC `CueSimPosition` / `CueSimDirection` 为 `TSVector`；`CuePosition` / `CueDirection` 仍供 Cue 与事件 float 发布。`GameplayEventData.TargetSimLocation` 为仿真坐标（`TSVector`），`HandleGameplayEvent` 直接用于施法原点。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(FP)` 由 `GamePlayFramework` 以会话固定步长驱动，不再在入口把 float 转定点。超大数值战斗结算不要用 Q31.32。
 
 ## Tick 顺序（GamePlay 驱动）
 

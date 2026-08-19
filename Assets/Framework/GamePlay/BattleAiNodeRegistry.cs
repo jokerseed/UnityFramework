@@ -15,7 +15,8 @@ namespace Framework.GamePlay
     {
         const float DefaultMoveSpeed = 2.2f;
         const float DefaultMeleeRange = 2f;
-        const float ArriveSlotRange = 0.28f;
+        static readonly FP ArriveSlotRange = (FP)0.28f;
+        static readonly FP ArriveSlotRangeSqr = ArriveSlotRange * ArriveSlotRange;
         const string SpeedParamKey = "speed";
         const string StopRangeParamKey = "stopRange";
 
@@ -41,7 +42,7 @@ namespace Framework.GamePlay
 
         static BtNode CreateInRange(BtConfigNode config)
         {
-            var range = ResolveFloat(config, null, DefaultMeleeRange, BattleAiBlackboardKeys.MeleeRange);
+            var range = ResolveFp(config, null, (FP)DefaultMeleeRange, BattleAiBlackboardKeys.MeleeRange);
             return BtTreeBuilder.Condition(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
@@ -53,14 +54,14 @@ namespace Framework.GamePlay
                     return false;
                 }
 
-                var effectiveRange = ResolveFloat(config, ctx, range, BattleAiBlackboardKeys.MeleeRange);
-                if (Vector3.Distance(self.Position, target.Position) <= effectiveRange)
+                var effectiveRange = ResolveFp(config, ctx, range, BattleAiBlackboardKeys.MeleeRange);
+                if (TSVector.Distance(self.SimPosition, target.SimPosition) <= effectiveRange)
                 {
                     return true;
                 }
 
                 return owner.Framework.TryGetEngagePoint(owner.ActorId, out var slot) &&
-                       HorizontalDistanceSqr(self.Position, slot) <= ArriveSlotRange * ArriveSlotRange;
+                       HorizontalDistanceSqr(self.SimPosition, slot) <= ArriveSlotRangeSqr;
             });
         }
 
@@ -72,7 +73,7 @@ namespace Framework.GamePlay
                 if (owner.Framework != null)
                 {
                     owner.Framework.SubmitIntent(
-                        BattleIntentCommand.Move(owner.ActorId, Vector3.zero, Vector3.zero, BattleIntentSource.Ai));
+                        BattleIntentCommand.Move(owner.ActorId, TSVector.zero, TSVector.zero, BattleIntentSource.Ai));
                 }
 
                 return BtStatus.Success;
@@ -81,8 +82,8 @@ namespace Framework.GamePlay
 
         static BtNode CreateMoveTo(BtConfigNode config)
         {
-            var speedDefault = ReadFloatParam(config, SpeedParamKey, config.FloatParam > 0f ? config.FloatParam : DefaultMoveSpeed);
-            var stopDefault = ReadFloatParam(config, StopRangeParamKey, DefaultMeleeRange * 0.85f);
+            var speedDefault = (FP)ReadFloatParam(config, SpeedParamKey, config.FloatParam > 0f ? config.FloatParam : DefaultMoveSpeed);
+            var stopDefault = (FP)ReadFloatParam(config, StopRangeParamKey, DefaultMeleeRange * 0.85f);
 
             return BtTreeBuilder.Action(ctx =>
             {
@@ -98,16 +99,16 @@ namespace Framework.GamePlay
                 var speed = speedDefault;
                 if (ctx.Blackboard.TryGetFp(BattleAiBlackboardKeys.MoveSpeed, out var speedFp))
                 {
-                    speed = speedFp.AsFloat();
+                    speed = speedFp;
                 }
 
                 var stopRange = stopDefault;
                 if (ctx.Blackboard.TryGetFp(BattleAiBlackboardKeys.MeleeRange, out var meleeFp))
                 {
-                    stopRange = meleeFp.AsFloat() * 0.85f;
+                    stopRange = meleeFp * (FP)0.85f;
                 }
 
-                var dest = target.Position;
+                var dest = target.SimPosition;
                 var arrive = stopRange;
                 if (owner.Framework.TryGetEngagePoint(owner.ActorId, out var slot))
                 {
@@ -115,11 +116,11 @@ namespace Framework.GamePlay
                     arrive = ArriveSlotRange;
                 }
 
-                var face = target.Position - self.Position;
-                var toDest = dest - self.Position;
-                toDest.y = 0f;
+                var face = target.SimPosition - self.SimPosition;
+                var toDest = dest - self.SimPosition;
+                toDest.y = FP.Zero;
                 var distance = toDest.magnitude;
-                var velocity = distance <= arrive ? Vector3.zero : toDest / distance * speed;
+                var velocity = distance <= arrive ? TSVector.zero : toDest / distance * speed;
                 owner.Framework.SubmitIntent(
                     BattleIntentCommand.Move(owner.ActorId, velocity, face, BattleIntentSource.Ai));
                 return distance <= arrive ? BtStatus.Success : BtStatus.Running;
@@ -153,14 +154,14 @@ namespace Framework.GamePlay
                     return BtStatus.Failure;
                 }
 
-                var toTarget = target.Position - self.Position;
-                toTarget.y = 0f;
-                if (toTarget.sqrMagnitude < 0.0001f)
+                var toTarget = target.SimPosition - self.SimPosition;
+                toTarget.y = FP.Zero;
+                if (toTarget.sqrMagnitude < FP.EN4)
                 {
-                    toTarget = Vector3.forward;
+                    toTarget = TSVector.forward;
                 }
 
-                var context = new AbilityActivationContext(self.Position, toTarget, targetId);
+                var context = new AbilityActivationContext(self.SimPosition, toTarget, targetId);
                 if (!owner.Framework.CanActivateAbility(owner.ActorId, abilityId, context).Success)
                 {
                     return BtStatus.Failure;
@@ -170,7 +171,7 @@ namespace Framework.GamePlay
                     BattleIntentCommand.Cast(
                         owner.ActorId,
                         abilityId,
-                        self.Position,
+                        self.SimPosition,
                         toTarget,
                         targetId,
                         BattleIntentSource.Ai));
@@ -200,21 +201,21 @@ namespace Framework.GamePlay
             return false;
         }
 
-        static float ResolveFloat(
+        static FP ResolveFp(
             BtConfigNode config,
             BtContext ctx,
-            float fallback,
+            FP fallback,
             string blackboardKey)
         {
             if (ctx != null &&
                 ctx.Blackboard.TryGetFp(blackboardKey, out var fp))
             {
-                return fp.AsFloat();
+                return fp;
             }
 
             if (config != null && config.FloatParam > 0f)
             {
-                return config.FloatParam;
+                return (FP)config.FloatParam;
             }
 
             return fallback;
@@ -232,7 +233,7 @@ namespace Framework.GamePlay
             return fallback;
         }
 
-        static float HorizontalDistanceSqr(Vector3 a, Vector3 b)
+        static FP HorizontalDistanceSqr(TSVector a, TSVector b)
         {
             var dx = a.x - b.x;
             var dz = a.z - b.z;

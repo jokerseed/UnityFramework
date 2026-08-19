@@ -42,11 +42,20 @@ namespace Framework.GamePlay
             {
                 var command = commands[i];
                 var entity = _world.CreateEntity();
-                var direction = FPConversions.ToFP(
-                    command.Direction.sqrMagnitude > 0.0001f ? command.Direction.normalized : Vector3.forward);
+                var direction = command.Direction;
+                direction.y = FP.Zero;
+                if (direction.sqrMagnitude <= FP.EN4)
+                {
+                    direction = TSVector.forward;
+                }
+                else
+                {
+                    direction.Normalize();
+                }
+
                 _world.AddComponent(entity, new TransformComponent
                 {
-                    Position = FPConversions.ToFP(command.Position),
+                    Position = command.Position,
                     Forward = direction
                 });
                 _world.AddComponent(entity, new VelocityComponent

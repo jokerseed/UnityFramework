@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
 using Framework.Core.Tick;
+using Framework.FixedMath;
 
 namespace Framework.ECS
 {
@@ -160,8 +161,8 @@ namespace Framework.ECS
         }
 
         /// <summary>按 Phase 顺序驱动所有已注册系统执行一帧逻辑。</summary>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
-        public void Tick(float deltaTime)
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）。</param>
+        public void Tick(FP deltaTime)
         {
             for (var p = 0; p < s_phaseOrder.Length; p++)
             {
@@ -175,6 +176,8 @@ namespace Framework.ECS
                 }
             }
         }
+
+        void ITickable.Tick(float deltaTime) => Tick((FP)deltaTime);
 
         /// <summary>销毁世界：逆序调用所有系统的 <see cref="ISystem.OnDestroy"/>，并清空全部存储。</summary>
         public void Dispose()

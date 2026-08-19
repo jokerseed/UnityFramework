@@ -30,8 +30,8 @@ namespace Framework.ECS.Systems
 
         /// <summary>Movement 之后重建 Actor 空间索引。</summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）；本系统未使用。</param>
-        public void Update(World world, float deltaTime)
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）；本系统未使用。</param>
+        public void Update(World world, FP deltaTime)
         {
             SpatialIndexService.RebuildActors(world, _grid);
         }
@@ -53,13 +53,12 @@ namespace Framework.ECS.Systems
 
         /// <summary>遍历所有具有速度组件的实体，按 deltaTime 更新其位置。</summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
-        public void Update(World world, float deltaTime)
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）。</param>
+        public void Update(World world, FP deltaTime)
         {
-            var dt = (FP)deltaTime;
             world.ForEach<VelocityComponent, TransformComponent>((entityId, velocity, transform) =>
             {
-                transform.Position += velocity.Value * dt;
+                transform.Position += velocity.Value * deltaTime;
                 world.GetStorage<TransformComponent>().Add(entityId, transform);
             });
         }
@@ -81,9 +80,8 @@ namespace Framework.ECS.Systems
         public void OnDestroy(World world) { }
 
         /// <inheritdoc/>
-        public void Update(World world, float deltaTime)
+        public void Update(World world, FP deltaTime)
         {
-            var dt = (FP)deltaTime;
             _scratch.Clear();
             _expired.Clear();
             var knockbacks = world.GetStorage<KnockbackComponent>();
@@ -107,8 +105,8 @@ namespace Framework.ECS.Systems
                     continue;
                 }
 
-                transform.Position += knockback.Velocity * dt;
-                knockback.Remaining -= dt;
+                transform.Position += knockback.Velocity * deltaTime;
+                knockback.Remaining -= deltaTime;
                 transforms.Add(entityId, transform);
                 if (knockback.Remaining <= FP.Zero)
                 {
@@ -145,14 +143,14 @@ namespace Framework.ECS.Systems
         public void OnDestroy(World world) { }
 
         /// <inheritdoc/>
-        public void Update(World world, float deltaTime)
+        public void Update(World world, FP deltaTime)
         {
             _ids.Clear();
             _positions.Clear();
             _radii.Clear();
             _pushes.Clear();
 
-            var defaultRadius = (FP)BattleConstants.DefaultActorCollisionRadius;
+            var defaultRadius = BattleConstants.DefaultActorCollisionRadius;
             var combat = world.GetStorage<CombatStateComponent>();
             world.ForEach<ActorLinkComponent, TransformComponent, CollisionComponent>(
                 (entityId, _, transform, collision) =>
@@ -236,10 +234,10 @@ namespace Framework.ECS.Systems
 
         /// <summary>遍历所有投射物，递减剩余生命时间并销毁已到期的实体。</summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
-        public void Update(World world, float deltaTime)
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）。</param>
+        public void Update(World world, FP deltaTime)
         {
-            var dt = (FP)deltaTime;
+            var dt = deltaTime;
             _toDestroy.Clear();
             _ids.Clear();
             var projectiles = world.GetStorage<ProjectileComponent>();
@@ -295,8 +293,8 @@ namespace Framework.ECS.Systems
         /// 命中（非友方、非自身、距离在半径之内）时入队伤害指令并摧毁投射物。
         /// </summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
-        /// <param name="deltaTime">距上一帧的时间间隔（秒）；本系统未使用。</param>
-        public void Update(World world, float deltaTime)
+        /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）；本系统未使用。</param>
+        public void Update(World world, FP deltaTime)
         {
             var grid = world.GetSingleton<SpatialHashGrid>();
             if (grid == null || world.Commands == null)
@@ -312,7 +310,7 @@ namespace Framework.ECS.Systems
             var teams = world.GetStorage<TeamComponent>();
             var collisions = world.GetStorage<CollisionComponent>();
             var commands = world.Commands;
-            var defaultRadius = (FP)BattleConstants.DefaultActorCollisionRadius;
+            var defaultRadius = BattleConstants.DefaultActorCollisionRadius;
 
             foreach (var projectilePair in projectiles.All)
             {
@@ -377,7 +375,7 @@ namespace Framework.ECS.Systems
                         commands.EnqueueApplyAreaEffect(new ApplyAreaEffectCommand
                         {
                             Source = projectile.Owner,
-                            Origin = projectileTransform.ToUnityPosition(),
+                            Origin = projectileTransform.Position,
                             Radius = projectile.ExplodeRadius,
                             Damage = projectile.Damage,
                             AbilityId = projectile.AbilityId,

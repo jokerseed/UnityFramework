@@ -48,11 +48,11 @@ namespace Framework.GamePlay
         /// <summary>驱动一帧 AI。</summary>
         /// <param name="framework">玩法框架。</param>
         /// <param name="ownerId">该 Agent 对应的 Actor。</param>
-        /// <param name="deltaTime">帧间隔（秒）。</param>
-        public void Tick(GamePlayFramework framework, ActorId ownerId, float deltaTime)
+        /// <param name="deltaTime">帧间隔（秒，定点）。</param>
+        public void Tick(GamePlayFramework framework, ActorId ownerId, FP deltaTime)
         {
             _context.Owner = new BattleAiOwner(framework, ownerId);
-            _context.AdvanceFrame(FP.FromFloat(deltaTime));
+            _context.AdvanceFrame(deltaTime);
             _tree.Tick(_context);
         }
 

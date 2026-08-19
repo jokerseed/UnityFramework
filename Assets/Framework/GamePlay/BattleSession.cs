@@ -37,12 +37,12 @@ namespace Framework.GamePlay
         /// <summary>会话是否正在运行（未暂停、未释放）。</summary>
         public bool IsRunning { get; set; } = true;
 
-        /// <summary>逻辑固定步长（秒）。</summary>
-        public float FixedDeltaTime { get; set; } = 1f / 30f;
+        /// <summary>逻辑固定步长（秒，定点）。</summary>
+        public FP FixedDeltaTime { get; set; } = (FP)(1) / 30;
 
         /// <summary>当前渲染帧的逻辑插值系数，范围 [0, 1]。</summary>
-        public float InterpolationAlpha => FixedDeltaTime > 0f
-            ? Mathf.Clamp01(_tickAccumulator / FixedDeltaTime)
+        public float InterpolationAlpha => FixedDeltaTime > FP.Zero
+            ? Mathf.Clamp01(_tickAccumulator / FixedDeltaTime.AsFloat())
             : 0f;
 
         /// <summary>本场战斗随机种子。</summary>
@@ -91,27 +91,28 @@ namespace Framework.GamePlay
         /// <returns>本次渲染帧实际推进的逻辑步数。</returns>
         public int Tick(
             float deltaTime,
-            Action<float> beforeFixedStep = null,
-            Action<float> afterFixedStep = null)
+            Action<FP> beforeFixedStep = null,
+            Action<FP> afterFixedStep = null)
         {
             if (_disposed || !IsRunning)
             {
                 return 0;
             }
 
-            if (FixedDeltaTime <= 0f)
+            if (FixedDeltaTime <= FP.Zero)
             {
                 throw new InvalidOperationException("BattleSession.FixedDeltaTime must be greater than zero.");
             }
 
-            _tickAccumulator = Mathf.Min(_tickAccumulator + Mathf.Max(0f, deltaTime), FixedDeltaTime * 4f);
+            var stepSeconds = FixedDeltaTime.AsFloat();
+            _tickAccumulator = Mathf.Min(_tickAccumulator + Mathf.Max(0f, deltaTime), stepSeconds * 4f);
             var stepped = 0;
-            while (_tickAccumulator >= FixedDeltaTime)
+            while (_tickAccumulator >= stepSeconds)
             {
                 beforeFixedStep?.Invoke(FixedDeltaTime);
                 Framework.Tick(FixedDeltaTime);
                 afterFixedStep?.Invoke(FixedDeltaTime);
-                _tickAccumulator -= FixedDeltaTime;
+                _tickAccumulator -= stepSeconds;
                 stepped++;
             }
 
