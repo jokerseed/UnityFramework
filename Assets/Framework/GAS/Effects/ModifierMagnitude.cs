@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 
 namespace Framework.GAS.Effects
@@ -24,7 +24,7 @@ namespace Framework.GAS.Effects
         public ModifierMagnitudeType Type { get; }
 
         /// <summary>常量值或 AttributeBased 系数。</summary>
-        public float Value { get; }
+        public FP Value { get; }
 
         /// <summary>AttributeBased 时读取的属性名。</summary>
         public string AttributeName { get; }
@@ -32,7 +32,7 @@ namespace Framework.GAS.Effects
         /// <summary>SetByCaller 键名。</summary>
         public string SetByCallerKey { get; }
 
-        ModifierMagnitude(ModifierMagnitudeType type, float value, string attributeName, string setByCallerKey)
+        ModifierMagnitude(ModifierMagnitudeType type, FP value, string attributeName, string setByCallerKey)
         {
             Type = type;
             Value = value;
@@ -42,29 +42,34 @@ namespace Framework.GAS.Effects
 
         /// <summary>固定幅度。</summary>
         /// <param name="value">常量值。</param>
-        public static ModifierMagnitude Constant(float value) =>
+        public static ModifierMagnitude Constant(FP value) =>
             new ModifierMagnitude(ModifierMagnitudeType.Constant, value, null, null);
 
         /// <summary>基于属性幅度：<c>source.Attribute * coefficient</c>。</summary>
         /// <param name="attributeName">属性名。</param>
+        public static ModifierMagnitude FromAttribute(string attributeName) =>
+            FromAttribute(attributeName, FP.One);
+
+        /// <summary>基于属性幅度：<c>source.Attribute * coefficient</c>。</summary>
+        /// <param name="attributeName">属性名。</param>
         /// <param name="coefficient">系数。</param>
-        public static ModifierMagnitude FromAttribute(string attributeName, float coefficient = 1f) =>
+        public static ModifierMagnitude FromAttribute(string attributeName, FP coefficient) =>
             new ModifierMagnitude(ModifierMagnitudeType.AttributeBased, coefficient, attributeName, null);
 
         /// <summary>从 SetByCaller 读取；不存在时返回 0。</summary>
         /// <param name="key">SetByCaller 键。</param>
         public static ModifierMagnitude FromSetByCaller(string key) =>
-            new ModifierMagnitude(ModifierMagnitudeType.SetByCaller, 0f, null, key);
+            new ModifierMagnitude(ModifierMagnitudeType.SetByCaller, FP.Zero, null, key);
 
         /// <summary>计算最终幅度。</summary>
         /// <param name="source">来源 ASC。</param>
         /// <param name="target">目标 ASC。</param>
         /// <param name="setByCaller">SetByCaller 字典。</param>
         /// <returns>计算后的幅度。</returns>
-        public float Evaluate(
+        public FP Evaluate(
             AbilitySystemComponent source,
             AbilitySystemComponent target,
-            IReadOnlyDictionary<string, float> setByCaller)
+            IReadOnlyDictionary<string, FP> setByCaller)
         {
             switch (Type)
             {
@@ -74,7 +79,7 @@ namespace Framework.GAS.Effects
                     var asc = source ?? target;
                     if (asc == null || string.IsNullOrEmpty(AttributeName))
                     {
-                        return 0f;
+                        return FP.Zero;
                     }
 
                     return asc.Attributes.GetCurrentValue(AttributeName) * Value;
@@ -84,9 +89,9 @@ namespace Framework.GAS.Effects
                         return v;
                     }
 
-                    return 0f;
+                    return FP.Zero;
                 default:
-                    return 0f;
+                    return FP.Zero;
             }
         }
     }

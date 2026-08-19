@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Events;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Attributes;
 using Framework.GAS.Combat;
@@ -29,7 +30,7 @@ namespace Framework.GAS
         readonly List<ActiveGameplayEffect> _activeEffects = new List<ActiveGameplayEffect>();
         readonly List<ActiveAbilityInstance> _activeInstancesScratch = new List<ActiveAbilityInstance>();
         readonly AttributeModifierAggregator _aggregator = new AttributeModifierAggregator();
-        float _appliedShieldBonus;
+        FP _appliedShieldBonus;
 
         /// <summary>所属单位的唯一标识符。</summary>
         public ActorId ActorId { get; }
@@ -42,6 +43,9 @@ namespace Framework.GAS
 
         /// <summary>伤害处理管线；默认为 <see cref="DefaultDamageProcessor"/>，可替换为自定义实现。</summary>
         public IDamageProcessor DamageProcessor { get; set; } = new DefaultDamageProcessor();
+
+        /// <summary>本场战斗确定性随机源；由 GamePlay 在创建 Actor 时注入。</summary>
+        public IDeterministicRandom Random { get; set; }
 
         /// <summary>当前激活中的技能实例（只读）。</summary>
         public IReadOnlyList<ActiveAbilityInstance> ActiveInstances => _activeInstances;
@@ -392,9 +396,9 @@ namespace Framework.GAS
         /// <param name="abilityId">冷却键（技能 ID 或共享组名）。</param>
         /// <param name="cooldown">冷却秒数。</param>
         /// <param name="eventBus">事件总线；可为 null（仍写入效果但不发 Cue）。</param>
-        public void StartCooldown(string abilityId, float cooldown, IEventBus eventBus)
+        public void StartCooldown(string abilityId, FP cooldown, IEventBus eventBus)
         {
-            if (cooldown <= 0f || string.IsNullOrEmpty(abilityId))
+            if (cooldown <= FP.Zero || string.IsNullOrEmpty(abilityId))
             {
                 return;
             }
@@ -422,7 +426,7 @@ namespace Framework.GAS
             GameplayEffectSpec spec,
             ActorId source,
             IEventBus eventBus,
-            IReadOnlyDictionary<string, float> setByCaller) =>
+            IReadOnlyDictionary<string, FP> setByCaller) =>
             ApplyEffect(spec, source, eventBus, setByCaller, null);
 
         /// <summary>将 GameplayEffect 应用到本 ASC。</summary>
@@ -436,7 +440,7 @@ namespace Framework.GAS
             GameplayEffectSpec spec,
             ActorId source,
             IEventBus eventBus,
-            IReadOnlyDictionary<string, float> setByCaller,
+            IReadOnlyDictionary<string, FP> setByCaller,
             AbilitySystemComponent sourceAsc)
         {
             if (spec == null || eventBus == null || IsDead)
@@ -481,7 +485,7 @@ namespace Framework.GAS
             GameplayEffectDef def,
             ActorId source,
             IEventBus eventBus,
-            IReadOnlyDictionary<string, float> setByCaller = null,
+            IReadOnlyDictionary<string, FP> setByCaller = null,
             AbilitySystemComponent sourceAsc = null) =>
             ApplyEffect(def.ToRuntimeSpec(setByCaller), source, eventBus, setByCaller, sourceAsc);
 
@@ -489,9 +493,9 @@ namespace Framework.GAS
         /// <param name="amount">治疗量。</param>
         /// <param name="eventBus">事件总线。</param>
         /// <returns>实际增加大于 0 时返回 true。</returns>
-        public bool ApplyHeal(float amount, IEventBus eventBus)
+        public bool ApplyHeal(FP amount, IEventBus eventBus)
         {
-            if (amount <= 0f || IsDead || eventBus == null)
+            if (amount <= FP.Zero || IsDead || eventBus == null)
             {
                 return false;
             }
@@ -499,7 +503,7 @@ namespace Framework.GAS
             var health = Attributes.GetOrCreate(BattleConstants.Health);
             var old = health.CurrentValue;
             var max = Attributes.GetCurrentValue(BattleConstants.MaxHealth);
-            var next = Math.Min(max <= 0f ? old + amount : max, old + amount);
+            var next = TSMath.Min(max <= FP.Zero ? old + amount : max, old + amount);
             if (next <= old)
             {
                 return false;
@@ -510,8 +514,8 @@ namespace Framework.GAS
             {
                 Actor = ActorId,
                 AttributeName = BattleConstants.Health,
-                OldValue = old,
-                NewValue = next
+                OldValue = old.AsFloat(),
+                NewValue = next.AsFloat()
             });
             return true;
         }
@@ -564,41 +568,41 @@ namespace Framework.GAS
             }
 
             var processed = DamageProcessor.Process(context, sourceAsc, this);
-            if (processed.FinalDamage <= 0f && processed.ShieldAbsorbed <= 0f)
+            if (processed.FinalDamage <= FP.Zero && processed.ShieldAbsorbed <= FP.Zero)
             {
                 eventBus.Publish(new DamageBlockedEvent
                 {
                     Source = processed.Source,
                     Target = processed.Target,
                     AbilityId = processed.AbilityId,
-                    RawDamage = processed.RawDamage
+                    RawDamage = processed.RawDamage.AsFloat()
                 });
                 return false;
             }
 
-            if (processed.ShieldAbsorbed > 0f)
+            if (processed.ShieldAbsorbed > FP.Zero)
             {
                 var shield = Attributes.GetOrCreate(BattleConstants.Shield);
                 eventBus.Publish(new AttributeChangedEvent
                 {
                     Actor = ActorId,
                     AttributeName = BattleConstants.Shield,
-                    OldValue = shield.CurrentValue + processed.ShieldAbsorbed,
-                    NewValue = shield.CurrentValue
+                    OldValue = (shield.CurrentValue + processed.ShieldAbsorbed).AsFloat(),
+                    NewValue = shield.CurrentValue.AsFloat()
                 });
             }
 
             var health = Attributes.GetOrCreate(BattleConstants.Health);
             var oldValue = health.CurrentValue;
-            var newValue = Math.Max(0f, oldValue - processed.FinalDamage);
+            var newValue = TSMath.Max(FP.Zero, oldValue - processed.FinalDamage);
             health.SetCurrentValue(newValue);
 
             eventBus.Publish(new AttributeChangedEvent
             {
                 Actor = ActorId,
                 AttributeName = BattleConstants.Health,
-                OldValue = oldValue,
-                NewValue = newValue
+                OldValue = oldValue.AsFloat(),
+                NewValue = newValue.AsFloat()
             });
 
             eventBus.Publish(new DamageDealtEvent
@@ -606,19 +610,19 @@ namespace Framework.GAS
                 Source = processed.Source,
                 Target = processed.Target,
                 AbilityId = processed.AbilityId,
-                RawDamage = processed.RawDamage,
-                FinalDamage = processed.FinalDamage,
+                RawDamage = processed.RawDamage.AsFloat(),
+                FinalDamage = processed.FinalDamage.AsFloat(),
                 IsCrit = processed.IsCrit,
-                ShieldAbsorbed = processed.ShieldAbsorbed,
+                ShieldAbsorbed = processed.ShieldAbsorbed.AsFloat(),
                 DamageType = processed.DamageType
             });
 
-            if (newValue <= 0f)
+            if (newValue <= FP.Zero)
             {
                 HandleDeath(eventBus, processed.Source, processed.AbilityId);
             }
 
-            return processed.FinalDamage > 0f || processed.ShieldAbsorbed > 0f;
+            return processed.FinalDamage > FP.Zero || processed.ShieldAbsorbed > FP.Zero;
         }
 
         /// <summary>每帧驱动激活技能 Task 与效果 Tick；已死亡或无活跃内容时跳过。</summary>
@@ -631,29 +635,30 @@ namespace Framework.GAS
                 return;
             }
 
+            var dt = (FP)deltaTime;
             if (_activeInstances.Count > 0)
             {
-                TickActiveAbilities(deltaTime, eventBus);
+                TickActiveAbilities(dt, eventBus);
             }
 
             if (_activeEffects.Count > 0)
             {
-                TickEffects(deltaTime, eventBus);
+                TickEffects(dt, eventBus);
             }
         }
 
         /// <summary>获取剩余冷却（取该冷却键对应 GE 的剩余时间）。</summary>
         /// <param name="abilityId">技能 ID 或共享冷却键。</param>
         /// <returns>剩余秒数；无冷却为 0。</returns>
-        public float CooldownRemaining(string abilityId)
+        public FP CooldownRemaining(string abilityId)
         {
             if (string.IsNullOrEmpty(abilityId))
             {
-                return 0f;
+                return FP.Zero;
             }
 
             var effectId = BattleConstants.CooldownEffectPrefix + abilityId;
-            var remaining = 0f;
+            var remaining = FP.Zero;
             for (var i = 0; i < _activeEffects.Count; i++)
             {
                 var effect = _activeEffects[i];
@@ -740,13 +745,13 @@ namespace Framework.GAS
                 return;
             }
 
-            if (Attributes.GetCurrentValue(BattleConstants.Health) <= 0f)
+            if (Attributes.GetCurrentValue(BattleConstants.Health) <= FP.Zero)
             {
                 HandleDeath(eventBus, ActorId.Invalid, null);
             }
         }
 
-        void TickActiveAbilities(float deltaTime, IEventBus eventBus)
+        void TickActiveAbilities(FP deltaTime, IEventBus eventBus)
         {
             if (_activeInstances.Count == 0)
             {
@@ -862,7 +867,7 @@ namespace Framework.GAS
             GrantTags(spec.GrantedTags, eventBus);
             GrantAbilities(active);
             PublishCueTags(spec.CueTagsOnApply, eventBus, GameplayCueAction.Add);
-            if (spec.Period > 0f)
+            if (spec.Period > FP.Zero)
             {
                 ExecutePeriodic(active, eventBus);
             }
@@ -888,7 +893,7 @@ namespace Framework.GAS
         void ApplyInstantEffect(
             GameplayEffectSpec spec,
             IEventBus eventBus,
-            IReadOnlyDictionary<string, float> setByCaller,
+            IReadOnlyDictionary<string, FP> setByCaller,
             AbilitySystemComponent sourceAsc)
         {
             GrantTags(spec.GrantedTags, eventBus);
@@ -915,7 +920,7 @@ namespace Framework.GAS
         void ApplyModifierInstant(
             EffectModifier modifier,
             IEventBus eventBus,
-            IReadOnlyDictionary<string, float> setByCaller,
+            IReadOnlyDictionary<string, FP> setByCaller,
             AbilitySystemComponent sourceAsc)
         {
             var magnitude = modifier.Magnitude.Evaluate(sourceAsc ?? this, this, setByCaller);
@@ -939,17 +944,17 @@ namespace Framework.GAS
             {
                 Actor = ActorId,
                 AttributeName = modifier.AttributeName,
-                OldValue = oldValue,
-                NewValue = attribute.CurrentValue
+                OldValue = oldValue.AsFloat(),
+                NewValue = attribute.CurrentValue.AsFloat()
             });
 
-            if (modifier.AttributeName == BattleConstants.Health && attribute.CurrentValue <= 0f)
+            if (modifier.AttributeName == BattleConstants.Health && attribute.CurrentValue <= FP.Zero)
             {
                 HandleDeath(eventBus, sourceAsc?.ActorId ?? ActorId.Invalid, null);
             }
         }
 
-        void TickEffects(float deltaTime, IEventBus eventBus)
+        void TickEffects(FP deltaTime, IEventBus eventBus)
         {
             var changed = false;
             for (var i = _activeEffects.Count - 1; i >= 0; i--)
@@ -979,15 +984,15 @@ namespace Framework.GAS
             }
         }
 
-        void TickPeriodicEffect(ActiveGameplayEffect effect, float deltaTime, IEventBus eventBus)
+        void TickPeriodicEffect(ActiveGameplayEffect effect, FP deltaTime, IEventBus eventBus)
         {
-            if (effect.Spec.Period <= 0f)
+            if (effect.Spec.Period <= FP.Zero)
             {
                 return;
             }
 
             effect.PeriodTimer -= deltaTime;
-            if (effect.PeriodTimer > 0f)
+            if (effect.PeriodTimer > FP.Zero)
             {
                 return;
             }
@@ -1178,7 +1183,7 @@ namespace Framework.GAS
         /// <summary>检查属性 Cost 是否足够，不扣除。</summary>
         /// <param name="costAttributes">消耗表；为空时视为足够。</param>
         /// <returns>可支付返回 true。</returns>
-        public bool CanAffordCost(IReadOnlyDictionary<string, float> costAttributes)
+        public bool CanAffordCost(IReadOnlyDictionary<string, FP> costAttributes)
         {
             if (costAttributes == null || costAttributes.Count == 0)
             {
@@ -1197,7 +1202,7 @@ namespace Framework.GAS
         }
 
         /// <summary>检查并扣除属性 Cost。</summary>
-        public bool TryPayCost(IReadOnlyDictionary<string, float> costAttributes)
+        public bool TryPayCost(IReadOnlyDictionary<string, FP> costAttributes)
         {
             if (!CanAffordCost(costAttributes))
             {
@@ -1260,17 +1265,17 @@ namespace Framework.GAS
             PublishAttributeChanges(oldValues, eventBus);
 
             var healthAttr = Attributes.GetOrCreate(BattleConstants.Health);
-            if (healthAttr.CurrentValue <= 0f)
+            if (healthAttr.CurrentValue <= FP.Zero)
             {
                 HandleDeath(eventBus, ActorId.Invalid, null);
             }
         }
 
-        void ApplyDepletableShield(float newMax)
+        void ApplyDepletableShield(FP newMax)
         {
-            if (newMax < 0f)
+            if (newMax < FP.Zero)
             {
-                newMax = 0f;
+                newMax = FP.Zero;
             }
 
             var shield = Attributes.GetOrCreate(BattleConstants.Shield);
@@ -1285,9 +1290,9 @@ namespace Framework.GAS
                 current = newMax;
             }
 
-            if (current < 0f)
+            if (current < FP.Zero)
             {
-                current = 0f;
+                current = FP.Zero;
             }
 
             shield.SetCurrentValue(current);
@@ -1298,15 +1303,15 @@ namespace Framework.GAS
         {
             var max = Attributes.GetCurrentValue(maxName);
             var attr = Attributes.GetOrCreate(currentName);
-            if (max > 0f && attr.CurrentValue > max)
+            if (max > FP.Zero && attr.CurrentValue > max)
             {
                 attr.SetCurrentValue(max);
             }
         }
 
-        Dictionary<string, float> CaptureAttributeValues()
+        Dictionary<string, FP> CaptureAttributeValues()
         {
-            var result = new Dictionary<string, float>();
+            var result = new Dictionary<string, FP>();
             foreach (var pair in Attributes.GetAllAttributes())
             {
                 result[pair.Key] = pair.Value.CurrentValue;
@@ -1315,7 +1320,7 @@ namespace Framework.GAS
             return result;
         }
 
-        void PublishAttributeChanges(Dictionary<string, float> oldValues, IEventBus eventBus)
+        void PublishAttributeChanges(Dictionary<string, FP> oldValues, IEventBus eventBus)
         {
             foreach (var pair in Attributes.GetAllAttributes())
             {
@@ -1325,7 +1330,7 @@ namespace Framework.GAS
                 }
 
                 var newValue = pair.Value.CurrentValue;
-                if (Math.Abs(oldValue - newValue) < 0.0001f)
+                if (TSMath.Abs(oldValue - newValue) < FP.EN4)
                 {
                     continue;
                 }
@@ -1334,8 +1339,8 @@ namespace Framework.GAS
                 {
                     Actor = ActorId,
                     AttributeName = pair.Key,
-                    OldValue = oldValue,
-                    NewValue = newValue
+                    OldValue = oldValue.AsFloat(),
+                    NewValue = newValue.AsFloat()
                 });
             }
         }

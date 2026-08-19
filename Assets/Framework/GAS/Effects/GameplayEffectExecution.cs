@@ -1,7 +1,7 @@
-using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Events;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 
@@ -20,7 +20,7 @@ namespace Framework.GAS.Effects
         public GameplayEffectSpec Spec { get; }
 
         /// <summary>SetByCaller 幅度。</summary>
-        public IReadOnlyDictionary<string, float> SetByCaller { get; }
+        public IReadOnlyDictionary<string, FP> SetByCaller { get; }
 
         /// <summary>事件总线。</summary>
         public IEventBus EventBus { get; }
@@ -30,7 +30,7 @@ namespace Framework.GAS.Effects
             AbilitySystemComponent source,
             AbilitySystemComponent target,
             GameplayEffectSpec spec,
-            IReadOnlyDictionary<string, float> setByCaller,
+            IReadOnlyDictionary<string, FP> setByCaller,
             IEventBus eventBus)
         {
             Source = source;
@@ -52,7 +52,7 @@ namespace Framework.GAS.Effects
     /// <summary>默认伤害 Execution：SetByCaller/Data 或 Attack 参与计算。</summary>
     public sealed class DamageExecution : GameplayEffectExecution
     {
-        readonly float _attackScale;
+        readonly FP _attackScale;
         readonly string _setByCallerKey;
         readonly BattleDamageType _damageType;
 
@@ -73,7 +73,7 @@ namespace Framework.GAS.Effects
         /// <inheritdoc/>
         public override void Execute(in ExecutionContext context)
         {
-            var raw = 0f;
+            var raw = FP.Zero;
             if (context.SetByCaller != null &&
                 !string.IsNullOrEmpty(_setByCallerKey) &&
                 context.SetByCaller.TryGetValue(_setByCallerKey, out var callerDamage))
@@ -112,15 +112,15 @@ namespace Framework.GAS.Effects
             var health = context.Target.Attributes.GetOrCreate(BattleConstants.Health);
             var old = health.CurrentValue;
             var max = context.Target.Attributes.GetCurrentValue(BattleConstants.MaxHealth);
-            var next = Math.Min(max, old + amount);
+            var next = TSMath.Min(max, old + amount);
             health.SetCurrentValue(next);
 
             context.EventBus.Publish(new Events.AttributeChangedEvent
             {
                 Actor = context.Target.ActorId,
                 AttributeName = BattleConstants.Health,
-                OldValue = old,
-                NewValue = next
+                OldValue = old.AsFloat(),
+                NewValue = next.AsFloat()
             });
         }
     }

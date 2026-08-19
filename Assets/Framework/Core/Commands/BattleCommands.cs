@@ -1,3 +1,4 @@
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.Core.Commands
@@ -18,16 +19,16 @@ namespace Framework.Core.Commands
         public Vector3 Direction;
 
         /// <summary>投射物飞行速度（米/秒）。</summary>
-        public float Speed;
+        public FP Speed;
 
         /// <summary>投射物碰撞体半径（米）。</summary>
-        public float Radius;
+        public FP Radius;
 
         /// <summary>投射物存活时间（秒）；超时自动销毁。</summary>
-        public float Lifetime;
+        public FP Lifetime;
 
         /// <summary>命中时对目标造成的伤害基础值。</summary>
-        public float Damage;
+        public FP Damage;
 
         /// <summary>发射者所属队伍 ID，用于友伤判定。</summary>
         public int TeamId;
@@ -39,7 +40,7 @@ namespace Framework.Core.Commands
         public string HitEffectId;
 
         /// <summary>命中爆炸半径；≤0 表示不爆炸。</summary>
-        public float ExplodeRadius;
+        public FP ExplodeRadius;
 
         /// <summary>伤害类型。</summary>
         public BattleDamageType DamageType;
@@ -55,7 +56,7 @@ namespace Framework.Core.Commands
         public ActorId Target;
 
         /// <summary>伤害量（经来源属性计算后的最终值）。</summary>
-        public float Damage;
+        public FP Damage;
 
         /// <summary>触发伤害的技能 ID，用于 GAS 效果查表。</summary>
         public string AbilityId;
@@ -74,7 +75,7 @@ namespace Framework.Core.Commands
         public ActorId Target;
 
         /// <summary>治疗量。</summary>
-        public float Amount;
+        public FP Amount;
     }
 
     /// <summary>对目标施加 GameplayEffect（由 GamePlay 按 EffectId 装配）。</summary>
@@ -96,8 +97,8 @@ namespace Framework.Core.Commands
         /// <summary>位移目标。</summary>
         public ActorId Target;
 
-        /// <summary>世界空间位移向量。</summary>
-        public Vector3 Offset;
+        /// <summary>世界空间位移向量（定点）。</summary>
+        public TSVector Offset;
     }
 
     /// <summary>范围伤害/效果，由投射物爆炸或技能写入。</summary>
@@ -110,10 +111,10 @@ namespace Framework.Core.Commands
         public Vector3 Origin;
 
         /// <summary>半径。</summary>
-        public float Radius;
+        public FP Radius;
 
         /// <summary>对每个目标的伤害；0 表示只施加效果。</summary>
-        public float Damage;
+        public FP Damage;
 
         /// <summary>技能 ID。</summary>
         public string AbilityId;
@@ -128,7 +129,7 @@ namespace Framework.Core.Commands
         public BattleDamageType DamageType;
 
         /// <summary>扇形半角（度）；≤0 表示圆形范围。</summary>
-        public float HalfAngleDegrees;
+        public FP HalfAngleDegrees;
 
         /// <summary>扇形朝向；圆形时可忽略。</summary>
         public Vector3 Direction;

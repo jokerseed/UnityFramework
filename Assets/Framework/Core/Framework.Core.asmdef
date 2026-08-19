@@ -2,7 +2,8 @@
     "name": "Framework.Core",
     "rootNamespace": "Framework.Core",
     "references": [
-        "Framework.Events"
+        "Framework.Events",
+        "Framework.FixedMath"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

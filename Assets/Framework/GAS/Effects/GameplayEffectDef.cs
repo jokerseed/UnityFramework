@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 
@@ -18,10 +19,10 @@ namespace Framework.GAS.Effects
         public EffectStackingPolicy StackingPolicy { get; }
 
         /// <summary>持续时长（秒）。</summary>
-        public float Duration { get; }
+        public FP Duration { get; }
 
         /// <summary>周期（秒）；&gt; 0 时按 Periodic 触发 Execution。</summary>
-        public float Period { get; }
+        public FP Period { get; }
 
         /// <summary>属性修改器。</summary>
         public IReadOnlyList<EffectModifier> Modifiers { get; }
@@ -51,7 +52,7 @@ namespace Framework.GAS.Effects
         public IReadOnlyList<string> CueTagsOnRemove { get; }
 
         /// <summary>作为技能 Cost 的属性消耗（属性名 → 量）。</summary>
-        public IReadOnlyDictionary<string, float> CostAttributes { get; }
+        public IReadOnlyDictionary<string, FP> CostAttributes { get; }
 
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
@@ -60,7 +61,7 @@ namespace Framework.GAS.Effects
         public GameplayEffectDef(
             string effectId,
             EffectDurationPolicy durationPolicy,
-            float duration,
+            FP duration,
             IReadOnlyList<EffectModifier> modifiers = null,
             IReadOnlyList<GameplayTag> grantedTags = null,
             EffectStackingPolicy stackingPolicy = EffectStackingPolicy.None,
@@ -69,10 +70,10 @@ namespace Framework.GAS.Effects
             IReadOnlyList<GameplayTag> immunityTags = null,
             IReadOnlyList<GameplayAbilityDef> grantedAbilityDefs = null,
             IReadOnlyList<GameplayEffectExecution> executions = null,
-            float period = 0f,
+            FP period = default,
             IReadOnlyList<string> cueTagsOnApply = null,
             IReadOnlyList<string> cueTagsOnRemove = null,
-            IReadOnlyDictionary<string, float> costAttributes = null,
+            IReadOnlyDictionary<string, FP> costAttributes = null,
             int maxStacks = 0)
         {
             EffectId = effectId;
@@ -89,7 +90,7 @@ namespace Framework.GAS.Effects
             Executions = executions ?? Array.Empty<GameplayEffectExecution>();
             CueTagsOnApply = cueTagsOnApply ?? Array.Empty<string>();
             CueTagsOnRemove = cueTagsOnRemove ?? Array.Empty<string>();
-            CostAttributes = costAttributes ?? new Dictionary<string, float>();
+            CostAttributes = costAttributes ?? new Dictionary<string, FP>();
             MaxStacks = maxStacks;
         }
 
@@ -118,7 +119,7 @@ namespace Framework.GAS.Effects
         /// <summary>转为运行时 Spec。</summary>
         /// <param name="setByCaller">SetByCaller；可为 null。</param>
         /// <returns>运行时 Spec。</returns>
-        public GameplayEffectSpec ToRuntimeSpec(IReadOnlyDictionary<string, float> setByCaller = null) =>
+        public GameplayEffectSpec ToRuntimeSpec(IReadOnlyDictionary<string, FP> setByCaller = null) =>
             new GameplayEffectSpec(this, setByCaller);
     }
 }

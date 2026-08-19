@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 
 namespace Framework.GAS.Attributes
 {
@@ -11,15 +11,15 @@ namespace Framework.GAS.Attributes
         public string Name { get; }
 
         /// <summary>基础值，未经任何修改器影响。</summary>
-        public float BaseValue { get; private set; }
+        public FP BaseValue { get; private set; }
 
         /// <summary>当前值，基础值经加法/乘法修改器计算后的结果。</summary>
-        public float CurrentValue { get; private set; }
+        public FP CurrentValue { get; private set; }
 
         /// <summary>创建属性实例，基础值与当前值均初始化为 <paramref name="baseValue"/>。</summary>
         /// <param name="name">属性名称。</param>
         /// <param name="baseValue">初始基础值。</param>
-        public GameplayAttribute(string name, float baseValue)
+        public GameplayAttribute(string name, FP baseValue)
         {
             Name = name;
             BaseValue = baseValue;
@@ -28,20 +28,20 @@ namespace Framework.GAS.Attributes
 
         /// <summary>设置基础值并立即以零偏移、单位乘数重新计算当前值。</summary>
         /// <param name="value">新基础值。</param>
-        public void SetBaseValue(float value)
+        public void SetBaseValue(FP value)
         {
             BaseValue = value;
-            Recalculate(0f, 1f);
+            Recalculate(FP.Zero, FP.One);
         }
 
         /// <summary>直接覆写当前值（用于受到伤害、治疗等即时改变场景）。</summary>
         /// <param name="value">新当前值。</param>
-        public void SetCurrentValue(float value) => CurrentValue = value;
+        public void SetCurrentValue(FP value) => CurrentValue = value;
 
         /// <summary>用加法偏移和乘法系数重新计算当前值：<c>CurrentValue = (BaseValue + additive) * multiplier</c>。</summary>
         /// <param name="additive">加法修改量。</param>
         /// <param name="multiplier">乘法系数。</param>
-        public void Recalculate(float additive, float multiplier)
+        public void Recalculate(FP additive, FP multiplier)
         {
             CurrentValue = (BaseValue + additive) * multiplier;
         }
@@ -50,9 +50,9 @@ namespace Framework.GAS.Attributes
     /// <summary>在一次属性重算中汇总所有活跃效果的修改量，然后批量应用到 <see cref="GameplayAttributeSet"/>。</summary>
     public sealed class AttributeModifierAggregator
     {
-        readonly Dictionary<string, float> _additive = new Dictionary<string, float>();
-        readonly Dictionary<string, float> _multiplier = new Dictionary<string, float>();
-        readonly Dictionary<string, float> _override = new Dictionary<string, float>();
+        readonly Dictionary<string, FP> _additive = new Dictionary<string, FP>();
+        readonly Dictionary<string, FP> _multiplier = new Dictionary<string, FP>();
+        readonly Dictionary<string, FP> _override = new Dictionary<string, FP>();
         readonly HashSet<string> _keys = new HashSet<string>();
 
         /// <summary>清空本轮汇总数据，以便下一次重算前重新填入。</summary>
@@ -69,7 +69,7 @@ namespace Framework.GAS.Attributes
         /// <param name="magnitude">单层幅度。</param>
         /// <param name="operation">运算方式。</param>
         /// <param name="stackCount">叠层；幅度会乘以该值。</param>
-        public void Add(string attributeName, float magnitude, Effects.EffectModifierOperation operation, int stackCount = 1)
+        public void Add(string attributeName, FP magnitude, Effects.EffectModifierOperation operation, int stackCount = 1)
         {
             var scaled = magnitude * stackCount;
             switch (operation)
@@ -120,8 +120,8 @@ namespace Framework.GAS.Attributes
                     continue;
                 }
 
-                var add = _additive.TryGetValue(key, out var a) ? a : 0f;
-                var mul = _multiplier.TryGetValue(key, out var m) ? m : 1f;
+                var add = _additive.TryGetValue(key, out var a) ? a : FP.Zero;
+                var mul = _multiplier.TryGetValue(key, out var m) ? m : FP.One;
                 attribute.Recalculate(add, mul);
             }
         }
@@ -131,7 +131,7 @@ namespace Framework.GAS.Attributes
         /// <param name="baseValue">基础值。</param>
         /// <param name="result">计算结果。</param>
         /// <returns>存在该属性的修改器时返回 true；否则 <paramref name="result"/> 为基础值。</returns>
-        public bool TryEvaluate(string attributeName, float baseValue, out float result)
+        public bool TryEvaluate(string attributeName, FP baseValue, out FP result)
         {
             if (_override.TryGetValue(attributeName, out var overrideValue))
             {
@@ -147,7 +147,7 @@ namespace Framework.GAS.Attributes
                 return false;
             }
 
-            result = (baseValue + (hasAdd ? add : 0f)) * (hasMul ? mul : 1f);
+            result = (baseValue + (hasAdd ? add : FP.Zero)) * (hasMul ? mul : FP.One);
             return true;
         }
     }
@@ -161,7 +161,7 @@ namespace Framework.GAS.Attributes
         /// <param name="name">属性名称。</param>
         /// <param name="defaultValue">首次创建时的基础值；默认为 0。</param>
         /// <returns>对应属性实例（不会返回 null）。</returns>
-        public GameplayAttribute GetOrCreate(string name, float defaultValue = 0f)
+        public GameplayAttribute GetOrCreate(string name, FP defaultValue = default)
         {
             if (!_attributes.TryGetValue(name, out var attribute))
             {
@@ -182,14 +182,14 @@ namespace Framework.GAS.Attributes
         /// <summary>获取指定属性的当前值；属性不存在时返回 0。</summary>
         /// <param name="name">属性名称。</param>
         /// <returns>当前值；不存在时返回 0。</returns>
-        public float GetCurrentValue(string name) =>
-            _attributes.TryGetValue(name, out var attribute) ? attribute.CurrentValue : 0f;
+        public FP GetCurrentValue(string name) =>
+            _attributes.TryGetValue(name, out var attribute) ? attribute.CurrentValue : FP.Zero;
 
         /// <summary>获取指定属性的基础值；属性不存在时返回 0。</summary>
         /// <param name="name">属性名称。</param>
         /// <returns>基础值；不存在时返回 0。</returns>
-        public float GetBaseValue(string name) =>
-            _attributes.TryGetValue(name, out var attribute) ? attribute.BaseValue : 0f;
+        public FP GetBaseValue(string name) =>
+            _attributes.TryGetValue(name, out var attribute) ? attribute.BaseValue : FP.Zero;
 
         /// <summary>
         /// 将非资源属性重置为无修改器状态（加量 0、系数 1）。
@@ -204,7 +204,7 @@ namespace Framework.GAS.Attributes
                     continue;
                 }
 
-                attribute.Recalculate(0f, 1f);
+                attribute.Recalculate(FP.Zero, FP.One);
             }
         }
 

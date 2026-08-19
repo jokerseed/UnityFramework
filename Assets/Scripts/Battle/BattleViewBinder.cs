@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Framework.ECS.Components;
+using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.Core;
 using UnityEngine;
@@ -49,8 +50,19 @@ namespace Game
         /// <param name="heroId">英雄 ActorId。</param>
         /// <param name="monsterIds">杂兵 ActorId 列表。</param>
         /// <param name="interpolationAlpha">逻辑帧到渲染帧的插值系数。</param>
-        public void Sync(GamePlayFramework framework, ActorId heroId, IReadOnlyList<ActorId> monsterIds, float interpolationAlpha)
+        /// <param name="freezeViews">为 true 时跳过位移同步，用于表现层 HitStop。</param>
+        public void Sync(
+            GamePlayFramework framework,
+            ActorId heroId,
+            IReadOnlyList<ActorId> monsterIds,
+            float interpolationAlpha,
+            bool freezeViews = false)
         {
+            if (freezeViews)
+            {
+                return;
+            }
+
             SyncActors(framework, heroId, monsterIds, interpolationAlpha);
             SyncProjectiles(framework);
         }
@@ -153,11 +165,11 @@ namespace Game
                 _aliveProjectileIds.Add(entityId);
                 if (!_projectileViews.TryGetValue(entityId, out var view) || view == null)
                 {
-                    view = CreateFireballView(entityId, pair.Value.Radius);
+                    view = CreateFireballView(entityId, pair.Value.Radius.AsFloat());
                     _projectileViews[entityId] = view;
                 }
 
-                view.transform.position = transform.Position;
+                view.transform.position = transform.ToUnityPosition();
             }
 
             _projectileViewRemoveScratch.Clear();

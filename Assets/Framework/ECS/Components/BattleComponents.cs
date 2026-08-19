@@ -1,23 +1,32 @@
 using Framework.Core;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.ECS.Components
 {
-    /// <summary>空间变换组件，存储实体的世界坐标与朝向。</summary>
+    /// <summary>空间变换组件，存储实体的世界坐标与朝向（定点，模拟权威）。</summary>
     public struct TransformComponent : IComponent
     {
         /// <summary>实体在世界空间的位置。</summary>
-        public Vector3 Position;
+        public TSVector Position;
 
         /// <summary>实体的朝向向量（单位向量）。</summary>
-        public Vector3 Forward;
+        public TSVector Forward;
+
+        /// <summary>转为 Unity 坐标，仅供表现层使用。</summary>
+        /// <returns>浮点世界坐标。</returns>
+        public Vector3 ToUnityPosition() => FPConversions.ToVector3(Position);
+
+        /// <summary>转为 Unity 朝向，仅供表现层使用。</summary>
+        /// <returns>浮点朝向。</returns>
+        public Vector3 ToUnityForward() => FPConversions.ToVector3(Forward);
     }
 
     /// <summary>速度组件，驱动 <see cref="Systems.MovementSystem"/> 对实体进行位移。</summary>
     public struct VelocityComponent : IComponent
     {
         /// <summary>每秒位移向量（世界单位/秒），方向即为移动方向。</summary>
-        public Vector3 Value;
+        public TSVector Value;
     }
 
     /// <summary>投射物组件，记录弹道的归属、伤害及生命周期信息。</summary>
@@ -30,13 +39,13 @@ namespace Framework.ECS.Components
         public string AbilityId;
 
         /// <summary>命中时造成的基础伤害值。</summary>
-        public float Damage;
+        public FP Damage;
 
         /// <summary>投射物的碰撞检测半径（世界单位）。</summary>
-        public float Radius;
+        public FP Radius;
 
         /// <summary>剩余存活时间（秒）；降至 0 时由 <see cref="Systems.ProjectileLifetimeSystem"/> 销毁实体。</summary>
-        public float RemainingLifetime;
+        public FP RemainingLifetime;
 
         /// <summary>投射物所属队伍 ID；用于过滤友方碰撞。</summary>
         public int TeamId;
@@ -48,7 +57,7 @@ namespace Framework.ECS.Components
         public string HitEffectId;
 
         /// <summary>命中爆炸半径；≤0 不爆炸。</summary>
-        public float ExplodeRadius;
+        public FP ExplodeRadius;
 
         /// <summary>伤害类型。</summary>
         public BattleDamageType DamageType;
@@ -58,10 +67,10 @@ namespace Framework.ECS.Components
     public struct KnockbackComponent : IComponent
     {
         /// <summary>击退速度（米/秒）。</summary>
-        public Vector3 Velocity;
+        public TSVector Velocity;
 
         /// <summary>剩余持续时间（秒）。</summary>
-        public float Remaining;
+        public FP Remaining;
     }
 
     /// <summary>Actor 关联组件，将 ECS 实体与 GAS Actor ID 绑定，供系统查找对应的 <see cref="Framework.GamePlay.BattleActor"/>。</summary>
@@ -89,6 +98,6 @@ namespace Framework.ECS.Components
     public struct CollisionComponent : IComponent
     {
         /// <summary>碰撞检测半径（世界单位）。</summary>
-        public float Radius;
+        public FP Radius;
     }
 }

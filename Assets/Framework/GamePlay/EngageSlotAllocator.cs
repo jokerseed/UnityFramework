@@ -59,6 +59,7 @@ namespace Framework.GamePlay
                 _focusIds.Add(focus);
             }
 
+            _focusIds.Sort((a, b) => a.Value.CompareTo(b.Value));
             for (var i = 0; i < _focusIds.Count; i++)
             {
                 AssignRing(registry, agents, _focusIds[i], min, max);

@@ -4,6 +4,7 @@ using Framework.Core;
 using Framework.Events;
 using Framework.Logging;
 using Framework.Res;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GamePlay
@@ -44,10 +45,17 @@ namespace Framework.GamePlay
             ? Mathf.Clamp01(_tickAccumulator / FixedDeltaTime)
             : 0f;
 
-        internal BattleSession(int sessionId)
+        /// <summary>本场战斗随机种子。</summary>
+        public int RandomSeed { get; }
+
+        /// <summary>本场战斗确定性随机源。</summary>
+        public TSRandom Random => Framework.Random;
+
+        internal BattleSession(int sessionId, int randomSeed = 1)
         {
             SessionId = sessionId;
-            Framework = new GamePlayFramework();
+            RandomSeed = randomSeed;
+            Framework = new GamePlayFramework(randomSeed);
             Scope = ResourceScope.Create($"BattleSession_{sessionId}");
         }
 

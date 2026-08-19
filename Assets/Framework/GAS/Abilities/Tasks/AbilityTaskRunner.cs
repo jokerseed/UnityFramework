@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Framework.FixedMath;
 
 namespace Framework.GAS.Abilities
 {
@@ -40,7 +41,7 @@ namespace Framework.GAS.Abilities
 
         /// <summary>Tick 所有未完成任务；移除已完成任务。</summary>
         /// <param name="deltaTime">帧间隔（秒）。</param>
-        public void Tick(float deltaTime)
+        public void Tick(FP deltaTime)
         {
             for (var i = _tasks.Count - 1; i >= 0; i--)
             {

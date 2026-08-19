@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.ECS` |
 | 命名空间 | `Framework.ECS` |
-| 依赖 | `Framework.Core` |
+| 依赖 | `Framework.Core`、`Framework.FixedMath` |
 
 ## 目录结构
 
@@ -33,20 +33,20 @@ ECS/
 | System Phase | `EcsSystemPhase.Simulate` / `Cleanup` |
 | 组件查询 | `world.ForEach<TDriver, TRequired>(...)` |
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
-| 空间索引 | `SpatialHashGrid`（HashSet 池化） + `SpatialIndexService.RebuildActors` |
+| 空间索引 | `SpatialHashGrid`（定点格子 + HashSet 池化） + `SpatialIndexService.RebuildActors` |
 
 ## 组件一览
 
 | 组件 | 字段 | 用途 |
 |------|------|------|
-| `TransformComponent` | Position, Forward | 世界坐标 |
-| `VelocityComponent` | Value | 速度 |
-| `ProjectileComponent` | Owner, AbilityId, Damage, Radius, RemainingLifetime, TeamId, PierceRemaining, HitEffectId, ExplodeRadius, DamageType | 投射物 |
-| `KnockbackComponent` | Velocity, Remaining | 击退冲量 |
+| `TransformComponent` | Position / Forward 为 `TSVector`；`ToUnityPosition()` 仅给表现 | 世界坐标（模拟权威） |
+| `VelocityComponent` | Value 为 `TSVector` | 速度 |
+| `ProjectileComponent` | Radius / RemainingLifetime / ExplodeRadius / Damage 均为 `FP` | 投射物 |
+| `KnockbackComponent` | Velocity 为 `TSVector`；Remaining 为 `FP` | 击退冲量 |
 | `ActorLinkComponent` | ActorId | 关联 GAS ASC |
 | `CombatStateComponent` | IsAlive | 存活标记（同步自 GAS） |
 | `TeamComponent` | TeamId | 阵营 |
-| `CollisionComponent` | Radius | 碰撞半径 |
+| `CollisionComponent` | Radius 为 `FP` | 碰撞半径 |
 
 ## System 一览
 
@@ -66,11 +66,11 @@ ECS/
 ```
 GamePlayFramework.Tick
   1. SpatialIndexService.RebuildActors   ← 供 GAS 目标查询（SpatialHash broadphase）
-  2. SyncCuePose → BT Agent → 定身/眩晕清速度
+  2. SyncCuePose → 定身/眩晕清速度
   3. 存活 ASC.Tick（无 Active 技能/效果则跳过）
   4. Flush Spawn
   5. World.Tick (Simulate Phase)
-       Movement → SpatialIndex → ProjectileCollision → ProjectileLifetime
+       Movement → Knockback → Separation → SpatialIndex → ProjectileCollision → ProjectileLifetime
   6. Flush Damage / Heal / GE / Area / Displace
   7. SyncDeath → Sync Positions
 ```
@@ -90,7 +90,7 @@ GAS 查询与 ECS 碰撞各重建一次 Actor 空间索引：查询前用「上�
 // 只遍历同时拥有 Velocity 与 Transform 的实体
 world.ForEach<VelocityComponent, TransformComponent>((entityId, velocity, transform) =>
 {
-    transform.Position += velocity.Value * deltaTime;
+    transform.Position += velocity.Value * (FP)deltaTime;
     world.GetStorage<TransformComponent>().Add(entityId, transform);
 });
 ```

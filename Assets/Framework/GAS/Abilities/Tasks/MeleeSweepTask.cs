@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
+using Framework.FixedMath;
 using Framework.GAS.Targeting;
 using UnityEngine;
 
@@ -19,13 +20,13 @@ namespace Framework.GAS.Abilities.Tasks
         readonly AbilitySystemComponent _owner;
         readonly BattleContext _battle;
         readonly ConeEnemyQuery _queryCone;
-        readonly float _windup;
-        readonly float _hitDuration;
-        readonly float _recovery;
-        readonly float _range;
-        readonly float _halfAngleDegrees;
-        readonly float _damage;
-        readonly float _knockback;
+        readonly FP _windup;
+        readonly FP _hitDuration;
+        readonly FP _recovery;
+        readonly FP _range;
+        readonly FP _halfAngleDegrees;
+        readonly FP _damage;
+        readonly FP _knockback;
         readonly string _abilityId;
         readonly string _hitEffectId;
         readonly string _comboEffectId;
@@ -34,7 +35,7 @@ namespace Framework.GAS.Abilities.Tasks
         readonly List<ActorId> _scratch = new List<ActorId>(16);
 
         Phase _phase = Phase.Windup;
-        float _elapsed;
+        FP _elapsed;
         bool _comboGranted;
 
         /// <summary>构造近战扇形判定任务。</summary>
@@ -56,13 +57,13 @@ namespace Framework.GAS.Abilities.Tasks
             AbilitySystemComponent owner,
             BattleContext battle,
             ConeEnemyQuery queryCone,
-            float windup,
-            float hitDuration,
-            float recovery,
-            float range,
-            float halfAngleDegrees,
-            float damage,
-            float knockback,
+            FP windup,
+            FP hitDuration,
+            FP recovery,
+            FP range,
+            FP halfAngleDegrees,
+            FP damage,
+            FP knockback,
             string abilityId,
             string hitEffectId,
             string comboEffectId,
@@ -85,7 +86,7 @@ namespace Framework.GAS.Abilities.Tasks
         }
 
         /// <inheritdoc/>
-        public override void Tick(float deltaTime)
+        public override void Tick(FP deltaTime)
         {
             if (IsDone || IsCancelled)
             {
@@ -99,10 +100,10 @@ namespace Framework.GAS.Abilities.Tasks
                     if (_elapsed >= _windup)
                     {
                         _phase = Phase.Hitting;
-                        _elapsed = 0f;
+                        _elapsed = FP.Zero;
                         TryGrantComboWindow();
                         Sweep();
-                        if (_hitDuration <= 0f)
+                        if (_hitDuration <= FP.Zero)
                         {
                             EnterRecovery();
                         }
@@ -133,8 +134,8 @@ namespace Framework.GAS.Abilities.Tasks
         void EnterRecovery()
         {
             _phase = Phase.Recovery;
-            _elapsed = 0f;
-            if (_recovery <= 0f)
+            _elapsed = FP.Zero;
+            if (_recovery <= FP.Zero)
             {
                 Finish();
             }
@@ -177,14 +178,19 @@ namespace Framework.GAS.Abilities.Tasks
                     });
                 }
 
-                if (_knockback > 0f)
+                if (_knockback > FP.Zero)
                 {
-                    var offset = direction * _knockback;
-                    offset.y = 0f;
+                    var dir = FPConversions.ToFP(direction);
+                    dir.y = FP.Zero;
+                    if (dir.sqrMagnitude > FP.Zero)
+                    {
+                        dir.Normalize();
+                    }
+
                     _battle.Commands.EnqueueApplyDisplace(new ApplyDisplaceCommand
                     {
                         Target = target,
-                        Offset = offset
+                        Offset = dir * _knockback
                     });
                 }
             }

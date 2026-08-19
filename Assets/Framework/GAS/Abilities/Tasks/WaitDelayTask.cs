@@ -1,25 +1,26 @@
 using System;
+using Framework.FixedMath;
 
 namespace Framework.GAS.Abilities.Tasks
 {
     /// <summary>等待指定秒数后执行回调。</summary>
     public sealed class WaitDelayTask : AbilityTask
     {
-        readonly float _duration;
+        readonly FP _duration;
         readonly Action _onComplete;
-        float _elapsed;
+        FP _elapsed;
 
         /// <summary>构造延迟 Task。</summary>
         /// <param name="duration">等待秒数。</param>
         /// <param name="onComplete">完成回调。</param>
-        public WaitDelayTask(float duration, Action onComplete)
+        public WaitDelayTask(FP duration, Action onComplete)
         {
             _duration = duration;
             _onComplete = onComplete;
         }
 
         /// <inheritdoc/>
-        public override void Tick(float deltaTime)
+        public override void Tick(FP deltaTime)
         {
             if (IsDone || IsCancelled)
             {

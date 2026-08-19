@@ -16,7 +16,7 @@
 | 项 | 状态 |
 |----|------|
 | 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
-| 战斗 Demo 锁步权威 Tick | 未接（仍 `deltaTime`） |
+| 战斗 Demo 锁步权威 Tick | 已接 `LocalLockstepHost`（意图帧 + checksum + F8 对拍） |
 | **预测回滚 / 状态快照** | **未实现** |
 | **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Framework.FixedMath;
 using Framework.GAS.Tags;
 
 namespace Framework.GAS.Abilities
@@ -11,7 +12,7 @@ namespace Framework.GAS.Abilities
         public string AbilityId { get; }
 
         /// <summary>技能冷却时间（秒）。</summary>
-        public float Cooldown { get; }
+        public FP Cooldown { get; }
 
         /// <summary>冷却键；空则使用 <see cref="AbilityId"/>。相同键的技能共享冷却 GE。</summary>
         public string CooldownId { get; }
@@ -35,7 +36,7 @@ namespace Framework.GAS.Abilities
         public GameplayTag TriggerTag { get; }
 
         /// <summary>激活消耗（属性名 → 量）。</summary>
-        public IReadOnlyDictionary<string, float> CostAttributes { get; }
+        public IReadOnlyDictionary<string, FP> CostAttributes { get; }
 
         readonly Func<GameplayAbility> _abilityFactory;
 
@@ -65,7 +66,7 @@ namespace Framework.GAS.Abilities
             ActivationOwnedTags = ability.ActivationOwnedTags;
             CancelAbilitiesWithTags = ability.CancelAbilitiesWithTags;
             TriggerTag = default;
-            CostAttributes = ability.CostAttributes ?? new Dictionary<string, float>();
+            CostAttributes = ability.CostAttributes ?? new Dictionary<string, FP>();
             _abilityFactory = () => ability;
         }
 
@@ -83,12 +84,12 @@ namespace Framework.GAS.Abilities
         /// <param name="cancelAbilitiesWithTags">激活时要取消的其它技能 Tag；为 null 时视为空。</param>
         public GameplayAbilityDef(
             string abilityId,
-            float cooldown,
+            FP cooldown,
             Func<GameplayAbility> abilityFactory,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             GameplayTag triggerTag = default,
-            IReadOnlyDictionary<string, float> costAttributes = null,
+            IReadOnlyDictionary<string, FP> costAttributes = null,
             string cooldownId = null,
             IReadOnlyList<GameplayTag> assetTags = null,
             IReadOnlyList<GameplayTag> activationOwnedTags = null,
@@ -113,7 +114,7 @@ namespace Framework.GAS.Abilities
             ActivationOwnedTags = activationOwnedTags ?? Array.Empty<GameplayTag>();
             CancelAbilitiesWithTags = cancelAbilitiesWithTags ?? Array.Empty<GameplayTag>();
             TriggerTag = triggerTag;
-            CostAttributes = costAttributes ?? new Dictionary<string, float>();
+            CostAttributes = costAttributes ?? new Dictionary<string, FP>();
             _abilityFactory = abilityFactory;
         }
     }

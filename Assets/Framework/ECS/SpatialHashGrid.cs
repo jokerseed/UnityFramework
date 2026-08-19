@@ -1,12 +1,13 @@
 using System.Collections.Generic;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.ECS
 {
-    /// <summary>简易空间哈希，降低弹道碰撞与目标查询复杂度。</summary>
+    /// <summary>简易空间哈希，降低弹道碰撞与目标查询复杂度。格子索引使用定点坐标。</summary>
     public sealed class SpatialHashGrid
     {
-        readonly float _cellSize;
+        readonly FP _cellSize;
         readonly Dictionary<long, HashSet<uint>> _cells = new Dictionary<long, HashSet<uint>>();
         readonly List<uint> _queryScratch = new List<uint>(32);
         readonly HashSet<uint> _queryDedup = new HashSet<uint>();
@@ -15,9 +16,9 @@ namespace Framework.ECS
 
         /// <summary>创建空间哈希网格。</summary>
         /// <param name="cellSize">单格边长（世界单位）；值越大每格容纳实体越多，查询精度越低。</param>
-        public SpatialHashGrid(float cellSize)
+        public SpatialHashGrid(FP cellSize)
         {
-            _cellSize = cellSize;
+            _cellSize = cellSize > FP.Zero ? cellSize : (FP)2;
         }
 
         /// <summary>清空格子内容并回收 HashSet，避免每帧 new。</summary>
@@ -35,7 +36,7 @@ namespace Framework.ECS
         /// <summary>将实体插入对应空间格子；同一格内同一实体只存一份。</summary>
         /// <param name="entityId">要插入的实体 ID。</param>
         /// <param name="position">实体的世界坐标；仅使用 X/Z 轴计算格子索引。</param>
-        public void Insert(uint entityId, Vector3 position)
+        public void Insert(uint entityId, TSVector position)
         {
             var key = Hash(position);
             if (!_cells.TryGetValue(key, out var set))
@@ -51,11 +52,11 @@ namespace Framework.ECS
         /// <param name="position">查询中心世界坐标；仅使用 X/Z 轴。</param>
         /// <param name="radius">查询半径（世界单位）；结果为格子级粗筛，可能包含实际超出半径的实体。</param>
         /// <returns>当前帧内复用的候选实体 ID 只读列表；下次调用前有效。</returns>
-        public IReadOnlyList<uint> QueryNearby(Vector3 position, float radius)
+        public IReadOnlyList<uint> QueryNearby(TSVector position, FP radius)
         {
             _queryScratch.Clear();
             _queryDedup.Clear();
-            var cellRadius = Mathf.CeilToInt(radius / _cellSize);
+            var cellRadius = TSMath.Ceiling(radius / _cellSize).AsInt();
             var center = Cell(position);
 
             for (var x = center.x - cellRadius; x <= center.x + cellRadius; x++)
@@ -81,17 +82,17 @@ namespace Framework.ECS
             return _queryScratch;
         }
 
-        Vector2Int Cell(Vector3 position)
+        Vector2Int Cell(TSVector position)
         {
             return new Vector2Int(
-                Mathf.FloorToInt(position.x / _cellSize),
-                Mathf.FloorToInt(position.z / _cellSize));
+                TSMath.Floor(position.x / _cellSize).AsInt(),
+                TSMath.Floor(position.z / _cellSize).AsInt());
         }
 
-        long Hash(Vector3 position)
+        long Hash(TSVector position)
         {
-            var x = Mathf.FloorToInt(position.x / _cellSize);
-            var z = Mathf.FloorToInt(position.z / _cellSize);
+            var x = TSMath.Floor(position.x / _cellSize).AsInt();
+            var z = TSMath.Floor(position.z / _cellSize).AsInt();
             return Pack(x, z);
         }
 

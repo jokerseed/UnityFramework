@@ -153,12 +153,12 @@ Launch 场景
 
 每帧顺序：
 
-1. `BattleInputController.Sample()` 在渲染帧采样输入
-2. `BattlePresentation.RestoreHitStopIfExpired()` 恢复时间缩放
-3. `BattleSession.Tick()` 用固定步长推进逻辑帧
-4. 每个逻辑步里调用 `BattleInputController.Apply()` 与 `BattleSetup.TickWaves()`
+1. `BattleInputController.Sample(unscaledDeltaTime)` 在渲染帧锁存输入
+2. `BattlePresentation.TickHitStop()` 到期则解除表现冻结
+3. `LocalLockstepHost.Tick(unscaledDeltaTime)` 追赶固定逻辑步
+4. 每个逻辑步：玩家编码 → `CollectAiIntents` → 入队 → 出队 → `BattleIntentApplier` → `Framework.Tick` → `TickWaves` → checksum / 录像
 5. `BattlePresentation.Tick()` 更新持续型 Cue
-6. `BattleViewBinder.Sync()` 用插值后的状态更新表现层
+6. `BattleViewBinder.Sync(..., freezeViews)`；HitStop 期间跳过位移同步
 
 清理顺序：
 
@@ -167,7 +167,7 @@ Launch 场景
 3. `BattleFlow.Exit()` 释放 Session
 4. `BattleSetup.TearDown()` 回收对象池等资源
 
-这套顺序的核心思想是：**输入采样和渲染帧绑定，逻辑推进和固定步长绑定，表现同步放在逻辑之后统一做**。
+这套顺序的核心思想是：**输入采样和渲染帧绑定，逻辑只消费意图帧并用 unscaled 固定步长推进，表现同步放在逻辑之后。**
 
 ## 战斗子模块说明
 
@@ -213,11 +213,13 @@ Launch 场景
 
 `BattleInputController` 分成三个阶段：
 
-- `Sample(deltaTime)`：在渲染帧通过 `Battle.BattleInputActions` 读取输入，生成 `BattleInputFrame`
-- `Apply(...)`：在逻辑步里把快照编码为 `Move` / `Cast`，再交给 `BattleIntentApplier` 执行
+- `Sample(unscaledDeltaTime)`：渲染帧锁存 `BattleInputFrame`（含一次性按键 OR）
+- `Encode(...)`：逻辑步把锁存编码为 `Move` / `Cast`，写入 `BattleIntentFrame`
 - `Enable()` / `Disable()` / `Dispose()`：战斗开始启用 `Battle` Action Map，退出时释放
 
-输入绑定定义在 `Assets/Settings/Input/Game.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
+真正执行在 `LocalLockstepHost`：入队 → 出队 → `BattleIntentApplier`。
+
+输入绑定定义在 `Assets/Settings/Input/Battle.inputactions`，生成类为 `Assets/Generated/Input/BattleInputActions.cs`。
 
 当前支持的操作（键位可在 Input Actions 资产里改）：
 
@@ -225,6 +227,7 @@ Launch 场景
 - `J`：近战三连（带 `ComboBufferSeconds` 输入缓冲；编码时用 `CanActivateAbility` 选段）
 - `K`：火球（编码时锁定最近敌人与朝向）
 - `Left Shift`：闪避（编码时用移动方向作为朝向）
+- `F8`：影子 Session 重放当前录像并比对 checksum
 
 眩晕 / 倒地禁移动、闪避中不覆盖速度等规则在 `BattleIntentApplier` 里统一执行，玩家与 AI 走同一套。
 
@@ -243,8 +246,8 @@ Launch 场景
 
 其中 HitStop 的策略是：
 
-- 当英雄造成有效伤害时，把 `Time.timeScale` 临时降到 `0.18`
-- 经过 `0.05s` 的 `unscaledTime` 后恢复为 `1`
+- 当英雄造成有效伤害时，冻结 View 位移约 `0.05s`（`FreezeViews`）
+- **不**修改 `Time.timeScale`；逻辑始终用 `unscaledDeltaTime` 追赶固定步长
 
 这类逻辑放在 Presentation 而不是 Setup / Input / View 里，是因为它本质上属于“事件触发的视觉反馈”，而不是玩法规则本身。
 
@@ -321,7 +324,7 @@ Launch 场景
 
 ### 3. 输入采样和逻辑推进解耦
 
-输入先采样成 `BattleInputFrame`，逻辑步再编码为 `BattleIntentCommand`，由 `BattleIntentApplier` 执行。玩家与 AI 共用 Move / Cast，不写进 `BattleCommandBuffer`。这是后续帧同步、回放最关键的前置条件之一。
+输入先采样成 `BattleInputFrame`，逻辑步再编码为 `BattleIntentCommand`，由 `BattleIntentApplier` 执行。玩家与 AI 共用 Move / Cast，不写进 `BattleCommandBuffer`。AI 在 `CollectAiIntents` 入帧，不在 `Framework.Tick` 里直接 Apply。F8 可用当前录像做影子对拍。
 
 ### 4. 表现同步晚于逻辑推进
 
@@ -355,6 +358,12 @@ BattleBootstrap.OnDestroy
 - 技能注册与怪物 AI 挂载
 - 12 槽杂兵刷波
 - 输入采样与固定步长应用
+- 意图帧队列 + 单机 `LocalLockstepHost`（玩家 + AI 同帧）
+- 逻辑帧 checksum + 内存录像；F8 影子 Session 对拍
+- 位移 / 碰撞定点（`TSVector` / `FP`）
+- 技能仿真定点（伤害、冷却、范围、属性；表现事件仍为 float）
+- 会话级种子随机（暴击 / AI）
+- 表现层 HitStop（不改 `Time.timeScale`）
 - Hero 近战 / 火球 / 闪避
 - Damage / Death / Gameplay Cue 事件表现
 - 杂兵对象池
@@ -368,7 +377,7 @@ BattleBootstrap.OnDestroy
 
 - 还没有完整的“战斗结束 -> 回 Launch -> 重新打开主界面”闭环
 - 还没有 Loading / 结算 / 失败界面
-- 输入虽然已经编码为 `BattleIntentCommand`，但还没有网络帧同步协议
+- 输入虽然已经编码为 `BattleIntentCommand` 并支持本地录像对拍，但还没有网络帧同步协议
 - 目前表现仍以简化球体、简单日志和对象池为主，尚未接 Animator / Timeline / 正式特效
 - 当前战斗内容偏 Demo，更多是用来验证 `Framework.GamePlay + GAS + ECS + Res + UI` 之间的拼装方式
 
@@ -383,5 +392,5 @@ BattleBootstrap.OnDestroy
 
 - 如果要新增一个业务场景，优先参考 `GameSceneFlow + BattleFlow + BattleBootstrap` 这套分层，不要把所有逻辑堆进一个 MonoBehaviour。
 - 如果要新增战斗技能演示，优先改 `BattleSetup` 的 Actor 能力注册，再在 `BattlePresentation` / `BattleCuePresenter` 补表现。
-- 如果要接网络同步，优先从 `BattleIntentCommand` 与 `BattleSession.Tick()` 下手，而不是直接改 View 层。
+- 如果要接网络同步，优先从 `BattleIntentCommand` 与 `LocalLockstepHost` 的意图帧队列下手，而不是直接改 View 层。
 - 如果要改资源释放策略，优先沿着 `BattleSession.Scope -> BattleFlow.Exit -> RequestUnusedAssetsCleanup` 这条链路梳理。

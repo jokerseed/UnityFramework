@@ -1,6 +1,7 @@
 using Framework.BehaviourTree;
 using Framework.Core;
 using Framework.FixedMath;
+using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using UnityEngine;
 
@@ -30,17 +31,19 @@ namespace Framework.GamePlay
         /// <param name="abilityId">技能 ID。</param>
         /// <param name="targetId">追击目标。</param>
         /// <param name="meleeRange">近战距离；默认 2。</param>
+        /// <param name="random">确定性随机源；为 null 时使用种子 1。</param>
         /// <returns>可交给 <see cref="GamePlayFramework.SetBattleAgent"/> 的 Agent。</returns>
         public static BattleAgent CreateMeleeChaserAgent(
             string abilityId,
             ActorId targetId,
-            float meleeRange = DefaultMeleeRange)
+            float meleeRange = DefaultMeleeRange,
+            TSRandom random = null)
         {
             BattleAiNodeRegistry.EnsureRegistered();
             var tree = BtTreeResource.LoadTree(MeleeChaserTreeId);
             var board = new BtBlackboard();
             ApplyMeleeChaserBlackboard(board, abilityId, targetId, meleeRange);
-            return new BattleAgent(tree, board, focusTarget: targetId);
+            return new BattleAgent(tree, board, focusTarget: targetId, random: random);
         }
 
         /// <summary>写入近战追击树运行时参数。</summary>
@@ -117,8 +120,7 @@ namespace Framework.GamePlay
                 var owner = ctx.GetOwner<BattleAiOwner>();
                 if (owner.Framework != null)
                 {
-                    BattleIntentApplier.Apply(
-                        owner.Framework,
+                    owner.Framework.SubmitIntent(
                         BattleIntentCommand.Move(owner.ActorId, Vector3.zero, Vector3.zero, BattleIntentSource.Ai));
                 }
 
@@ -154,8 +156,7 @@ namespace Framework.GamePlay
                 toDest.y = 0f;
                 var distance = toDest.magnitude;
                 var velocity = distance <= arrive ? Vector3.zero : toDest / distance * speed;
-                BattleIntentApplier.Apply(
-                    owner.Framework,
+                owner.Framework.SubmitIntent(
                     BattleIntentCommand.Move(owner.ActorId, velocity, face, BattleIntentSource.Ai));
                 return distance <= arrive ? BtStatus.Success : BtStatus.Running;
             });
@@ -182,8 +183,13 @@ namespace Framework.GamePlay
                     toTarget = Vector3.forward;
                 }
 
-                var success = BattleIntentApplier.Apply(
-                    owner.Framework,
+                var context = new AbilityActivationContext(self.Position, toTarget, targetId);
+                if (!owner.Framework.CanActivateAbility(owner.ActorId, abilityId, context).Success)
+                {
+                    return BtStatus.Failure;
+                }
+
+                owner.Framework.SubmitIntent(
                     BattleIntentCommand.Cast(
                         owner.ActorId,
                         abilityId,
@@ -191,7 +197,7 @@ namespace Framework.GamePlay
                         toTarget,
                         targetId,
                         BattleIntentSource.Ai));
-                return success ? BtStatus.Success : BtStatus.Failure;
+                return BtStatus.Success;
             });
 
         static float HorizontalDistanceSqr(Vector3 a, Vector3 b)

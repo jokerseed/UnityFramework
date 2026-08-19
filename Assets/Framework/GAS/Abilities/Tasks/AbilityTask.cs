@@ -1,3 +1,4 @@
+using Framework.FixedMath;
 using Framework.GAS.Events;
 
 namespace Framework.GAS.Abilities.Tasks
@@ -26,7 +27,7 @@ namespace Framework.GAS.Abilities.Tasks
 
         /// <summary>每帧 Tick；默认无操作。</summary>
         /// <param name="deltaTime">帧间隔（秒）。</param>
-        public virtual void Tick(float deltaTime) { }
+        public virtual void Tick(FP deltaTime) { }
 
         internal void CancelTask()
         {

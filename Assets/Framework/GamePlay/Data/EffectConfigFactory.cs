@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using cfg;
 using Framework.Config;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Effects;
 using Framework.GAS.Tags;
 
@@ -59,7 +60,7 @@ namespace Framework.GamePlay.Data
 
             var cost = string.IsNullOrEmpty(def.CostAttribute) || def.CostAmount <= 0f
                 ? null
-                : new Dictionary<string, float> { [def.CostAttribute] = def.CostAmount };
+                : new Dictionary<string, FP> { [def.CostAttribute] = def.CostAmount };
 
             return new GameplayEffectDef(
                 def.Id,

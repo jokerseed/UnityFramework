@@ -25,7 +25,7 @@
 | `TSVector` / `TSVector2` / `TSVector4` | 向量 |
 | `TSQuaternion` | 四元数 |
 | `TSMatrix` / `TSMatrix4x4` | 矩阵 |
-| `TSRandom` | 确定性随机（Mersenne Twister，**必须带种子**） |
+| `TSRandom` | 确定性随机（Mersenne Twister，**必须带种子**）；`GetStateHash()` 不消耗序列 |
 | `FPConversions` | 仅表现层 ↔ Unity float |
 
 ## 同步硬约定（违反极易导致难查证的不同步）

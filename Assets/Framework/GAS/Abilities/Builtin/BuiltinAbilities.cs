@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
@@ -11,19 +12,19 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>发射弹道，写入命令缓冲由 GamePlay 在 Tick 中刷入 ECS。</summary>
     public sealed class ProjectileAbility : GameplayAbility
     {
-        readonly float _speed;
-        readonly float _radius;
-        readonly float _lifetime;
-        readonly float _damage;
+        readonly FP _speed;
+        readonly FP _radius;
+        readonly FP _lifetime;
+        readonly FP _damage;
         readonly int _teamId;
         readonly int _pierceCount;
-        readonly float _explodeRadius;
+        readonly FP _explodeRadius;
         readonly string _hitEffectId;
         readonly BattleDamageType _damageType;
-        readonly IReadOnlyDictionary<string, float> _cost;
+        readonly IReadOnlyDictionary<string, FP> _cost;
 
         /// <inheritdoc/>
-        public override IReadOnlyDictionary<string, float> CostAttributes => _cost;
+        public override IReadOnlyDictionary<string, FP> CostAttributes => _cost;
 
         /// <summary>构造弹道技能。</summary>
         public ProjectileAbility(
@@ -40,7 +41,7 @@ namespace Framework.GAS.Abilities.Builtin
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
-            IReadOnlyDictionary<string, float> costAttributes = null)
+            IReadOnlyDictionary<string, FP> costAttributes = null)
             : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _speed = speed;
@@ -52,7 +53,7 @@ namespace Framework.GAS.Abilities.Builtin
             _explodeRadius = explodeRadius;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
-            _cost = costAttributes ?? new Dictionary<string, float>();
+            _cost = costAttributes ?? new Dictionary<string, FP>();
         }
 
         /// <inheritdoc/>
@@ -111,14 +112,14 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>近战即时伤害，通过 TargetSelector 选择目标。</summary>
     public sealed class MeleeStrikeAbility : GameplayAbility
     {
-        readonly float _damage;
-        readonly float _range;
+        readonly FP _damage;
+        readonly FP _range;
         readonly Targeting.ITargetSelector _targetSelector;
-        readonly IReadOnlyDictionary<string, float> _cost;
+        readonly IReadOnlyDictionary<string, FP> _cost;
         readonly BattleDamageType _damageType;
 
         /// <inheritdoc/>
-        public override IReadOnlyDictionary<string, float> CostAttributes => _cost;
+        public override IReadOnlyDictionary<string, FP> CostAttributes => _cost;
 
         /// <summary>构造近战技能。</summary>
         public MeleeStrikeAbility(
@@ -130,14 +131,14 @@ namespace Framework.GAS.Abilities.Builtin
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
-            IReadOnlyDictionary<string, float> costAttributes = null)
+            IReadOnlyDictionary<string, FP> costAttributes = null)
             : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _damage = damage;
             _range = range;
             _targetSelector = targetSelector;
             _damageType = damageType;
-            _cost = costAttributes ?? new Dictionary<string, float>();
+            _cost = costAttributes ?? new Dictionary<string, FP>();
         }
 
         /// <inheritdoc/>
@@ -152,7 +153,7 @@ namespace Framework.GAS.Abilities.Builtin
                 return baseResult;
             }
 
-            var queryContext = context.Range > 0f
+            var queryContext = context.Range > FP.Zero
                 ? context
                 : new AbilityActivationContext(context.Origin, context.Direction, context.PrimaryTarget, _range);
 
@@ -168,7 +169,7 @@ namespace Framework.GAS.Abilities.Builtin
             BattleContext battle)
         {
             var context = instance.Context;
-            var queryContext = context.Range > 0f
+            var queryContext = context.Range > FP.Zero
                 ? context
                 : new AbilityActivationContext(context.Origin, context.Direction, context.PrimaryTarget, _range);
 
@@ -192,15 +193,15 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>圆形范围伤害。</summary>
     public sealed class CircleAoeAbility : GameplayAbility
     {
-        readonly float _damage;
-        readonly float _radius;
+        readonly FP _damage;
+        readonly FP _radius;
         readonly int _teamId;
         readonly string _hitEffectId;
         readonly BattleDamageType _damageType;
-        readonly IReadOnlyDictionary<string, float> _cost;
+        readonly IReadOnlyDictionary<string, FP> _cost;
 
         /// <inheritdoc/>
-        public override IReadOnlyDictionary<string, float> CostAttributes => _cost;
+        public override IReadOnlyDictionary<string, FP> CostAttributes => _cost;
 
         /// <summary>构造圆形 AOE。</summary>
         public CircleAoeAbility(
@@ -213,7 +214,7 @@ namespace Framework.GAS.Abilities.Builtin
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
-            IReadOnlyDictionary<string, float> costAttributes = null)
+            IReadOnlyDictionary<string, FP> costAttributes = null)
             : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _damage = damage;
@@ -221,7 +222,7 @@ namespace Framework.GAS.Abilities.Builtin
             _teamId = teamId;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
-            _cost = costAttributes ?? new Dictionary<string, float>();
+            _cost = costAttributes ?? new Dictionary<string, FP>();
         }
 
         /// <inheritdoc/>
@@ -248,16 +249,16 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>扇形范围伤害。</summary>
     public sealed class ConeAoeAbility : GameplayAbility
     {
-        readonly float _damage;
-        readonly float _range;
-        readonly float _halfAngleDegrees;
+        readonly FP _damage;
+        readonly FP _range;
+        readonly FP _halfAngleDegrees;
         readonly int _teamId;
         readonly string _hitEffectId;
         readonly BattleDamageType _damageType;
-        readonly IReadOnlyDictionary<string, float> _cost;
+        readonly IReadOnlyDictionary<string, FP> _cost;
 
         /// <inheritdoc/>
-        public override IReadOnlyDictionary<string, float> CostAttributes => _cost;
+        public override IReadOnlyDictionary<string, FP> CostAttributes => _cost;
 
         /// <summary>构造扇形 AOE。</summary>
         public ConeAoeAbility(
@@ -271,7 +272,7 @@ namespace Framework.GAS.Abilities.Builtin
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
-            IReadOnlyDictionary<string, float> costAttributes = null)
+            IReadOnlyDictionary<string, FP> costAttributes = null)
             : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _damage = damage;
@@ -280,7 +281,7 @@ namespace Framework.GAS.Abilities.Builtin
             _teamId = teamId;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
-            _cost = costAttributes ?? new Dictionary<string, float>();
+            _cost = costAttributes ?? new Dictionary<string, FP>();
         }
 
         /// <inheritdoc/>
@@ -309,7 +310,7 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>蓄力后发射弹道的示例技能（AbilityTask 演示，锁方向）。</summary>
     public sealed class ChanneledProjectileAbility : GameplayAbility
     {
-        readonly float _channelTime;
+        readonly FP _channelTime;
         readonly ProjectileAbility _projectile;
 
         /// <summary>构造蓄力弹道技能。</summary>
@@ -325,7 +326,7 @@ namespace Framework.GAS.Abilities.Builtin
         }
 
         /// <inheritdoc/>
-        public override IReadOnlyDictionary<string, float> CostAttributes => _projectile.CostAttributes;
+        public override IReadOnlyDictionary<string, FP> CostAttributes => _projectile.CostAttributes;
 
         /// <inheritdoc/>
         public override void Activate(
@@ -350,20 +351,20 @@ namespace Framework.GAS.Abilities.Builtin
     public sealed class MeleeSweepAbility : GameplayAbility
     {
         readonly Targeting.ConeEnemyQuery _queryCone;
-        readonly float _damage;
-        readonly float _range;
-        readonly float _halfAngleDegrees;
-        readonly float _windup;
-        readonly float _hitDuration;
-        readonly float _recovery;
-        readonly float _knockback;
+        readonly FP _damage;
+        readonly FP _range;
+        readonly FP _halfAngleDegrees;
+        readonly FP _windup;
+        readonly FP _hitDuration;
+        readonly FP _recovery;
+        readonly FP _knockback;
         readonly string _hitEffectId;
         readonly string _comboEffectId;
         readonly BattleDamageType _damageType;
-        readonly IReadOnlyDictionary<string, float> _cost;
+        readonly IReadOnlyDictionary<string, FP> _cost;
 
         /// <inheritdoc/>
-        public override IReadOnlyDictionary<string, float> CostAttributes => _cost;
+        public override IReadOnlyDictionary<string, FP> CostAttributes => _cost;
 
         /// <summary>构造近战扇形技能。</summary>
         /// <param name="abilityId">技能 ID。</param>
@@ -398,7 +399,7 @@ namespace Framework.GAS.Abilities.Builtin
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
-            IReadOnlyDictionary<string, float> costAttributes = null)
+            IReadOnlyDictionary<string, FP> costAttributes = null)
             : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _queryCone = queryCone;
@@ -412,7 +413,7 @@ namespace Framework.GAS.Abilities.Builtin
             _hitEffectId = hitEffectId;
             _comboEffectId = comboEffectId;
             _damageType = damageType;
-            _cost = costAttributes ?? new Dictionary<string, float>();
+            _cost = costAttributes ?? new Dictionary<string, FP>();
         }
 
         /// <inheritdoc/>
@@ -452,8 +453,8 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>闪避冲刺：给自身上无敌帧，并沿朝向写入击退冲量。</summary>
     public sealed class DashAbility : GameplayAbility
     {
-        readonly float _distance;
-        readonly float _duration;
+        readonly FP _distance;
+        readonly FP _duration;
         readonly string _selfEffectId;
 
         /// <summary>构造闪避技能。</summary>
@@ -475,7 +476,7 @@ namespace Framework.GAS.Abilities.Builtin
             : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _distance = distance;
-            _duration = duration > 0f ? duration : 0.25f;
+            _duration = duration > 0f ? duration : (FP)0.25f;
             _selfEffectId = selfEffectId;
         }
 
@@ -487,12 +488,19 @@ namespace Framework.GAS.Abilities.Builtin
         {
             ProjectileAbility.PublishCast(owner, instance, battle, instance.Context.PrimaryTarget);
             var direction = instance.Context.Direction;
-            if (_distance > 0f)
+            if (_distance > FP.Zero)
             {
+                var dir = FPConversions.ToFP(direction);
+                dir.y = FP.Zero;
+                if (dir.sqrMagnitude > FP.Zero)
+                {
+                    dir.Normalize();
+                }
+
                 battle.Commands.EnqueueApplyDisplace(new ApplyDisplaceCommand
                 {
                     Target = owner.ActorId,
-                    Offset = direction * _distance
+                    Offset = dir * _distance
                 });
             }
 

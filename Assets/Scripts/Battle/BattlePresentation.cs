@@ -13,7 +13,6 @@ namespace Game
     /// </summary>
     public sealed class BattlePresentation
     {
-        const float HitStopScale = 0.18f;
         const float HitStopSeconds = 0.05f;
 
         readonly BattleCuePresenter _cuePresenter = new BattleCuePresenter();
@@ -23,6 +22,10 @@ namespace Game
         GamePlayFramework _framework;
         ActorId _heroId;
         float _hitStopUntilUnscaled;
+        bool _freezeViews;
+
+        /// <summary>HitStop 期间冻结表现层位移，不影响逻辑。</summary>
+        public bool FreezeViews => _freezeViews;
 
         /// <summary>订阅事件并绑定 Cue 表。</summary>
         /// <param name="framework">玩法框架。</param>
@@ -56,14 +59,15 @@ namespace Game
             _cuePresenter.Clear();
             _framework = null;
             _heroId = default;
+            _freezeViews = false;
         }
 
-        /// <summary>恢复已过期的 HitStop 时间缩放。</summary>
-        public void RestoreHitStopIfExpired()
+        /// <summary>若 HitStop 到期则恢复表现层刷新。</summary>
+        public void TickHitStop()
         {
-            if (Time.timeScale < 1f && Time.unscaledTime >= _hitStopUntilUnscaled)
+            if (_freezeViews && Time.unscaledTime >= _hitStopUntilUnscaled)
             {
-                Time.timeScale = 1f;
+                _freezeViews = false;
             }
         }
 
@@ -83,7 +87,7 @@ namespace Game
                 return;
             }
 
-            Time.timeScale = HitStopScale;
+            _freezeViews = true;
             _hitStopUntilUnscaled = Time.unscaledTime + HitStopSeconds;
         }
 

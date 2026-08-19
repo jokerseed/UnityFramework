@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
 using Framework.ECS.Components;
-using UnityEngine;
+using Framework.FixedMath;
 
 namespace Framework.ECS.Systems
 {
@@ -56,9 +56,10 @@ namespace Framework.ECS.Systems
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Update(World world, float deltaTime)
         {
+            var dt = (FP)deltaTime;
             world.ForEach<VelocityComponent, TransformComponent>((entityId, velocity, transform) =>
             {
-                transform.Position += velocity.Value * deltaTime;
+                transform.Position += velocity.Value * dt;
                 world.GetStorage<TransformComponent>().Add(entityId, transform);
             });
         }
@@ -82,6 +83,7 @@ namespace Framework.ECS.Systems
         /// <inheritdoc/>
         public void Update(World world, float deltaTime)
         {
+            var dt = (FP)deltaTime;
             _scratch.Clear();
             _expired.Clear();
             var knockbacks = world.GetStorage<KnockbackComponent>();
@@ -105,10 +107,10 @@ namespace Framework.ECS.Systems
                     continue;
                 }
 
-                transform.Position += knockback.Velocity * deltaTime;
-                knockback.Remaining -= deltaTime;
+                transform.Position += knockback.Velocity * dt;
+                knockback.Remaining -= dt;
                 transforms.Add(entityId, transform);
-                if (knockback.Remaining <= 0f)
+                if (knockback.Remaining <= FP.Zero)
                 {
                     _expired.Add(entityId);
                 }
@@ -129,9 +131,9 @@ namespace Framework.ECS.Systems
     public sealed class ActorSeparationSystem : ISystem
     {
         readonly List<uint> _ids = new List<uint>(64);
-        readonly List<Vector3> _positions = new List<Vector3>(64);
-        readonly List<float> _radii = new List<float>(64);
-        readonly List<Vector3> _pushes = new List<Vector3>(64);
+        readonly List<TSVector> _positions = new List<TSVector>(64);
+        readonly List<FP> _radii = new List<FP>(64);
+        readonly List<TSVector> _pushes = new List<TSVector>(64);
 
         /// <inheritdoc/>
         public EcsSystemPhase Phase => EcsSystemPhase.Simulate;
@@ -150,6 +152,7 @@ namespace Framework.ECS.Systems
             _radii.Clear();
             _pushes.Clear();
 
+            var defaultRadius = (FP)BattleConstants.DefaultActorCollisionRadius;
             var combat = world.GetStorage<CombatStateComponent>();
             world.ForEach<ActorLinkComponent, TransformComponent, CollisionComponent>(
                 (entityId, _, transform, collision) =>
@@ -161,8 +164,8 @@ namespace Framework.ECS.Systems
 
                     _ids.Add(entityId);
                     _positions.Add(transform.Position);
-                    _radii.Add(collision.Radius > 0f ? collision.Radius : BattleConstants.DefaultActorCollisionRadius);
-                    _pushes.Add(Vector3.zero);
+                    _radii.Add(collision.Radius > FP.Zero ? collision.Radius : defaultRadius);
+                    _pushes.Add(TSVector.zero);
                 });
 
             for (var i = 0; i < _ids.Count; i++)
@@ -170,7 +173,7 @@ namespace Framework.ECS.Systems
                 for (var j = i + 1; j < _ids.Count; j++)
                 {
                     var delta = _positions[i] - _positions[j];
-                    delta.y = 0f;
+                    delta.y = FP.Zero;
                     var minDist = _radii[i] + _radii[j];
                     var distSq = delta.sqrMagnitude;
                     if (distSq >= minDist * minDist)
@@ -178,20 +181,22 @@ namespace Framework.ECS.Systems
                         continue;
                     }
 
-                    Vector3 axis;
-                    float overlap;
-                    if (distSq < 0.0001f)
+                    TSVector axis;
+                    FP overlap;
+                    if (distSq < FP.EN4)
                     {
-                        var angle = (i * 2654435761u ^ j * 340573321u) % 628 * 0.01f;
-                        axis = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-                        overlap = minDist * 0.5f;
+                        var bucket = (int)(((uint)i * 2654435761u ^ (uint)j * 340573321u) % 628u);
+                        var angle = (FP)bucket / 100;
+                        axis = new TSVector(TSMath.Cos(angle), 0, TSMath.Sin(angle));
+                        overlap = minDist / 2;
                     }
                     else
                     {
-                        var dist = Mathf.Sqrt(distSq);
-                        overlap = (minDist - dist) * 0.5f;
+                        var dist = TSMath.Sqrt(distSq);
+                        overlap = (minDist - dist) / 2;
                         axis = delta / dist;
                     }
+
                     _pushes[i] += axis * overlap;
                     _pushes[j] -= axis * overlap;
                 }
@@ -200,7 +205,7 @@ namespace Framework.ECS.Systems
             var transforms = world.GetStorage<TransformComponent>();
             for (var i = 0; i < _ids.Count; i++)
             {
-                if (_pushes[i].sqrMagnitude < 0.0001f || !transforms.TryGet(_ids[i], out var transform))
+                if (_pushes[i].sqrMagnitude < FP.EN4 || !transforms.TryGet(_ids[i], out var transform))
                 {
                     continue;
                 }
@@ -234,11 +239,11 @@ namespace Framework.ECS.Systems
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Update(World world, float deltaTime)
         {
+            var dt = (FP)deltaTime;
             _toDestroy.Clear();
             _ids.Clear();
             var projectiles = world.GetStorage<ProjectileComponent>();
 
-            // Unity/Mono 下 Dictionary 赋值会 bump version，不能边 foreach All 边 Add 同存储。
             foreach (var pair in projectiles.All)
             {
                 _ids.Add(pair.Key);
@@ -252,10 +257,10 @@ namespace Framework.ECS.Systems
                     continue;
                 }
 
-                projectile.RemainingLifetime -= deltaTime;
+                projectile.RemainingLifetime -= dt;
                 projectiles.Add(entityId, projectile);
 
-                if (projectile.RemainingLifetime <= 0f)
+                if (projectile.RemainingLifetime <= FP.Zero)
                 {
                     _toDestroy.Add(entityId);
                 }
@@ -307,6 +312,7 @@ namespace Framework.ECS.Systems
             var teams = world.GetStorage<TeamComponent>();
             var collisions = world.GetStorage<CollisionComponent>();
             var commands = world.Commands;
+            var defaultRadius = (FP)BattleConstants.DefaultActorCollisionRadius;
 
             foreach (var projectilePair in projectiles.All)
             {
@@ -318,7 +324,7 @@ namespace Framework.ECS.Systems
                 var projectile = projectilePair.Value;
                 var candidates = grid.QueryNearby(
                     projectileTransform.Position,
-                    projectile.Radius + BattleConstants.DefaultActorCollisionRadius);
+                    projectile.Radius + defaultRadius);
 
                 var hitThisFrame = false;
                 for (var c = 0; c < candidates.Count; c++)
@@ -358,20 +364,20 @@ namespace Framework.ECS.Systems
 
                     var targetRadius = collisions.TryGet(targetEntityId, out var collision)
                         ? collision.Radius
-                        : BattleConstants.DefaultActorCollisionRadius;
+                        : defaultRadius;
 
-                    var distance = Vector3.Distance(projectileTransform.Position, targetTransform.Position);
+                    var distance = TSVector.Distance(projectileTransform.Position, targetTransform.Position);
                     if (distance > projectile.Radius + targetRadius)
                     {
                         continue;
                     }
 
-                    if (projectile.ExplodeRadius > 0f)
+                    if (projectile.ExplodeRadius > FP.Zero)
                     {
                         commands.EnqueueApplyAreaEffect(new ApplyAreaEffectCommand
                         {
                             Source = projectile.Owner,
-                            Origin = projectileTransform.Position,
+                            Origin = projectileTransform.ToUnityPosition(),
                             Radius = projectile.ExplodeRadius,
                             Damage = projectile.Damage,
                             AbilityId = projectile.AbilityId,

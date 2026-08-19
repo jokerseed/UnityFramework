@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using AbilitySystemComponent = Framework.GAS.AbilitySystemComponent;
@@ -80,10 +81,10 @@ namespace Framework.GAS.Effects
         public EffectStackingPolicy StackingPolicy { get; }
 
         /// <summary>持续时长（秒）。</summary>
-        public float Duration { get; }
+        public FP Duration { get; }
 
         /// <summary>周期（秒）。</summary>
-        public float Period { get; }
+        public FP Period { get; }
 
         /// <summary>属性修改器列表。</summary>
         public IReadOnlyList<EffectModifier> Modifiers { get; }
@@ -113,10 +114,10 @@ namespace Framework.GAS.Effects
         public IReadOnlyList<string> CueTagsOnRemove { get; }
 
         /// <summary>Cost 属性消耗。</summary>
-        public IReadOnlyDictionary<string, float> CostAttributes { get; }
+        public IReadOnlyDictionary<string, FP> CostAttributes { get; }
 
         /// <summary>Apply 时的 SetByCaller。</summary>
-        public IReadOnlyDictionary<string, float> SetByCaller { get; }
+        public IReadOnlyDictionary<string, FP> SetByCaller { get; }
 
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
@@ -125,7 +126,7 @@ namespace Framework.GAS.Effects
         public GameplayEffectSpec(
             string effectId,
             EffectDurationPolicy durationPolicy,
-            float duration,
+            FP duration,
             IReadOnlyList<EffectModifier> modifiers,
             IReadOnlyList<GameplayTag> grantedTags = null,
             EffectStackingPolicy stackingPolicy = EffectStackingPolicy.None,
@@ -144,7 +145,7 @@ namespace Framework.GAS.Effects
         }
 
         /// <summary>从 Def 构造运行时 Spec。</summary>
-        public GameplayEffectSpec(GameplayEffectDef def, IReadOnlyDictionary<string, float> setByCaller = null)
+        public GameplayEffectSpec(GameplayEffectDef def, IReadOnlyDictionary<string, FP> setByCaller = null)
         {
             RuntimeId = s_nextHandle++;
             EffectId = def.EffectId;
@@ -182,10 +183,10 @@ namespace Framework.GAS.Effects
         public ActorId Source { get; }
 
         /// <summary>剩余持续时间。</summary>
-        public float RemainingTime { get; set; }
+        public FP RemainingTime { get; set; }
 
         /// <summary>周期计时器。</summary>
-        public float PeriodTimer { get; set; }
+        public FP PeriodTimer { get; set; }
 
         /// <summary>叠加层数。</summary>
         public int StackCount { get; set; } = 1;
@@ -208,6 +209,6 @@ namespace Framework.GAS.Effects
 
         /// <summary>是否已过期。</summary>
         public bool IsExpired =>
-            Spec.DurationPolicy == EffectDurationPolicy.Duration && RemainingTime <= 0f;
+            Spec.DurationPolicy == EffectDurationPolicy.Duration && RemainingTime <= FP.Zero;
     }
 }

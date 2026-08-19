@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cfg;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Abilities.Builtin;
 using Framework.GAS.Tags;
@@ -13,14 +14,14 @@ namespace Framework.GamePlay.Data
     /// <summary>从 Luban 技能表创建 <see cref="GameplayAbility"/> / <see cref="GameplayAbilityDef"/>。</summary>
     public sealed class AbilityConfigFactory
     {
-        readonly System.Func<ActorId, Vector3, float, ActorId> _queryNearestEnemy;
+        readonly System.Func<ActorId, Vector3, FP, ActorId> _queryNearestEnemy;
         readonly ConeEnemyQuery _queryCone;
 
         /// <summary>构造技能配置工厂。</summary>
         /// <param name="queryNearestEnemy">最近敌人查询委托。</param>
         /// <param name="queryCone">扇形敌对查询委托；近战扇形技能需要。</param>
         public AbilityConfigFactory(
-            System.Func<ActorId, Vector3, float, ActorId> queryNearestEnemy,
+            System.Func<ActorId, Vector3, FP, ActorId> queryNearestEnemy,
             ConeEnemyQuery queryCone = null)
         {
             _queryNearestEnemy = queryNearestEnemy;
@@ -162,14 +163,14 @@ namespace Framework.GamePlay.Data
             return list;
         }
 
-        static IReadOnlyDictionary<string, float> ParseCost(string attribute, float amount)
+        static IReadOnlyDictionary<string, FP> ParseCost(string attribute, float amount)
         {
             if (string.IsNullOrEmpty(attribute) || amount <= 0f)
             {
-                return new Dictionary<string, float>();
+                return new Dictionary<string, FP>();
             }
 
-            return new Dictionary<string, float> { [attribute] = amount };
+            return new Dictionary<string, FP> { [attribute] = amount };
         }
     }
 }

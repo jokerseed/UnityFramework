@@ -9,6 +9,7 @@ using Framework.GAS;
 using Framework.GAS.Combat;
 using Framework.GAS.Targeting;
 using Framework.GamePlay.Data;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GamePlay
@@ -41,14 +42,16 @@ namespace Framework.GamePlay
             {
                 var command = commands[i];
                 var entity = _world.CreateEntity();
+                var direction = FPConversions.ToFP(
+                    command.Direction.sqrMagnitude > 0.0001f ? command.Direction.normalized : Vector3.forward);
                 _world.AddComponent(entity, new TransformComponent
                 {
-                    Position = command.Position,
-                    Forward = command.Direction
+                    Position = FPConversions.ToFP(command.Position),
+                    Forward = direction
                 });
                 _world.AddComponent(entity, new VelocityComponent
                 {
-                    Value = command.Direction.normalized * command.Speed
+                    Value = direction * command.Speed
                 });
                 _world.AddComponent(entity, new ProjectileComponent
                 {
@@ -151,7 +154,7 @@ namespace Framework.GamePlay
             {
                 var command = commands[i];
                 var filter = new TargetDataFilter(command.Source, command.TeamId, enemiesOnly: true);
-                if (command.HalfAngleDegrees > 0f)
+                if (command.HalfAngleDegrees > FP.Zero)
                 {
                     _registry.QueryTargetsInCone(
                         command.Origin,
@@ -168,7 +171,7 @@ namespace Framework.GamePlay
                 for (var t = 0; t < _areaScratch.Count; t++)
                 {
                     var targetId = _areaScratch[t];
-                    if (command.Damage > 0f)
+                    if (command.Damage > FP.Zero)
                     {
                         ApplyDamageToActor(
                             new ApplyDamageCommand

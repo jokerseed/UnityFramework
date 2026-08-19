@@ -17,7 +17,7 @@ Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配�
 | **规则与模拟分离** | GAS 管伤害/技能/Tag；ECS 管位置、碰撞、弹道 |
 | **国内项目常用栈** | Luban 打表 + YooAsset 热更；Editor 菜单一键工具链 |
 | **模块可组合** | `IGameModule` + `GameBootstrap` 拓扑启动，按 asmdef 按需引用 |
-| **帧同步可演进** | FixedMath / Lockstep / LockstepPhysics / BehaviourTree 已铺基座，待接 Host |
+| **帧同步可演进** | 单机已有 `LocalLockstepHost`；网络 `ICommunicator` 与预测回滚未接 |
 | **文档即示例** | 各模块 README 承载演示与验证，不单独维护 Samples 程序集 |
 
 ---
@@ -28,10 +28,10 @@ Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配�
 |----|------|
 | 定点数学（`Framework.FixedMath`） | ✅ 已迁移 |
 | 锁步调度类型（`DefaultLockstep` / `RollbackLockstep` / `StateTracker`） | ✅ 已迁移（底层） |
-| `LockstepHost` / 与 GamePlay 对接 | ❌ 未做 |
-| 战斗演示（Battle） | ⚠️ 仍为 `Tick(deltaTime)` 可变步长，非锁步权威路径 |
+| `LockstepHost` / 与 GamePlay 对接 | ⚠️ 已有 `LocalLockstepHost`（单机自循环）；网络 `ICommunicator` 未接 |
+| 战斗演示（Battle） | ⚠️ 本地固定步长 + 意图帧 + F8 对拍；尚未联机等输入 |
 | **预测回滚 / 状态快照** | ❌ **未实现**（GAS / ECS / BehaviourTree 均不可还原） |
-| 本地录像对拍 Demo | ❌ 未做 |
+| 本地录像对拍 Demo | ⚠️ 战斗内 F8 影子 Session 对拍（非独立示例工程） |
 
 说明：Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开回滚）。Framework 当前目标与之对齐；回滚快照在 Roadmap 中单独规划。
 
@@ -237,8 +237,9 @@ Framework/
 - [x] BehaviourTree 运行时 + 可视化编辑器 + JSON 导出
 - [x] 行为树热更资源：`.bt.json` 导出 / YooAsset 加载 / 模板缓存 / `BattleAgent` 运行时替换
 - [x] 单机玩法打磨：控制/死亡/Tag 计数、冷却 GE、伤害管线、AOE/弹道变体、移动、BT 接线
+- [x] 单机 `LocalLockstepHost` + 意图帧队列 + 本地录像对拍（F8）
 - [ ] `LockstepHost` + `ILockstepSimulation` 门面
-- [ ] 本地 `NullCommunicator` + 录像对拍 Demo
+- [ ] 本地 `NullCommunicator` + 联机等输入
 - [ ] GamePlay 固定逻辑帧 + FP 战斗对接
 - [ ] **预测回滚 / 状态快照**（GAS + ECS + BehaviourTree + Lockstep 接线）
 - [ ] **反作弊：帧 checksum 接线**（接 Host，暴露 `checksumOk` / 对拍告警）

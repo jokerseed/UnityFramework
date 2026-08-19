@@ -2,7 +2,8 @@
     "name": "Framework.ECS",
     "rootNamespace": "Framework.ECS",
     "references": [
-        "Framework.Core"
+        "Framework.Core",
+        "Framework.FixedMath"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

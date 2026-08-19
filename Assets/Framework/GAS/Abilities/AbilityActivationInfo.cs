@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Tags;
 
 namespace Framework.GAS.Abilities
@@ -7,7 +8,7 @@ namespace Framework.GAS.Abilities
     /// <summary>技能激活附加信息：触发来源、目标与 SetByCaller 幅度字典。</summary>
     public sealed class AbilityActivationInfo
     {
-        readonly Dictionary<string, float> _setByCaller = new Dictionary<string, float>();
+        readonly Dictionary<string, FP> _setByCaller = new Dictionary<string, FP>();
 
         /// <summary>发起激活的单位（通常为技能拥有者）。</summary>
         public ActorId Instigator { get; set; }
@@ -19,18 +20,18 @@ namespace Framework.GAS.Abilities
         public GameplayTag TriggerTag { get; set; }
 
         /// <summary>SetByCaller 幅度字典（只读视图）。</summary>
-        public IReadOnlyDictionary<string, float> SetByCaller => _setByCaller;
+        public IReadOnlyDictionary<string, FP> SetByCaller => _setByCaller;
 
         /// <summary>设置 SetByCaller 幅度。</summary>
         /// <param name="key">键名。</param>
         /// <param name="value">幅度值。</param>
-        public void SetSetByCaller(string key, float value) => _setByCaller[key] = value;
+        public void SetSetByCaller(string key, FP value) => _setByCaller[key] = value;
 
         /// <summary>尝试读取 SetByCaller 幅度。</summary>
         /// <param name="key">键名。</param>
         /// <param name="value">找到时输出幅度。</param>
         /// <returns>存在该键时返回 true。</returns>
-        public bool TryGetSetByCaller(string key, out float value) => _setByCaller.TryGetValue(key, out value);
+        public bool TryGetSetByCaller(string key, out FP value) => _setByCaller.TryGetValue(key, out value);
 
         /// <summary>清空 SetByCaller 字典。</summary>
         public void ClearSetByCaller() => _setByCaller.Clear();

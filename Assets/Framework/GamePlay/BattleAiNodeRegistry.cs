@@ -1,6 +1,7 @@
 using Framework.BehaviourTree;
 using Framework.Core;
 using Framework.FixedMath;
+using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
 using Framework.Logging;
 using UnityEngine;
@@ -70,8 +71,7 @@ namespace Framework.GamePlay
                 var owner = ctx.GetOwner<BattleAiOwner>();
                 if (owner.Framework != null)
                 {
-                    BattleIntentApplier.Apply(
-                        owner.Framework,
+                    owner.Framework.SubmitIntent(
                         BattleIntentCommand.Move(owner.ActorId, Vector3.zero, Vector3.zero, BattleIntentSource.Ai));
                 }
 
@@ -120,8 +120,7 @@ namespace Framework.GamePlay
                 toDest.y = 0f;
                 var distance = toDest.magnitude;
                 var velocity = distance <= arrive ? Vector3.zero : toDest / distance * speed;
-                BattleIntentApplier.Apply(
-                    owner.Framework,
+                owner.Framework.SubmitIntent(
                     BattleIntentCommand.Move(owner.ActorId, velocity, face, BattleIntentSource.Ai));
                 return distance <= arrive ? BtStatus.Success : BtStatus.Running;
             });
@@ -161,8 +160,13 @@ namespace Framework.GamePlay
                     toTarget = Vector3.forward;
                 }
 
-                var success = BattleIntentApplier.Apply(
-                    owner.Framework,
+                var context = new AbilityActivationContext(self.Position, toTarget, targetId);
+                if (!owner.Framework.CanActivateAbility(owner.ActorId, abilityId, context).Success)
+                {
+                    return BtStatus.Failure;
+                }
+
+                owner.Framework.SubmitIntent(
                     BattleIntentCommand.Cast(
                         owner.ActorId,
                         abilityId,
@@ -170,7 +174,7 @@ namespace Framework.GamePlay
                         toTarget,
                         targetId,
                         BattleIntentSource.Ai));
-                return success ? BtStatus.Success : BtStatus.Failure;
+                return BtStatus.Success;
             });
         }
 

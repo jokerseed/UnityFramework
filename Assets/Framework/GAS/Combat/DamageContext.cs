@@ -1,4 +1,5 @@
 using Framework.Core;
+using Framework.FixedMath;
 
 namespace Framework.GAS.Combat
 {
@@ -12,7 +13,7 @@ namespace Framework.GAS.Combat
         public ActorId Target { get; }
 
         /// <summary>未经减免的原始伤害量。</summary>
-        public float RawDamage { get; }
+        public FP RawDamage { get; }
 
         /// <summary>造成本次伤害的技能 ID。</summary>
         public string AbilityId { get; }
@@ -21,13 +22,13 @@ namespace Framework.GAS.Combat
         public BattleDamageType DamageType { get; }
 
         /// <summary>经伤害管线处理后的最终生命扣除量；护盾吸收不计入此项。</summary>
-        public float FinalDamage { get; }
+        public FP FinalDamage { get; }
 
         /// <summary>是否暴击。</summary>
         public bool IsCrit { get; }
 
         /// <summary>本击被护盾吸收的量。</summary>
-        public float ShieldAbsorbed { get; }
+        public FP ShieldAbsorbed { get; }
 
         /// <summary>构造伤害上下文。</summary>
         /// <param name="source">来源单位 ID。</param>
@@ -41,19 +42,19 @@ namespace Framework.GAS.Combat
         public DamageContext(
             ActorId source,
             ActorId target,
-            float rawDamage,
+            FP rawDamage,
             string abilityId,
-            float finalDamage = 0f,
+            FP finalDamage = default,
             BattleDamageType damageType = BattleDamageType.Physical,
             bool isCrit = false,
-            float shieldAbsorbed = 0f)
+            FP shieldAbsorbed = default)
         {
             Source = source;
             Target = target;
             RawDamage = rawDamage;
             AbilityId = abilityId;
             DamageType = damageType;
-            FinalDamage = finalDamage > 0f ? finalDamage : rawDamage;
+            FinalDamage = finalDamage > FP.Zero ? finalDamage : rawDamage;
             IsCrit = isCrit;
             ShieldAbsorbed = shieldAbsorbed;
         }
@@ -61,7 +62,7 @@ namespace Framework.GAS.Combat
         /// <summary>返回一个仅替换 <see cref="FinalDamage"/> 的新上下文（不可变模式）。</summary>
         /// <param name="finalDamage">新的最终伤害量。</param>
         /// <returns>拷贝后替换了最终伤害的新上下文。</returns>
-        public DamageContext WithFinalDamage(float finalDamage) =>
+        public DamageContext WithFinalDamage(FP finalDamage) =>
             new DamageContext(Source, Target, RawDamage, AbilityId, finalDamage, DamageType, IsCrit, ShieldAbsorbed);
 
         /// <summary>返回替换管线结算结果的新上下文。</summary>
@@ -69,7 +70,7 @@ namespace Framework.GAS.Combat
         /// <param name="isCrit">是否暴击。</param>
         /// <param name="shieldAbsorbed">护盾吸收量。</param>
         /// <returns>新上下文。</returns>
-        public DamageContext WithPipelineResult(float finalDamage, bool isCrit, float shieldAbsorbed) =>
+        public DamageContext WithPipelineResult(FP finalDamage, bool isCrit, FP shieldAbsorbed) =>
             new DamageContext(Source, Target, RawDamage, AbilityId, finalDamage, DamageType, isCrit, shieldAbsorbed);
     }
 }

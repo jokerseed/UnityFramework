@@ -3,7 +3,7 @@
 帧同步基座（自 Client TrueSync 迁移）：固定逻辑帧调度、输入对齐抽象、回滚/校验相关**底层类型**。  
 确定性数学见 `Framework.FixedMath`；确定性物理引擎见 `Framework.LockstepPhysics`。
 
-> **⚠️ 回滚快照未实现：** 虽已迁移 `RollbackLockstep`、`StateTracker`、`IWorldClone` 等类型，但 Framework 内**尚未接线**到 GamePlay/GAS/ECS/BehaviourTree；当前 Battle 仍走可变步长 `Tick`。Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开预测回滚）。
+> **⚠️ 回滚快照未实现：** 虽已迁移 `RollbackLockstep`、`StateTracker`、`IWorldClone` 等类型，但 Framework 内**尚未接线**到 GamePlay/GAS/ECS/BehaviourTree。当前 Battle 走 `LocalLockstepHost`（单机意图帧队列 + unscaled 固定步长），**不是**本程序集的 `AbstractLockstep`。Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开预测回滚）。
 
 ## 程序集
 
@@ -34,12 +34,12 @@
 | **Unity 场景桥** | `TrueSyncManager`、`TSCollider*`、`PhysicsWorldManager`、`TrueSyncBehaviour` Mono 组件未迁；需按「模拟/表现分离」重做薄封装 |
 | **业务锁步壳** | Client `LockStep/LockStepManager` 等进房开战流程不进基座 |
 | **网络适配实现** | 仅有 `ICommunicator`；无 Photon/自研网关实现 |
-| **与 GamePlay/GAS 对接** | 尚无 `ILockstepSimulation` 式官方桥；当前战斗仍是 `Tick(deltaTime)` 可变步长 |
+| **与 GamePlay/GAS 对接** | 已有 `LocalLockstepHost` + 意图帧队列；网络 `ICommunicator` 与等输入缓冲未做 |
 | **预测回滚 / 状态快照** | `RollbackLockstep` / `StateTracker` 未接业务层；GAS、ECS、BehaviourTree **均无**可还原快照 |
 | **干净 Host API** | 仍偏 TrueSync 原 API（回调一长串），未提供 Framework 风格的最小 `LockstepHost` 门面 |
 | **Editor 工具** | TrueSync Editor/调试面板未迁 |
 | **Coroutine 引擎** | Client `Engine/Coroutine` 未迁（锁步内协程若需要再补） |
-| **文档化示例** | 尚无「本地双端录像对拍」示例工程 |
+| **文档化示例** | 战斗 Demo 按 F8：影子 Session 重放内存录像并比对 `BattleFrameChecksum` |
 | **反作弊接线** | `ChecksumExtractor` / `checksumOk` 未接 Host；无业务侧告警；内存混淆见 FixedMath（刻意无 Obscured） |
 
 ## 相关模块

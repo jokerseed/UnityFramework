@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.Core` |
 | 命名空间 | `Framework.Core`（`Commands` / `Tick` 为子命名空间） |
-| 依赖 | `Framework.Events`（`BattleContext.Presentation` 使用 `IEventBus`） |
+| 依赖 | `Framework.Events`（`BattleContext.Presentation` 使用 `IEventBus`）、`Framework.FixedMath`（命令标量与 `IDeterministicRandom`） |
 
 ## 目录结构
 
@@ -21,7 +21,8 @@ Core/
 ├── Battle/                     战斗标识与上下文
 │   ├── ActorId.cs
 │   ├── BattleContext.cs
-│   └── BattleConstants.cs
+│   ├── BattleConstants.cs
+│   └── IDeterministicRandom.cs
 ├── Singleton/                  常驻单例
 │   └── PersistentSingleton.cs
 ├── Commands/                   热路径命令（namespace Framework.Core.Commands）
@@ -40,8 +41,9 @@ Core/
 | `IGameModule` | 业务模块契约；由 `GameBootstrap` 调度 |
 | `ModulePhase` / `ModuleInitMode` | 启动阶段与同步/异步初始化 |
 | `ActorId` | 逻辑层 Actor 标识，与 ECS `Entity` 解耦 |
-| `BattleContext` | 将 `Commands` + `Presentation`（`IEventBus`）打包，供 GAS 使用 |
+| `BattleContext` | 将 `Commands` + `Presentation` + `IDeterministicRandom` 打包，供 GAS 使用 |
 | `BattleConstants` | GAS 属性名、标签与物理默认值 |
+| `IDeterministicRandom` | 战斗模拟随机契约，`Next01()` 返回 `FP`；由 GamePlay 注入 `TSRandom` |
 | `PersistentSingleton<T>` | 懒加载 + `DontDestroyOnLoad` 常驻单例 |
 | `BattleCommandBuffer` | 模拟热路径命令批量刷写（生成投射物、结算伤害）；不含玩家 / AI 行为意图 |
 | `ITickable` | `GamePlayFramework`、`World` 的统一 Tick 契约 |
@@ -64,6 +66,8 @@ AudioManager.DestroyInstance();
 ## 设计原则
 
 - **命令 vs 事件**：模拟走 `BattleCommandBuffer`，表现走 `Framework.Events.IEventBus`
+- **随机**：战斗模拟使用 `IDeterministicRandom.Next01()`（返回 `FP`；由 GamePlay 注入 `TSRandom`），禁止 `UnityEngine.Random`
+- **命令标量**：`SpawnProjectile` / `ApplyDamage` / `ApplyHeal` / `ApplyAreaEffect` 的速度、半径、伤害、半角等为 `FP`；位移 `Offset` 为 `TSVector`。位置/朝向仍为 `Vector3`（由意图位姿写入）
 - **零上层依赖**：Core 不引用 GAS、ECS、Config、Res、Bootstrap；事件契约与实现均在 `Framework.Events`
 
 ## 被谁使用

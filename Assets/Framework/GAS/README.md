@@ -8,7 +8,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 |---|---|
 | 程序集 | `Framework.GAS` |
 | 命名空间 | `Framework.GAS` |
-| 依赖 | `Framework.Core`、`Framework.Events` |
+| 依赖 | `Framework.Core`、`Framework.Events`、`Framework.FixedMath` |
 
 ## 核心能力
 
@@ -25,7 +25,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 控制 | 眩晕打断禁手、沉默禁手、定身禁移动（Tag 常量） |
 | 冷却 | 可驱散的冷却 GE；`CooldownId` 共享组 |
 | 叠层 | `MaxStacks` + `AggregateBySource` 按来源 |
-| 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击 |
+| 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`） |
 | 驱散 | `DispelEffects(tagQuery, maxCount)` |
 | 资源属性 | Health / Mana / Shield 当前值不被 Modifier 全量重算覆盖 |
 | 空闲跳过 | 无 Active 技能且无持续效果时 `ASC.Tick` 立即返回 |
@@ -33,6 +33,11 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 近战扇形 | `MeleeSweepAbility` / `MeleeSweepTask`（前摇、窗口、后摇，每目标只结算一次） |
 | 闪避 | `DashAbility`：自身 IFrame + 朝向冲刺 |
 | 霸体 / 倒地 | 眩晕不打断霸体；倒地无视霸体并禁手禁移 |
+| 定点仿真 | 冷却 / 范围 / 伤害 / 属性 / GE 时长与 Modifier 为 `FP`；表现事件仍发 float |
+
+## 定点约定
+
+技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(float)` 入口每帧转一次 `FP`（固定步长下同一 float 位型对应同一 `FP`）。超大数值战斗结算不要用 Q31.32。
 
 ## Tick 顺序（GamePlay 驱动）
 
@@ -73,7 +78,7 @@ var dot = new GameplayEffectDef(
     "DOT.Poison", EffectDurationPolicy.Duration, 6f,
     executions: new[] { new DamageExecution(setByCallerKey: "Damage") },
     period: 2f);
-dot.ToRuntimeSpec(new Dictionary<string, float> { ["Damage"] = 10f });
+dot.ToRuntimeSpec(new Dictionary<string, FP> { ["Damage"] = 10f });
 asc.ApplyEffect(dot, sourceId, bus, sourceAsc: caster);
 // 上身立即 Execution 一次，之后每 2 秒；Tick 6 秒共 4 次
 ```
@@ -117,5 +122,5 @@ framework.EventBus.Subscribe<GameplayCueEvent>(presenter.Handle);
 
 ## 被谁使用
 
-- `Framework.GamePlay` — Tick、目标查询、Cue 转发
+- `Framework.GamePlay` — Tick、目标查询、Cue 转发、注入 `IDeterministicRandom`
 - `Framework.GamePlay.Data` — Luban 表 → GAS Def 装配

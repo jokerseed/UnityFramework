@@ -6,6 +6,7 @@ using Framework.ECS.Components;
 using Framework.GAS;
 using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GamePlay
@@ -87,14 +88,14 @@ namespace Framework.GamePlay
 
             _world.AddComponent(entity, new TransformComponent
             {
-                Position = position,
-                Forward = Vector3.forward
+                Position = FPConversions.ToFP(position),
+                Forward = TSVector.forward
             });
             _world.AddComponent(entity, new ActorLinkComponent { ActorId = actorId });
             _world.AddComponent(entity, new CombatStateComponent { IsAlive = true });
             _world.AddComponent(entity, new TeamComponent { TeamId = teamId });
             _world.AddComponent(entity, new CollisionComponent { Radius = BattleConstants.DefaultActorCollisionRadius });
-            _world.AddComponent(entity, new VelocityComponent { Value = Vector3.zero });
+            _world.AddComponent(entity, new VelocityComponent { Value = TSVector.zero });
 
             _actors[actorId] = actor;
             return actor;
@@ -155,10 +156,10 @@ namespace Framework.GamePlay
 
             if (!_world.TryGetComponent(entity, out TransformComponent transform))
             {
-                transform = new TransformComponent { Forward = Vector3.forward };
+                transform = new TransformComponent { Forward = TSVector.forward };
             }
 
-            transform.Position = position;
+            transform.Position = FPConversions.ToFP(position);
             _world.AddComponent(entity, transform);
             actor.Position = position;
         }
@@ -180,7 +181,7 @@ namespace Framework.GamePlay
         /// <param name="origin">查询中心的世界坐标。</param>
         /// <param name="range">查询范围半径（世界单位）；超出范围的 Actor 不会被返回。</param>
         /// <returns>范围内最近敌方的 <see cref="ActorId"/>；无有效目标时返回 <see cref="ActorId.Invalid"/>。</returns>
-        public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, float range)
+        public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, FP range)
         {
             if (!_actors.TryGetValue(source, out var sourceActor))
             {
@@ -194,8 +195,9 @@ namespace Framework.GamePlay
             }
 
             ActorId best = ActorId.Invalid;
-            var bestDistance = float.MaxValue;
-            var candidates = grid.QueryNearby(origin, range);
+            var bestDistance = FP.MaxValue;
+            var originFp = FPConversions.ToFP(origin);
+            var candidates = grid.QueryNearby(originFp, range);
 
             for (var i = 0; i < candidates.Count; i++)
             {
@@ -214,7 +216,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var distance = Vector3.Distance(origin, position);
+                var distance = TSVector.Distance(originFp, position);
                 if (distance > range || distance >= bestDistance)
                 {
                     continue;
@@ -232,7 +234,7 @@ namespace Framework.GamePlay
         /// <param name="radius">半径。</param>
         /// <param name="filter">筛选条件。</param>
         /// <param name="results">输出列表（调用前清空）。</param>
-        public void QueryTargetsInRadius(Vector3 origin, float radius, GAS.Targeting.TargetDataFilter filter, List<ActorId> results)
+        public void QueryTargetsInRadius(Vector3 origin, FP radius, GAS.Targeting.TargetDataFilter filter, List<ActorId> results)
         {
             results.Clear();
             if (!_actors.TryGetValue(filter.Source, out var sourceActor))
@@ -246,7 +248,8 @@ namespace Framework.GamePlay
                 return;
             }
 
-            var candidates = grid.QueryNearby(origin, radius);
+            var originFp = FPConversions.ToFP(origin);
+            var candidates = grid.QueryNearby(originFp, radius);
             for (var i = 0; i < candidates.Count; i++)
             {
                 if (!TryResolveActor(candidates[i], out var target, out var position))
@@ -269,13 +272,13 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var distance = Vector3.Distance(origin, position);
+                var distance = TSVector.Distance(originFp, position);
                 if (distance > radius)
                 {
                     continue;
                 }
 
-                if (filter.MaxDistance > 0f && distance > filter.MaxDistance)
+                if (filter.MaxDistance > FP.Zero && distance > filter.MaxDistance)
                 {
                     continue;
                 }
@@ -293,8 +296,8 @@ namespace Framework.GamePlay
         public void QueryTargetsInCone(
             Vector3 origin,
             Vector3 direction,
-            float halfAngleDegrees,
-            float range,
+            FP halfAngleDegrees,
+            FP range,
             GAS.Targeting.TargetDataFilter filter,
             List<ActorId> results)
         {
@@ -310,8 +313,20 @@ namespace Framework.GamePlay
                 return;
             }
 
-            var forward = direction.sqrMagnitude > 0f ? direction.normalized : Vector3.forward;
-            var candidates = grid.QueryNearby(origin, range);
+            var originFp = FPConversions.ToFP(origin);
+            var forward = FPConversions.ToFP(direction);
+            forward.y = FP.Zero;
+            if (forward.sqrMagnitude <= FP.Zero)
+            {
+                forward = TSVector.forward;
+            }
+            else
+            {
+                forward.Normalize();
+            }
+
+            var candidates = grid.QueryNearby(originFp, range);
+            var minDist = FP.EN3;
 
             for (var i = 0; i < candidates.Count; i++)
             {
@@ -335,14 +350,15 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                var toTarget = position - origin;
+                var toTarget = position - originFp;
+                toTarget.y = FP.Zero;
                 var distance = toTarget.magnitude;
-                if (distance > range || distance <= 0.001f)
+                if (distance > range || distance <= minDist)
                 {
                     continue;
                 }
 
-                var angle = Vector3.Angle(forward, toTarget);
+                var angle = TSVector.Angle(forward, toTarget);
                 if (angle > halfAngleDegrees)
                 {
                     continue;
@@ -358,7 +374,7 @@ namespace Framework.GamePlay
         }
 
         /// <summary>从 ECS 实体 ID 解析 <see cref="BattleActor"/> 与世界坐标。</summary>
-        bool TryResolveActor(uint entityId, out BattleActor actor, out Vector3 position)
+        bool TryResolveActor(uint entityId, out BattleActor actor, out TSVector position)
         {
             actor = null;
             position = default;
@@ -379,7 +395,7 @@ namespace Framework.GamePlay
             }
             else
             {
-                position = actor.Position;
+                position = FPConversions.ToFP(actor.Position);
             }
 
             return true;
@@ -413,21 +429,21 @@ namespace Framework.GamePlay
                 return;
             }
 
-            _world.AddComponent(entity, new VelocityComponent { Value = velocity });
+            _world.AddComponent(entity, new VelocityComponent { Value = FPConversions.ToFP(velocity) });
         }
 
         /// <summary>对 Actor 施加击退冲量（写入 <see cref="KnockbackComponent"/>）。</summary>
         /// <param name="actorId">目标 Actor。</param>
         /// <param name="offset">期望位移向量（米）。</param>
         /// <param name="duration">冲量持续秒数；≤0 时使用默认时长。</param>
-        public void ApplyKnockback(ActorId actorId, Vector3 offset, float duration = 0f)
+        public void ApplyKnockback(ActorId actorId, TSVector offset, FP duration = default)
         {
-            if (!TryGetEntity(actorId, out var entity) || offset.sqrMagnitude < 0.0001f)
+            if (!TryGetEntity(actorId, out var entity) || offset.sqrMagnitude < FP.EN4)
             {
                 return;
             }
 
-            if (duration <= 0f)
+            if (duration <= FP.Zero)
             {
                 duration = BattleConstants.DefaultKnockbackDuration;
             }
@@ -436,7 +452,7 @@ namespace Framework.GamePlay
             if (_world.TryGetComponent(entity, out KnockbackComponent existing))
             {
                 existing.Velocity += add;
-                existing.Remaining = Mathf.Max(existing.Remaining, duration);
+                existing.Remaining = TSMath.Max(existing.Remaining, duration);
                 _world.AddComponent(entity, existing);
                 return;
             }
@@ -451,7 +467,7 @@ namespace Framework.GamePlay
         /// <summary>对 Actor 施加世界空间位移（击退）。</summary>
         /// <param name="actorId">目标 Actor。</param>
         /// <param name="offset">位移向量。</param>
-        public void ApplyDisplacement(ActorId actorId, Vector3 offset)
+        public void ApplyDisplacement(ActorId actorId, TSVector offset)
         {
             ApplyKnockback(actorId, offset);
         }
@@ -467,7 +483,9 @@ namespace Framework.GamePlay
                 return Vector3.forward;
             }
 
-            return transform.Forward.sqrMagnitude > 0f ? transform.Forward.normalized : Vector3.forward;
+            return transform.Forward.sqrMagnitude > FP.Zero
+                ? transform.ToUnityForward()
+                : Vector3.forward;
         }
 
         /// <summary>写入 Actor 朝向。</summary>
@@ -481,7 +499,9 @@ namespace Framework.GamePlay
                 return;
             }
 
-            transform.Forward = forward.sqrMagnitude > 0f ? forward.normalized : Vector3.forward;
+            transform.Forward = forward.sqrMagnitude > 0f
+                ? FPConversions.ToFP(forward.normalized)
+                : TSVector.forward;
             _world.AddComponent(entity, transform);
         }
 
@@ -498,7 +518,7 @@ namespace Framework.GamePlay
 
                 if (_world.TryGetComponent(actor.EcsEntity, out TransformComponent transform))
                 {
-                    actor.Position = transform.Position;
+                    actor.Position = transform.ToUnityPosition();
                 }
             }
         }

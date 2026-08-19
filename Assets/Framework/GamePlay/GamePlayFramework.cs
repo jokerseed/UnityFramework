@@ -12,13 +12,15 @@ using Framework.GAS.Cues;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GamePlay
 {
     /// <summary>
     /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
-    /// Tick 顺序：RebuildActors → SyncCue → BT → 定身清速度 → 存活 ASC.Tick → Flush Spawn → ECS → Flush 结算 → SyncDeath → SyncPositions
+    /// Tick 顺序：RebuildActors → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → ECS → Flush 结算 → SyncDeath → SyncPositions。
+    /// AI 意图由 <see cref="CollectAiIntents"/> 在 Host 逻辑步写入帧，不在 Tick 内直接 Apply。
     /// </summary>
     public sealed class GamePlayFramework : ITickable, IDisposable
     {
@@ -31,8 +33,14 @@ namespace Framework.GamePlay
         readonly EventBusGameplayCueManager _cueManager;
         readonly Dictionary<ActorId, BattleAgent> _agents = new Dictionary<ActorId, BattleAgent>();
         readonly EngageSlotAllocator _engageSlots = new EngageSlotAllocator();
+        readonly List<ActorId> _agentOrder = new List<ActorId>(16);
+        readonly TSRandom _random;
+        List<BattleIntentCommand> _intentSink;
         const float FullAiRangeSqr = 64f;
         const float FarChaseSpeed = 2.2f;
+
+        /// <summary>本场战斗确定性随机源。</summary>
+        public TSRandom Random => _random;
 
         /// <summary>表现层事件总线，用于向外广播战斗事件（如伤害飘字、技能特效触发）。</summary>
         public IEventBus EventBus => _presentationBus;
@@ -53,9 +61,11 @@ namespace Framework.GamePlay
         public ActorRegistry Registry => _registry;
 
         /// <summary>创建并初始化玩法框架，注册默认 ECS 系统。</summary>
-        public GamePlayFramework()
+        /// <param name="randomSeed">确定性随机种子。</param>
+        public GamePlayFramework(int randomSeed = 1)
         {
-            _battleContext = new BattleContext(_commandBuffer, _presentationBus);
+            _random = TSRandom.New(randomSeed);
+            _battleContext = new BattleContext(_commandBuffer, _presentationBus, new TsRandomAdapter(_random));
             _world = new World { Commands = _commandBuffer };
             _registry = new ActorRegistry(_world);
             _commandProcessor = new BattleCommandProcessor(_world, _registry);
@@ -90,6 +100,7 @@ namespace Framework.GamePlay
             asc.CuePosition = position;
             asc.CueDirection = Vector3.forward;
             asc.CueManager = _cueManager;
+            asc.Random = _battleContext.Random;
 
             _registry.Create(actorId, position, maxHealth, teamId, asc);
             return asc;
@@ -214,7 +225,7 @@ namespace Framework.GamePlay
         public void QueryTargetsInRadius(
             ActorId source,
             Vector3 origin,
-            float radius,
+            FP radius,
             TargetDataFilter filter,
             List<ActorId> results)
         {
@@ -233,8 +244,8 @@ namespace Framework.GamePlay
             ActorId source,
             Vector3 origin,
             Vector3 direction,
-            float halfAngleDegrees,
-            float range,
+            FP halfAngleDegrees,
+            FP range,
             TargetDataFilter filter,
             List<ActorId> results)
         {
@@ -253,7 +264,7 @@ namespace Framework.GamePlay
         /// <param name="origin">查询中心的世界坐标。</param>
         /// <param name="range">查询范围半径（世界单位）。</param>
         /// <returns>范围内最近敌方的 <see cref="ActorId"/>；无有效目标时返回 <see cref="ActorId.Invalid"/>。</returns>
-        public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, float range) =>
+        public ActorId QueryNearestEnemy(ActorId source, Vector3 origin, FP range) =>
             _registry.QueryNearestEnemy(source, origin, range);
 
         /// <summary>查询扇形内敌对 Actor，供近战扇形技能注入。</summary>
@@ -267,8 +278,8 @@ namespace Framework.GamePlay
             ActorId source,
             Vector3 origin,
             Vector3 direction,
-            float halfAngleDegrees,
-            float range,
+            FP halfAngleDegrees,
+            FP range,
             List<ActorId> results)
         {
             if (!_registry.TryGet(source, out var sourceActor))
@@ -338,7 +349,41 @@ namespace Framework.GamePlay
         }
 
         /// <summary>
-        /// 执行一帧战斗逻辑。
+        /// 把本逻辑帧 AI 意图写入 <paramref name="dest"/>，不直接改模拟。
+        /// 须在 <see cref="BattleIntentApplier"/> 之前、基于上一逻辑步提交后的世界状态调用。
+        /// </summary>
+        /// <param name="dest">输出列表；已有玩家指令应保留，本方法只追加。</param>
+        /// <param name="fixedDeltaTime">逻辑步长，驱动行为树时间。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="dest"/> 为 null。</exception>
+        public void CollectAiIntents(List<BattleIntentCommand> dest, float fixedDeltaTime)
+        {
+            if (dest == null)
+            {
+                throw new ArgumentNullException(nameof(dest));
+            }
+
+            _intentSink = dest;
+            TickAgents(fixedDeltaTime);
+            _intentSink = null;
+        }
+
+        /// <summary>
+        /// 提交一条行为意图：收集阶段写入当前 dest；否则立即执行（兼容未走 Host 的调用）。
+        /// </summary>
+        /// <param name="command">行为指令。</param>
+        public void SubmitIntent(in BattleIntentCommand command)
+        {
+            if (_intentSink != null)
+            {
+                _intentSink.Add(command);
+                return;
+            }
+
+            BattleIntentApplier.Apply(this, command);
+        }
+
+        /// <summary>
+        /// 执行一帧战斗逻辑（不含 AI 编码）。
         /// </summary>
         /// <param name="deltaTime">距上一帧的时间间隔（秒）。</param>
         public void Tick(float deltaTime)
@@ -350,7 +395,6 @@ namespace Framework.GamePlay
             }
 
             SyncCuePose();
-            TickAgents(deltaTime);
             ApplyRootAndStun();
 
             foreach (var pair in _registry.Actors)
@@ -409,9 +453,18 @@ namespace Framework.GamePlay
             _engageSlots.Rebuild(_registry, _agents);
             var stunned = new GameplayTag(BattleConstants.TagStunned);
             var knocked = new GameplayTag(BattleConstants.TagKnockedDown);
+            _agentOrder.Clear();
             foreach (var pair in _agents)
             {
-                if (!_registry.TryGet(pair.Key, out var actor) ||
+                _agentOrder.Add(pair.Key);
+            }
+
+            _agentOrder.Sort((a, b) => a.Value.CompareTo(b.Value));
+            for (var i = 0; i < _agentOrder.Count; i++)
+            {
+                var actorId = _agentOrder[i];
+                if (!_agents.TryGetValue(actorId, out var agent) ||
+                    !_registry.TryGet(actorId, out var actor) ||
                     actor.AbilitySystem.IsDead ||
                     actor.AbilitySystem.Tags.HasTag(knocked) ||
                     actor.AbilitySystem.Tags.HasTag(stunned))
@@ -419,12 +472,12 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                if (TryTickFarChase(actor, pair.Value))
+                if (TryTickFarChase(actor, agent))
                 {
                     continue;
                 }
 
-                pair.Value.Tick(this, pair.Key, deltaTime);
+                agent.Tick(this, actorId, deltaTime);
             }
         }
 
@@ -457,16 +510,8 @@ namespace Framework.GamePlay
             }
 
             var dir = toDest / distance;
-            if (toFocus.sqrMagnitude > 0.0001f)
-            {
-                _registry.SetForward(actor.ActorId, toFocus.normalized);
-            }
-            else
-            {
-                _registry.SetForward(actor.ActorId, dir);
-            }
-
-            _registry.SetVelocity(actor.ActorId, dir * FarChaseSpeed);
+            var face = toFocus.sqrMagnitude > 0.0001f ? toFocus.normalized : dir;
+            SubmitIntent(BattleIntentCommand.Move(actor.ActorId, dir * FarChaseSpeed, face, BattleIntentSource.Ai));
             return true;
         }
 

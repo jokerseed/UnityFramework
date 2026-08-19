@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Game
 {
     /// <summary>
-    /// 战斗输入：通过 <see cref="BattleInputActions"/> 采样并驱动 <see cref="GamePlayFramework"/>。
+    /// 战斗输入：采样锁存到意图帧，由 <see cref="LocalLockstepHost"/> 在逻辑步编码执行。
     /// </summary>
     public sealed class BattleInputController
     {
@@ -20,7 +20,7 @@ namespace Game
         static readonly string[] MeleeComboIds = { "Slash3", "Slash2", "Slash" };
 
         readonly BattleInputActions _actions = new BattleInputActions();
-        readonly List<BattleIntentCommand> _intents = new List<BattleIntentCommand>(8);
+        BattleInputFrame _pending;
         float _meleeBuffer;
         bool _enabled;
 
@@ -55,10 +55,9 @@ namespace Game
             _actions.Dispose();
         }
 
-        /// <summary>采样当前渲染帧输入，生成可供逻辑帧消费的输入快照。</summary>
-        /// <param name="deltaTime">帧间隔。</param>
-        /// <returns>本帧输入快照。</returns>
-        public BattleInputFrame Sample(float deltaTime)
+        /// <summary>采样当前渲染帧输入，锁存到下一逻辑帧编码。须使用 unscaled 时间。</summary>
+        /// <param name="unscaledDeltaTime">不受 timeScale 影响的帧间隔。</param>
+        public void Sample(float unscaledDeltaTime)
         {
             var battle = _actions.Battle;
             if (battle.Melee.WasPressedThisFrame())
@@ -74,54 +73,52 @@ namespace Game
                 moveDirection.Normalize();
             }
 
-            _meleeBuffer = Mathf.Max(0f, _meleeBuffer - deltaTime);
-            return new BattleInputFrame
-            {
-                MoveDirection = moveDirection,
-                HasMoveInput = hasMoveInput,
-                TriggerMelee = _meleeBuffer > 0f,
-                TriggerFireball = battle.Fireball.WasPressedThisFrame(),
-                TriggerDodge = battle.Dodge.WasPressedThisFrame(),
-                AimDirection = hasMoveInput ? moveDirection : Vector3.zero,
-            };
+            _pending.MoveDirection = moveDirection;
+            _pending.HasMoveInput = hasMoveInput;
+            _pending.TriggerMelee = _meleeBuffer > 0f;
+            _pending.TriggerFireball = _pending.TriggerFireball || battle.Fireball.WasPressedThisFrame();
+            _pending.TriggerDodge = _pending.TriggerDodge || battle.Dodge.WasPressedThisFrame();
+            _pending.AimDirection = hasMoveInput ? moveDirection : Vector3.zero;
         }
 
-        /// <summary>将本帧输入编码为行为指令并执行。</summary>
+        /// <summary>将锁存输入编码为当前逻辑帧的行为指令。</summary>
         /// <param name="framework">玩法框架。</param>
         /// <param name="heroId">英雄 ActorId。</param>
-        /// <param name="inputFrame">当前待消费的输入快照。</param>
-        public void Apply(GamePlayFramework framework, ActorId heroId, ref BattleInputFrame inputFrame)
-        {
-            _intents.Clear();
-            Encode(framework, heroId, ref inputFrame, _intents);
-            BattleIntentApplier.ApplyAll(framework, _intents);
-        }
-
-        void Encode(
+        /// <param name="dest">输出指令列表。</param>
+        /// <param name="fixedDeltaTime">逻辑步长，用于衰减连招缓冲。</param>
+        public void Encode(
             GamePlayFramework framework,
             ActorId heroId,
-            ref BattleInputFrame inputFrame,
+            List<BattleIntentCommand> dest,
+            float fixedDeltaTime)
+        {
+            EncodePending(framework, heroId, dest);
+            _meleeBuffer = Mathf.Max(0f, _meleeBuffer - fixedDeltaTime);
+        }
+
+        void EncodePending(
+            GamePlayFramework framework,
+            ActorId heroId,
             List<BattleIntentCommand> dest)
         {
-            var velocity = inputFrame.HasMoveInput
-                ? inputFrame.MoveDirection * HeroMoveSpeed
+            var velocity = _pending.HasMoveInput
+                ? _pending.MoveDirection * HeroMoveSpeed
                 : Vector3.zero;
-            var face = inputFrame.HasMoveInput ? inputFrame.MoveDirection : Vector3.zero;
+            var face = _pending.HasMoveInput ? _pending.MoveDirection : Vector3.zero;
             dest.Add(BattleIntentCommand.Move(heroId, velocity, face, BattleIntentSource.Player));
 
-            TryEncodeMelee(framework, heroId, ref inputFrame, dest);
-            TryEncodeFireball(framework, heroId, ref inputFrame, dest);
-            TryEncodeDodge(framework, heroId, ref inputFrame, dest);
-            inputFrame.ConsumeOneShotCommands();
+            TryEncodeMelee(framework, heroId, dest);
+            TryEncodeFireball(framework, heroId, dest);
+            TryEncodeDodge(framework, heroId, dest);
+            _pending.ConsumeOneShotCommands();
         }
 
         void TryEncodeMelee(
             GamePlayFramework framework,
             ActorId heroId,
-            ref BattleInputFrame inputFrame,
             List<BattleIntentCommand> dest)
         {
-            if (!inputFrame.TriggerMelee)
+            if (!_pending.TriggerMelee)
             {
                 return;
             }
@@ -131,7 +128,7 @@ namespace Game
                 asc.IsDead)
             {
                 _meleeBuffer = 0f;
-                inputFrame.TriggerMelee = false;
+                _pending.TriggerMelee = false;
                 return;
             }
 
@@ -152,26 +149,25 @@ namespace Game
                     ActorId.Invalid,
                     BattleIntentSource.Player));
                 _meleeBuffer = 0f;
-                inputFrame.TriggerMelee = false;
+                _pending.TriggerMelee = false;
                 return;
             }
         }
 
-        static void TryEncodeFireball(
+        void TryEncodeFireball(
             GamePlayFramework framework,
             ActorId heroId,
-            ref BattleInputFrame inputFrame,
             List<BattleIntentCommand> dest)
         {
-            if (!inputFrame.TriggerFireball || !framework.Registry.TryGet(heroId, out var hero))
+            if (!_pending.TriggerFireball || !framework.Registry.TryGet(heroId, out var hero))
             {
                 return;
             }
 
             var targetId = framework.QueryNearestEnemy(heroId, hero.Position, 20f);
             var origin = hero.Position + Vector3.up * FireballCastHeight;
-            var direction = inputFrame.AimDirection.sqrMagnitude > 0.0001f
-                ? inputFrame.AimDirection
+            var direction = _pending.AimDirection.sqrMagnitude > 0.0001f
+                ? _pending.AimDirection
                 : framework.Registry.GetForward(heroId);
             if (framework.Registry.TryGet(targetId, out var target))
             {
@@ -190,24 +186,23 @@ namespace Game
                 direction,
                 targetId,
                 BattleIntentSource.Player));
-            inputFrame.TriggerFireball = false;
+            _pending.TriggerFireball = false;
         }
 
-        static void TryEncodeDodge(
+        void TryEncodeDodge(
             GamePlayFramework framework,
             ActorId heroId,
-            ref BattleInputFrame inputFrame,
             List<BattleIntentCommand> dest)
         {
-            if (!inputFrame.TriggerDodge || !framework.Registry.TryGet(heroId, out var hero))
+            if (!_pending.TriggerDodge || !framework.Registry.TryGet(heroId, out var hero))
             {
                 return;
             }
 
             var forward = framework.Registry.GetForward(heroId);
-            if (inputFrame.HasMoveInput)
+            if (_pending.HasMoveInput)
             {
-                forward = inputFrame.MoveDirection;
+                forward = _pending.MoveDirection;
             }
 
             dest.Add(BattleIntentCommand.Cast(
@@ -217,7 +212,7 @@ namespace Game
                 forward,
                 ActorId.Invalid,
                 BattleIntentSource.Player));
-            inputFrame.TriggerDodge = false;
+            _pending.TriggerDodge = false;
         }
     }
 }

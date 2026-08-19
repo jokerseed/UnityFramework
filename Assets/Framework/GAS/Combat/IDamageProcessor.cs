@@ -1,5 +1,5 @@
+using Framework.FixedMath;
 using Framework.GAS;
-using UnityEngine;
 
 namespace Framework.GAS.Combat
 {
@@ -27,16 +27,16 @@ namespace Framework.GAS.Combat
             if (target.Tags.HasTag(new Tags.GameplayTag(Core.BattleConstants.TagImmuneDamage)) ||
                 target.Tags.HasTag(new Tags.GameplayTag(Core.BattleConstants.TagDead)))
             {
-                return context.WithPipelineResult(0f, false, 0f);
+                return context.WithPipelineResult(FP.Zero, false, FP.Zero);
             }
 
-            var remaining = context.RawDamage > 0f
+            var remaining = context.RawDamage > FP.Zero
                 ? context.RawDamage
-                : source?.Attributes.GetCurrentValue(Core.BattleConstants.Attack) ?? 0f;
+                : source?.Attributes.GetCurrentValue(Core.BattleConstants.Attack) ?? FP.Zero;
 
             var shield = target.Attributes.GetCurrentValue(Core.BattleConstants.Shield);
-            var absorbed = 0f;
-            if (shield > 0f && remaining > 0f)
+            var absorbed = FP.Zero;
+            if (shield > FP.Zero && remaining > FP.Zero)
             {
                 absorbed = remaining < shield ? remaining : shield;
                 remaining -= absorbed;
@@ -49,20 +49,20 @@ namespace Framework.GAS.Combat
                 : Core.BattleConstants.Defense;
             var resist = target.Attributes.GetCurrentValue(resistName);
             remaining -= resist;
-            if (remaining < 0f)
+            if (remaining < FP.Zero)
             {
-                remaining = 0f;
+                remaining = FP.Zero;
             }
 
-            if (remaining > 0f)
+            if (remaining > FP.Zero)
             {
-                var takenMul = 1f;
+                var takenMul = FP.One;
                 if (target.Attributes.TryGet(Core.BattleConstants.IncomingDamageMultiplier, out var takenAttr))
                 {
                     takenMul = takenAttr.CurrentValue;
-                    if (takenMul < 0f)
+                    if (takenMul < FP.Zero)
                     {
-                        takenMul = 0f;
+                        takenMul = FP.Zero;
                     }
                 }
 
@@ -70,11 +70,12 @@ namespace Framework.GAS.Combat
             }
 
             var isCrit = false;
-            var critChance = source?.Attributes.GetCurrentValue(Core.BattleConstants.CritChance) ?? 0f;
-            if (critChance > 0f && remaining > 0f && Random.value < critChance)
+            var critChance = source?.Attributes.GetCurrentValue(Core.BattleConstants.CritChance) ?? FP.Zero;
+            var random = source?.Random ?? target.Random;
+            if (critChance > FP.Zero && remaining > FP.Zero && random != null && random.Next01() < critChance)
             {
                 var multiplier = source.Attributes.GetCurrentValue(Core.BattleConstants.CritMultiplier);
-                if (multiplier <= 0f)
+                if (multiplier <= FP.Zero)
                 {
                     multiplier = Core.BattleConstants.DefaultCritMultiplier;
                 }

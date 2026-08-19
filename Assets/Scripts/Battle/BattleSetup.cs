@@ -147,7 +147,9 @@ namespace Game
                     var monsterId = _monsterIds[i];
                     framework.CreateActor(monsterId, MonsterSpawnPosition(i), maxHealth: 40f, teamId: MonsterTeamId);
                     framework.RegisterActorAbilities(monsterId, teamId: MonsterTeamId, abilityIds: new[] { "MobSlash" }, tables);
-                    framework.SetBattleAgent(monsterId, BattleAiNodes.CreateMeleeChaserAgent("MobSlash", HeroId));
+                    framework.SetBattleAgent(
+                        monsterId,
+                        BattleAiNodes.CreateMeleeChaserAgent("MobSlash", HeroId, random: session.Random));
                 }
 
                 _waveDirector = new BattleWaveDirector(_monsterIds, HeroId, MonsterBaseHealth, "MobSlash");

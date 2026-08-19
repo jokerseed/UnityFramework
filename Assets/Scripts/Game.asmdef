@@ -11,6 +11,7 @@
         "Framework.Events",
         "Framework.GamePlay",
         "Framework.GAS",
+        "Framework.FixedMath",
         "Framework.Logging",
         "Framework.MemoryPool",
         "Framework.Network",

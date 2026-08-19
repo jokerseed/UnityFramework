@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 using UnityEngine;
 
 namespace Framework.GamePlay
@@ -84,12 +85,14 @@ namespace Framework.GamePlay
         void SpawnRing(GamePlayFramework framework, Vector3 heroPosition, float health)
         {
             var count = _slots.Count;
-            var radius = 4.2f;
+            var radius = (FP)4.2f;
+            var hero = FPConversions.ToFP(heroPosition);
+            var waveBias = (FP)_wave * (FP)0.35f;
             for (var i = 0; i < count; i++)
             {
-                var angle = (Mathf.PI * 2f * i / count) + _wave * 0.35f;
-                var position = heroPosition + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-                framework.ReviveActor(_slots[i], position, health);
+                var angle = FP.Pi * 2 * i / count + waveBias;
+                var position = hero + new TSVector(TSMath.Cos(angle) * radius, 0, TSMath.Sin(angle) * radius);
+                framework.ReviveActor(_slots[i], FPConversions.ToVector3(position), health);
             }
         }
     }

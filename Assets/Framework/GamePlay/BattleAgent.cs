@@ -26,8 +26,14 @@ namespace Framework.GamePlay
         /// <param name="blackboard">黑板；不可为 null。</param>
         /// <param name="owner">宿主对象；通常为 ActorId 或业务包装。</param>
         /// <param name="focusTarget">追击目标；远距离时只朝该目标走，不跑整棵树。</param>
+        /// <param name="random">确定性随机源；为 null 时使用种子 1 的独立实例。</param>
         /// <exception cref="ArgumentNullException"><paramref name="tree"/> 或 <paramref name="blackboard"/> 为 null。</exception>
-        public BattleAgent(BtTree tree, BtBlackboard blackboard, object owner = null, ActorId focusTarget = default)
+        public BattleAgent(
+            BtTree tree,
+            BtBlackboard blackboard,
+            object owner = null,
+            ActorId focusTarget = default,
+            TSRandom random = null)
         {
             _tree = tree ?? throw new ArgumentNullException(nameof(tree));
             if (blackboard == null)
@@ -35,7 +41,7 @@ namespace Framework.GamePlay
                 throw new ArgumentNullException(nameof(blackboard));
             }
 
-            _context = new BtContext(blackboard, owner, TSRandom.New(1));
+            _context = new BtContext(blackboard, owner, random ?? TSRandom.New(1));
             FocusTarget = focusTarget;
         }
 

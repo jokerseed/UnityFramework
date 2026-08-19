@@ -124,6 +124,23 @@ namespace Framework.FixedMath {
             return ((FP) Next()) / (MaxRandomInt);
         }
 
+        /// <summary>当前生成器内部状态的稳定哈希，不消耗随机序列。</summary>
+        /// <returns>由 <c>mti</c> 与 <c>mt</c> 表混合得到的 32 位哈希。</returns>
+        public int GetStateHash()
+        {
+            unchecked
+            {
+                var hash = (int)2166136261;
+                hash = (hash * 16777619) ^ mti;
+                for (var i = 0; i < N; i++)
+                {
+                    hash = (hash * 16777619) ^ (int)mt[i];
+                }
+
+                return hash;
+            }
+        }
+
         /**
          *  @brief Returns a {@link FP} between 0.0 [inclusive] and 1.0 [inclusive].
          **/

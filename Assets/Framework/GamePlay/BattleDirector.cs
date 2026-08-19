@@ -17,13 +17,16 @@ namespace Framework.GamePlay
         public int SessionCount => _sessions.Count;
 
         /// <summary>创建并返回一个新的 <see cref="BattleSession"/>。</summary>
+        /// <param name="randomSeed">本场战斗确定性随机种子。</param>
         /// <returns>已初始化的会话实例。</returns>
-        public BattleSession CreateSession()
+        public BattleSession CreateSession(int randomSeed = 1)
         {
             var id = _nextSessionId++;
-            var session = new BattleSession(id);
+            var session = new BattleSession(id, randomSeed);
             _sessions[id] = session;
-            GameLog.Info(LogCategories.GamePlay, $"Session {LogStyle.Value(id.ToString())} created");
+            GameLog.Info(
+                LogCategories.GamePlay,
+                $"Session {LogStyle.Value(id.ToString())} created  seed={LogStyle.Value(randomSeed.ToString())}");
             return session;
         }
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.FixedMath;
 
 namespace Framework.GAS.Targeting
 {
@@ -72,7 +73,7 @@ namespace Framework.GAS.Targeting
         public IReadOnlyList<string> RequiredTags { get; }
 
         /// <summary>最大距离；&lt;= 0 表示不限。</summary>
-        public float MaxDistance { get; }
+        public FP MaxDistance { get; }
 
         /// <summary>是否只选敌对单位。</summary>
         public bool EnemiesOnly { get; }
@@ -82,7 +83,7 @@ namespace Framework.GAS.Targeting
             ActorId source,
             int sourceTeamId,
             bool enemiesOnly = true,
-            float maxDistance = 0f,
+            FP maxDistance = default,
             IReadOnlyList<string> requiredTags = null)
         {
             Source = source;
