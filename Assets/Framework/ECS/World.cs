@@ -88,6 +88,7 @@ namespace Framework.ECS
                 return;
             }
 
+            GetSingleton<BattlePhysicsWorld>()?.RemoveBody(entityId);
             entity.IsAlive = false;
             _entities.Remove(entityId);
 

@@ -104,6 +104,13 @@ namespace Framework.GamePlay
             _world.AddComponent(entity, new CollisionComponent { Radius = BattleConstants.DefaultActorCollisionRadius });
             _world.AddComponent(entity, new VelocityComponent { Value = TSVector.zero });
 
+            _world.GetSingleton<BattlePhysicsWorld>()?.AddActorBody(
+                entity.Id,
+                actorId,
+                teamId,
+                position,
+                BattleConstants.DefaultActorCollisionRadius);
+
             _actors[actorId] = actor;
             return actor;
         }
@@ -149,6 +156,7 @@ namespace Framework.GamePlay
             }
 
             _world.AddComponent(entity, new CombatStateComponent { IsAlive = isAlive });
+            _world.GetSingleton<BattlePhysicsWorld>()?.SetEnabled(entity.Id, isAlive);
         }
 
         /// <summary>写入 Actor 世界坐标（同时更新 ECS、<see cref="BattleActor.SimPosition"/> 与表现缓存）。</summary>
@@ -170,6 +178,7 @@ namespace Framework.GamePlay
             _world.AddComponent(entity, transform);
             actor.SimPosition = position;
             actor.Position = FPConversions.ToVector3(position);
+            _world.GetSingleton<BattlePhysicsWorld>()?.SetPosition(entity.Id, position);
         }
 
         /// <summary>尝试读取 Actor 仿真坐标。</summary>

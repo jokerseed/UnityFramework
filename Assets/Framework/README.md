@@ -30,7 +30,7 @@
 | `Framework.Core` | CommandBuffer、BattleContext、标识符、`IGameModule` | [Core/README.md](Core/README.md) |
 | `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
-| `Framework.ECS` | World、System、空间哈希 | [ECS/README.md](ECS/README.md) |
+| `Framework.ECS` | World、System、Farseer 2D 战斗物理、空间哈希 | [ECS/README.md](ECS/README.md) |
 | `Framework.GamePlay` | `GamePlayFramework` 玩法主入口 | [GamePlay/README.md](GamePlay/README.md) |
 | `Framework.Config` | Luban 加载与 Tables 缓存 | [Config/README.md](Config/README.md) |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
@@ -91,7 +91,7 @@ Launch.Awake
 ## Tick 顺序
 
 ```
-GAS Tick → Flush Spawn → ECS Tick → Flush Damage/Heal/GE/Displace → SyncDeath → Sync Positions
+GAS Tick → Flush Spawn → Farseer Step / ECS → Flush Damage/Heal/GE/Displace → SyncDeath → Sync Positions
 ```
 
 ## Luban 配置表

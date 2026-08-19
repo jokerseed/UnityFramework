@@ -19,7 +19,7 @@ namespace Framework.GamePlay
 {
     /// <summary>
     /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
-    /// Tick 顺序：RebuildActors → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → ECS → Flush 结算 → SyncDeath → SyncPositions。
+    /// Tick 顺序：RebuildActors → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → Flush 结算 → SyncDeath → SyncPositions。
     /// AI 意图由 <see cref="CollectAiIntents"/> 在 Host 逻辑步写入帧，不在 Tick 内直接 Apply。
     /// </summary>
     public sealed class GamePlayFramework : ITickable, IDisposable
@@ -67,15 +67,13 @@ namespace Framework.GamePlay
             _random = TSRandom.New(randomSeed);
             _battleContext = new BattleContext(_commandBuffer, _presentationBus, new TsRandomAdapter(_random));
             _world = new World { Commands = _commandBuffer };
+            _world.RegisterSingleton(new BattlePhysicsWorld());
             _registry = new ActorRegistry(_world);
             _commandProcessor = new BattleCommandProcessor(_world, _registry);
             _cueManager = new EventBusGameplayCueManager(_presentationBus);
 
-            _world.AddSystem(new MovementSystem());
-            _world.AddSystem(new KnockbackSystem());
-            _world.AddSystem(new ActorSeparationSystem());
+            _world.AddSystem(new PhysicsSimulationSystem());
             _world.AddSystem(new SpatialIndexSystem());
-            _world.AddSystem(new ProjectileCollisionSystem());
             _world.AddSystem(new ProjectileLifetimeSystem());
         }
 

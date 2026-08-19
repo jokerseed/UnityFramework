@@ -109,7 +109,7 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequeue → BattleIntentApplier → Framework.Tick → 刷波 → checksum / 录像
 ```
 
-单机入队后立即出队。联网时同一队列可改为等远端帧到齐再出队。逻辑步不受 `Time.timeScale` 影响。意图、AI、位姿查询、命令缓冲位姿与物理常量均为定点（`FP` / `TSVector`）；表现事件与 `BattleActor.Position` 仍为 float / `Vector3`。超大数值结算不要用 Q31.32。
+单机入队后立即出队。联网时同一队列可改为等远端帧到齐再出队。逻辑步不受 `Time.timeScale` 影响。意图、AI、位姿查询、命令缓冲位姿与物理常量均为定点（`FP` / `TSVector`）；Actor 挤开 / 位移 / 弹道命中走 `BattlePhysicsWorld`（Farseer 2D）。表现事件与 `BattleActor.Position` 仍为 float / `Vector3`。超大数值结算不要用 Q31.32。
 
 战斗中按 **F8** 会用当前录像在影子 Session 上重放指令（不跑 AI 收集），逐帧比对 `BattleFrameChecksum`。
 
@@ -123,7 +123,7 @@ LocalLockstepHost.Tick(unscaledDeltaTime)
     0. RebuildActors
     1. SyncCuePose → 定身/眩晕/倒地清速度
     2. 存活 ASC.Tick
-    3. Flush Spawn → ECS Tick → Flush 结算 → SyncDeath → Sync Positions
+    3. Flush Spawn → Farseer Step → SpatialIndex → 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
   afterFixedStep（刷波）→ checksum → 录像
 ```
 

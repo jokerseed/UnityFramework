@@ -360,7 +360,7 @@ BattleBootstrap.OnDestroy
 - 输入采样与固定步长应用
 - 意图帧队列 + 单机 `LocalLockstepHost`（玩家 + AI 同帧）
 - 逻辑帧 checksum + 内存录像；F8 影子 Session 对拍
-- 位移 / 碰撞 / 意图 / AI / 命令位姿定点（`TSVector` / `FP`）
+- 位移 / 碰撞 / 意图 / AI / 命令位姿定点（`TSVector` / `FP`）；挤开与弹道命中走 Farseer 2D
 - 逻辑固定步长、连招缓冲、刷波复活位、ASC Tick 均为 `FP`（表现事件仍为 float）
 - 技能仿真定点（伤害、冷却、范围、属性；`GameplayEventData.TargetSimLocation` 为 `TSVector`）
 - 会话级种子随机（暴击 / AI）

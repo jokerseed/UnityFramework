@@ -76,6 +76,12 @@ namespace Framework.GamePlay
                     DamageType = command.DamageType
                 });
                 _world.AddComponent(entity, new TeamComponent { TeamId = command.TeamId });
+                _world.GetSingleton<BattlePhysicsWorld>()?.AddProjectileBody(
+                    entity.Id,
+                    command.Owner,
+                    command.TeamId,
+                    command.Position,
+                    command.Radius);
             }
 
             buffer.ClearSpawnProjectiles();

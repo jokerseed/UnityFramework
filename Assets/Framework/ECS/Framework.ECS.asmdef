@@ -3,7 +3,9 @@
     "rootNamespace": "Framework.ECS",
     "references": [
         "Framework.Core",
-        "Framework.FixedMath"
+        "Framework.FixedMath",
+        "Framework.Lockstep",
+        "Framework.LockstepPhysics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

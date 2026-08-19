@@ -22,7 +22,7 @@ namespace Framework.ECS.Components
         public Vector3 ToUnityForward() => FPConversions.ToVector3(Forward);
     }
 
-    /// <summary>速度组件，驱动 <see cref="Systems.MovementSystem"/> 对实体进行位移。</summary>
+    /// <summary>速度组件，由 <see cref="Systems.PhysicsSimulationSystem"/> 写入 Farseer 刚体。</summary>
     public struct VelocityComponent : IComponent
     {
         /// <summary>每秒位移向量（世界单位/秒），方向即为移动方向。</summary>
@@ -63,7 +63,7 @@ namespace Framework.ECS.Components
         public BattleDamageType DamageType;
     }
 
-    /// <summary>击退冲量，由 <see cref="Systems.KnockbackSystem"/> 在移动之后叠加位移并衰减。</summary>
+    /// <summary>击退冲量，由 <see cref="Systems.PhysicsSimulationSystem"/> 叠加到刚体速度并衰减。</summary>
     public struct KnockbackComponent : IComponent
     {
         /// <summary>击退速度（米/秒）。</summary>

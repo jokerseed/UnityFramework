@@ -25,7 +25,7 @@
 | **Unity 包装** | `PhysicsWorldManager` / `Physics2DWorldManager`、`TS*Collider`、层矩阵编辑器未迁 |
 | **开箱管理器** | 需自行实现 `IPhysicsManager` / `IPhysicsManagerBase` 把 World 挂到锁步；`Stubs/ClientBridgeStubs.cs` 仅为编译占位 |
 | **Client 专有桥** | `PhysicsWorldManager` / `FrameWriterSystem` 等仅有空壳，完整场景桥见缺失项「Unity 包装」 |
-| **与现有 ECS 战斗** | Framework 当前 `Framework.ECS` 弹道仍是 float；未自动替换为本物理 |
+| **与现有 ECS 战斗** | 已接：`BattlePhysicsWorld` 用 Farseer 2D 做 Actor 挤开、位移、击退与弹道传感器；GAS 查询仍走 `SpatialHashGrid`。Jitter 3D / 场景碰撞体未接 |
 | **性能/裁剪** | 未做按需裁剪（整包迁入）；2D/3D 可按项目只引用其一并关系统 |
 | **Client 专有补丁核对** | 已机械改命名空间；与主干逐文件 diff/对拍尚未做 |
 
