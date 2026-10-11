@@ -58,7 +58,7 @@ ECS/
 
 | System | Phase | 职责 |
 |--------|-------|------|
-| `PhysicsSimulationSystem` | Simulate | 速度+击退写入 Farseer → `Step` → 回写 Transform；投射物接触入队伤害/爆炸 |
+| `PhysicsSimulationSystem` | Simulate | 速度+击退写入 Farseer → `Step` → 只回写有刚体的 Transform（实体 ID 升序）；投射物接触入队伤害/爆炸 |
 | `SpatialIndexSystem` | Simulate | 物理步进后重建 Actor 空间索引 |
 | `ProjectileLifetimeSystem` | Simulate | 投射物超时销毁（`World.DestroyEntity` 卸刚体） |
 

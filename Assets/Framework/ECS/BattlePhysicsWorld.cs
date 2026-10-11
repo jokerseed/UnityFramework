@@ -140,6 +140,19 @@ namespace Framework.ECS
             }
         }
 
+        /// <summary>把当前刚体对应的实体 ID 拷到列表并按 ID 升序排列。</summary>
+        /// <param name="results">输出列表；调用前会被清空。不可为 null。</param>
+        public void CopyBodyEntityIds(List<uint> results)
+        {
+            results.Clear();
+            foreach (var pair in _bodies)
+            {
+                results.Add(pair.Key);
+            }
+
+            results.Sort();
+        }
+
         /// <summary>尝试读取刚体平面坐标并写回 Transform 的 XZ。</summary>
         /// <param name="entityId">ECS 实体 ID。</param>
         /// <param name="transform">现有 Transform；Y 轴保留。</param>
