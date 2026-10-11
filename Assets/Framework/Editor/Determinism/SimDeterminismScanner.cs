@@ -74,8 +74,14 @@ namespace Framework.Editor.Determinism
             var lines = source.Replace("\r\n", "\n").Split('\n');
             for (var i = 0; i < lines.Length; i++)
             {
+                if (lines[i].Contains("determinism-allow"))
+                {
+                    StripComments(lines[i], ref inBlock);
+                    continue;
+                }
+
                 var code = StripComments(lines[i], ref inBlock);
-                if (string.IsNullOrEmpty(code) || code.Contains("determinism-allow"))
+                if (string.IsNullOrEmpty(code))
                 {
                     continue;
                 }
