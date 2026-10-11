@@ -114,6 +114,8 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 战斗中按 **F8** 会用当前录像在影子 Session 上重放指令（不跑 AI 收集），逐帧比对 `BattleFrameChecksum`。
 
+`BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、行为树节点游标和表现层 float。字符串按字符序哈希，不用 `string.GetHashCode`。
+
 ## Tick 流程
 
 ```

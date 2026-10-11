@@ -64,6 +64,15 @@ namespace Framework.GAS
         /// <summary>当前激活中的技能实例（只读）。</summary>
         public IReadOnlyList<ActiveAbilityInstance> ActiveInstances => _activeInstances;
 
+        /// <summary>当前活跃效果数量，含冷却 GE。</summary>
+        public int ActiveEffectCount => _activeEffects.Count;
+
+        /// <summary>按施加顺序读取活跃效果。</summary>
+        /// <param name="index">下标，范围 [0, <see cref="ActiveEffectCount"/>)。</param>
+        /// <returns>活跃效果实例。</returns>
+        /// <exception cref="ArgumentOutOfRangeException">下标越界。</exception>
+        public ActiveGameplayEffect GetActiveEffect(int index) => _activeEffects[index];
+
         /// <summary>是否已死亡（持有死亡标签）。由标签变更时刷新，读取不扫描容器。</summary>
         public bool IsDead => _isDead;
 
