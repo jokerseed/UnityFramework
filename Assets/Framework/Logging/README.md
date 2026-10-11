@@ -21,7 +21,7 @@
 | `UnityConsoleLogSink` | 默认输出到 Unity Console |
 | `LogInitOptions` | Inspector 可配的初始化选项（挂在 `LoggingManager` 上） |
 | `LogStyle` | Console 富文本：级别/分类颜色，正文 `Name` / `Value` / `Ok` / `Fail` |
-| `LogCategories` | 常用分类常量 |
+| `LogCategories` | 常用分类常量（含 `Events`） |
 
 ## Bootstrap 集成
 

@@ -23,7 +23,7 @@
 | `BattleAgent` / `BattleAiNodes` | GamePlay 侧 BT 叶子 |
 | `BattleIntentCommand` / `BattleIntentApplier` | 玩家与 AI 共用的 Move / Cast 行为指令与执行器 |
 | `BattleIntentFrame` / `BattleIntentFrameQueue` | 按逻辑帧归档的意图队列 |
-| `LocalLockstepHost` | 单机自循环：编码入队后立刻出队，用 unscaled 固定步长推进；每步录像 + checksum |
+| `LocalLockstepHost` | 单机自循环。`InputDelayFrames` 为 0 时入队后立刻出队，与原来相同；大于 0 时多留几帧。用 unscaled 固定步长推进；每步录像 + checksum |
 | `BattleFrameChecksum` | 逻辑步结束后的轻量状态哈希 |
 | `BattleReplayTape` / `BattleReplayRecorder` / `BattleReplayVerifier` | 内存录像与影子 Session 对拍 |
 | `EngageSlotAllocator` | 按追击目标把杂兵铺在环上，避免叠点 |
@@ -92,6 +92,7 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 |----|------|--------|--------|
 | 行为意图 | `BattleIntentCommand` | 玩家编码 / AI `SubmitIntent` | `BattleIntentApplier` → `SetActorVelocity` / `TryActivateAbility` |
 | 模拟结算 | `BattleCommandBuffer` | GAS / ECS 碰撞 | `BattleCommandProcessor`（Spawn / Damage / Heal 等） |
+| 表现 | `Framework.GAS.Events` 的 struct | GAS `Publish` 到本场 `EventBus` | 业务表现层 `Subscribe`；模拟层不订阅 |
 
 约定：
 
@@ -107,6 +108,8 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 
 ## 单机锁步 Host
 
+结算命令最多再刷 4 轮，避免本轮事件里新入队的伤害在清空时被丢掉。平时只有一轮，结果与原来相同。
+
 `LocalLockstepHost` 用 `Time.unscaledDeltaTime`（仅渲染追赶）追赶 `BattleSession.FixedDeltaTime`（`FP` 逻辑步长）。追赶累加器是 `FP`：float 只在 `Tick(float)` 入口转换一次，比较和扣减不再用 float，因此相同的 float 输入序列得到相同的逻辑步数。`InterpolationAlpha` 仍是 float，只给表现插值。录像重放走 `BattleSession.Step(1)`，不把步长转回 float。每个逻辑步的 `beforeFixedStep` / `afterFixedStep`、`CollectAiIntents`、`Framework.Tick`、刷波与录像带均携带该 `FP`：
 
 这套和 `Framework.Lockstep` 里的 TrueSync（`AbstractLockstep`、`ReplayRecord`、`ChecksumExtractor`）不是同一条链路。战斗校验和是 `BattleFrameChecksum`，录像是内存里的 `BattleReplayTape`。不要把 TrueSync 的 MD5 物理校验和当成战斗结果。
@@ -121,9 +124,11 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、行为树节点游标和表现层 float。字符串按字符序哈希，不用 `string.GetHashCode`。
 
+`MinimalBattle` 是无视图样本：种子 42，队伍 0 在原点放弹道，队伍 1 在 +X 1.6 米放近战，默认 48 个逻辑步。`MinimalBattle.Run` 返回逐步 `BattleFrameChecksum`。它直接 `GiveAbility`，不经过配置目录。业务层把 `Game.MinimalBattleSample` 挂到空场景任意物体上，Play 后在日志里看末帧校验和；本仓库没有另存 `.unity`，因为没有编辑器就写不出合法的脚本引用。EditMode `MinimalBattleTests` 把同一场跑两遍并逐项对比。
+
 `LockstepHost` 等所有玩家的输入到齐再推进一步。`BattleLockstepSimulation` 把 `BattleSession` 交给它，检查点含随机数、ECS、`GasSnapshot` 和 `BattlePhysicsSnapshot`。`PredictRemote` 先填占位，正式输入不同就从最近的检查点重放。`LocalLockstepHost` 仍是单机意图帧，不走 `ICommunicator`。行为树游标不在这份检查点里。同一进程的两场物理世界共用 Farseer 静态 ID。
 
-EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像对拍、确定性扫描、快照往返，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。
+EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返、最小战斗两遍对拍，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。可选 GitHub Actions 工作流 `.github/workflows/editmode-tests.yml` 只用手动触发，需要 `UNITY_LICENSE` / `UNITY_EMAIL` / `UNITY_PASSWORD`，不是必需检查。
 
 ## Tick 流程
 

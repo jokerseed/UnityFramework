@@ -131,10 +131,7 @@ namespace Game
             go.transform.position = position;
             go.transform.localScale = Vector3.one * scale;
             var renderer = go.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.material.color = new Color(def.ColorR, def.ColorG, def.ColorB, 0.85f);
-            }
+            DemoPrimitiveMaterial.Apply(renderer, new Color(def.ColorR, def.ColorG, def.ColorB, 0.85f));
 
             return go;
         }

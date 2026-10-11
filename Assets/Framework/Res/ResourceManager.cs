@@ -28,6 +28,7 @@ namespace Framework.Res
         ResourceInitOptions _options;
         ResourceScheduler _scheduler;
         bool _initialized;
+        bool _loadingMainScene;
         bool _stopped;
 
         /// <summary>Inspector 中配置的资源初始化选项；未赋值时返回默认配置。</summary>
@@ -97,6 +98,7 @@ namespace Framework.Res
             }
 
             _stopped = false;
+            _initialized = false;
             _options = options;
 
             if (!YooAssets.IsInitialized)
@@ -113,14 +115,18 @@ namespace Framework.Res
             yield return initOperation;
             if (initOperation.Status != EOperationStatus.Succeeded)
             {
-                throw new InvalidOperationException($"[Resource] Initialize package failed: {initOperation.Error}");
+                var error = initOperation.Error;
+                yield return CleanupFailedInitialize(options.PackageName);
+                throw new InvalidOperationException($"[Resource] Initialize package failed: {error}");
             }
 
             var versionOperation = _package.RequestPackageVersionAsync();
             yield return versionOperation;
             if (versionOperation.Status != EOperationStatus.Succeeded)
             {
-                throw new InvalidOperationException($"[Resource] Request package version failed: {versionOperation.Error}");
+                var error = versionOperation.Error;
+                yield return CleanupFailedInitialize(options.PackageName);
+                throw new InvalidOperationException($"[Resource] Request package version failed: {error}");
             }
 
             var manifestOperation = _package.LoadPackageManifestAsync(
@@ -128,7 +134,9 @@ namespace Framework.Res
             yield return manifestOperation;
             if (manifestOperation.Status != EOperationStatus.Succeeded)
             {
-                throw new InvalidOperationException($"[Resource] Load package manifest failed: {manifestOperation.Error}");
+                var error = manifestOperation.Error;
+                yield return CleanupFailedInitialize(options.PackageName);
+                throw new InvalidOperationException($"[Resource] Load package manifest failed: {error}");
             }
 
             _initialized = true;
@@ -260,21 +268,72 @@ namespace Framework.Res
         }
 
         /// <summary>
-        /// 以 Single 模式加载主场景：释放旧主场景句柄，并 Dispose 全部已登记 Additive 句柄。
-        /// Unity 会卸掉旧场景，此处只负责 YooAsset 引用计数。
+        /// 以 Single 模式加载主场景。新场景加载成功后才释放旧主场景句柄和已登记的 Additive 句柄。
+        /// 加载失败时旧句柄保持不变。并发调用会抛异常。
         /// </summary>
         /// <param name="location">YooAsset 场景寻址字符串。</param>
         /// <param name="onComplete">加载完成后的回调；参数为新主场景句柄；可为 null。</param>
         /// <returns>协程迭代器。</returns>
-        /// <exception cref="InvalidOperationException">管理器尚未初始化，或场景加载失败。</exception>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化、已有一次主场景加载在进行，或场景加载失败。</exception>
         public IEnumerator LoadMainSceneAsync(string location, Action<ResourceSceneHandle> onComplete = null)
         {
             EnsureInitialized();
+            if (_loadingMainScene)
+            {
+                throw new InvalidOperationException("[Resource] LoadMainSceneAsync is already running.");
+            }
+
+            _loadingMainScene = true;
+            ResourceSceneHandle loaded = default;
+            var succeeded = false;
+            Exception failure = null;
+            var load = LoadSceneInternal(location, LoadSceneMode.Single, handle =>
+            {
+                loaded = handle;
+                succeeded = true;
+            });
+            while (true)
+            {
+                object current = null;
+                var done = false;
+                try
+                {
+                    if (!load.MoveNext())
+                    {
+                        done = true;
+                    }
+                    else
+                    {
+                        current = load.Current;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                    break;
+                }
+
+                if (done)
+                {
+                    break;
+                }
+
+                yield return current;
+            }
+
+            _loadingMainScene = false;
+            if (failure != null)
+            {
+                throw failure;
+            }
+
+            if (!succeeded)
+            {
+                yield break;
+            }
+
             ReleaseMainSceneHandle();
             ReleaseAllAdditiveHandles();
-
-            ResourceSceneHandle loaded = default;
-            yield return LoadSceneInternal(location, LoadSceneMode.Single, handle => loaded = handle);
             _mainSceneHandle = loaded;
             onComplete?.Invoke(loaded);
         }
@@ -417,6 +476,47 @@ namespace Framework.Res
             GameLog.Info(LogCategories.Resource, $"Manager {LogStyle.Muted("shut down")}");
         }
 
+        IEnumerator CleanupFailedInitialize(string packageName)
+        {
+            _initialized = false;
+            _options = null;
+            _scheduler?.Shutdown();
+            _scheduler = null;
+            var package = _package;
+            _package = null;
+            if (package == null || string.IsNullOrEmpty(packageName))
+            {
+                yield break;
+            }
+
+            DestroyPackageOperation destroy = null;
+            try
+            {
+                destroy = package.DestroyPackageAsync();
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.Resource, ex, "Destroy package after failed init.");
+            }
+
+            if (destroy != null)
+            {
+                yield return destroy;
+            }
+
+            try
+            {
+                if (YooAssets.TryGetPackage(packageName, out _))
+                {
+                    YooAssets.RemovePackage(packageName);
+                }
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.Resource, ex, "Remove package after failed init.");
+            }
+        }
+
         /// <summary>退出 Play / 应用时先于 YooAsset Driver 销毁资源系统，避免 abort Warning。</summary>
         protected override void OnApplicationQuit()
         {
@@ -500,9 +600,10 @@ namespace Framework.Res
             var wrapped = new ResourceSceneHandle(handle);
             if (!wrapped.IsValid || !wrapped.Succeeded)
             {
+                var error = wrapped.Error;
                 wrapped.Dispose();
                 throw new InvalidOperationException(
-                    $"[Resource] Load scene failed: location={location}, mode={sceneMode}, error={wrapped.Error}");
+                    $"[Resource] Load scene failed: location={location}, mode={sceneMode}, error={error}");
             }
 
             GameLog.Info(LogCategories.Resource,

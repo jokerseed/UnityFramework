@@ -23,6 +23,12 @@ namespace Framework.GAS.Abilities
     {
         static int s_nextInstanceId = 1;
 
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetProcessCounter()
+        {
+            s_nextInstanceId = 1;
+        }
+
         readonly List<Tasks.AbilityTask> _tasks = new List<Tasks.AbilityTask>();
 
         /// <summary>实例唯一 ID，用于 Cancel 查找。</summary>
@@ -54,7 +60,14 @@ namespace Framework.GAS.Abilities
         {
         }
 
-        /// <summary>用已保存的实例 ID 重建，不推进静态计数。</summary>
+        /// <summary>
+        /// 用已保存或由 ASC 分配的实例 ID 重建，不推进静态计数。
+        /// 快照恢复和 <c>AbilitySystemComponent</c> 的会话内计数都走这里。
+        /// </summary>
+        /// <param name="spec">授予技能 Spec。</param>
+        /// <param name="context">激活上下文。</param>
+        /// <param name="activationInfo">激活附加信息；为 null 时新建一份。</param>
+        /// <param name="instanceId">已保存或 ASC 分配的实例 ID。</param>
         internal ActiveAbilityInstance(
             GameplayAbilitySpec spec,
             in AbilityActivationContext context,

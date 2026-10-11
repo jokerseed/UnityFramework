@@ -206,10 +206,7 @@ namespace Game
             var scale = Mathf.Max(FireballBallMinScale, radius * 2f);
             ball.transform.localScale = Vector3.one * scale;
             var renderer = ball.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.material.color = new Color(1f, 0.35f, 0.08f, 1f);
-            }
+            DemoPrimitiveMaterial.Apply(renderer, new Color(1f, 0.35f, 0.08f, 1f));
 
             return ball;
         }
@@ -227,6 +224,40 @@ namespace Game
             _projectileViews.Clear();
             _aliveProjectileIds.Clear();
             _projectileViewRemoveScratch.Clear();
+        }
+    }
+
+    /// <summary>演示用球体共用一份材质，颜色走 PropertyBlock，避免 <c>renderer.material</c> 复制泄漏。</summary>
+    static class DemoPrimitiveMaterial
+    {
+        static Material _shared;
+        static readonly MaterialPropertyBlock Block = new MaterialPropertyBlock();
+
+        /// <summary>把颜色写到渲染器，不实例化材质。</summary>
+        /// <param name="renderer">目标渲染器；为 null 时忽略。</param>
+        /// <param name="color">要显示的颜色。</param>
+        public static void Apply(Renderer renderer, Color color)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            if (_shared == null)
+            {
+                var temp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                var source = temp.GetComponent<Renderer>();
+                _shared = source != null ? source.sharedMaterial : null;
+                UnityEngine.Object.Destroy(temp);
+            }
+
+            if (_shared != null)
+            {
+                renderer.sharedMaterial = _shared;
+            }
+
+            Block.SetColor("_Color", color);
+            renderer.SetPropertyBlock(Block);
         }
     }
 }

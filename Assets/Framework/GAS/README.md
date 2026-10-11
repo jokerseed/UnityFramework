@@ -25,7 +25,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 控制 | 眩晕打断禁手、沉默禁手、定身禁移动（Tag 常量）。`IsDead` / `IsStunned` / `IsRooted` / `IsKnockedDown` / `HasHyperArmor` / `IsSilenced` 在标签变更时刷新，读取不扫描容器 |
 | 标签匹配 | `GameplayTagMatcher.MatchesName` 用前缀比较，不拼接 `query + "."`。`HasTag` 仍是层级匹配，公开 API 不变 |
 | 冷却 | 可驱散的冷却 GE；`CooldownId` 共享组 |
-| 叠层 | `MaxStacks` + `AggregateBySource` 按来源 |
+| 叠层 | `MaxStacks` + `AggregateBySource` 按来源。持续修改器：Add 乘层数；Multiply 为 `1+(幅度-1)×层数`；Override 不乘层数。层数为 1 时与原来相同 |
 | 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`）。结算为 0 时 `FinalDamage` 保持 0，不再回退成原始伤害 |
 | 驱散 | `DispelEffects(tagQuery, maxCount)` |
 | 资源属性 | Health / Mana / Shield 当前值不被 Modifier 全量重算覆盖 |
@@ -39,7 +39,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 
 ## 定点约定
 
-技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。`AbilityActivationContext.Origin` / `Direction` 与 ASC `CueSimPosition` / `CueSimDirection` 为 `TSVector`；`CuePosition` / `CueDirection` 仍供 Cue 与事件 float 发布。`GameplayEventData.TargetSimLocation` 为仿真坐标（`TSVector`），`HandleGameplayEvent` 直接用于施法原点。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(FP)` 由 `GamePlayFramework` 以会话固定步长驱动，不再在入口把 float 转定点。超大数值战斗结算不要用 Q31.32。
+技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。`AbilityActivationContext.Origin` / `Direction` 与 ASC `CueSimPosition` / `CueSimDirection` 为 `TSVector`；`CuePosition` / `CueDirection` 仍供 Cue 与事件 float 发布。`GameplayEventData.TargetSimLocation` 为仿真坐标（`TSVector`），`HandleGameplayEvent` 直接用于施法原点。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(FP)` 由 `GamePlayFramework` 以会话固定步长驱动，不再在入口把 float 转定点。超大数值战斗结算不要用 Q31.32。进入 Play 时，技能实例号和效果句柄的进程计数会回到 1。这些句柄不在 `BattleFrameChecksum` 里，同一次战斗的校验和不变。
 
 ## Tick 顺序（GamePlay 驱动）
 
@@ -56,12 +56,13 @@ ActiveAbility Task → Effects（Duration / Periodic，Source 为施法者 ASC�
 - 标签引用计数（恢复后刷新眩晕、死亡等缓存）
 - 活跃效果，含冷却 GE：句柄、剩余时间、周期计时、层数、SetByCaller、来源
 - 已授予技能的 Spec 句柄、等级、输入绑定和 `_nextSpecHandle`
+- 每个 ASC 自己的 `_nextActiveInstanceId`、`_nextActiveEffectHandle`（版本 2）。新技能实例和活跃效果用这两个计数，不再吃进程静态
 - 激活中的技能实例。`MeleeSweepAbility`、`ChanneledProjectileAbility`、`DashAbility` 会恢复任务进度；其它带未完成任务的技能必须重写 `SaveActiveTasks` / `RestoreActiveTasks`，否则保存时抛出
 - 护盾加成 `_appliedShieldBonus`。恢复后会重算修改器，避免只回写当前值、下一帧被效果 Tick 盖掉
 
 技能定义上的工厂委托不进字节流，留在 `GasSnapshot` 对象里。必须用同一次 `Save` 的实例 `Restore`。同一快照里一个技能 ID 只能对应一份定义。`DamageExecution`、`HealExecution`、`ApplyGameplayEffectExecution` 可以恢复；其它 Execution 在保存时抛出。
 
-效果句柄、Spec RuntimeId、技能实例 ID 的进程内静态计数会随快照回写。这是整场战斗的计数，不要拿半场 ASC 的快照去回绕它。恢复不会重放 Cue，也不会再次调用 `Activate`。
+`GameplayEffectSpec.RuntimeId` 仍是进程内静态计数，会随快照头回写。不要拿半场 ASC 的快照去回绕它。技能实例 ID 和活跃效果句柄在每个 ASC 上递增，随该 ASC 的状态回写；版本 1 的 GAS 快照字节不能再读。直接 `new ActiveGameplayEffect(spec, source)` 仍会走静态计数，战斗路径不会这么做。恢复不会重放 Cue，也不会再次调用 `Activate`。
 
 ## 典型用法
 
@@ -131,6 +132,8 @@ asc.ApplyEffect(instantDef, sourceId, bus);
 ### Cue
 
 Duration / Infinite GE 的 `CueTagsOnApply` 发 Add，移除时 `CueTagsOnRemove` 发 Remove（Demo 配同一 Tag 才能成对销毁）。Instant GE 与技能 Cast 发 Execute。表现表 `tbcue`（`CfgTbCue`）由业务层 `BattleCuePresenter` 订阅 `GameplayCueEvent` 播放，GAS 不引用资源。
+
+`Framework.GAS.Events` 里的 struct（伤害、死亡、属性、Tag、Cue）只发给调用方传入的 `IEventBus`，也就是本场 `ZeroGcEventBus`。GAS 不订阅这些事件，也不调用 `GameEvent` / `GlobalEventBus`。`GameplayEventData` 是另一条路径：`HandleGameplayEvent` 在调用栈上直接唤醒被动技能和 `WaitGameplayEventTask`，不进总线，因此顺序不依赖监听注册先后。
 
 ```csharp
 asc.CueManager = new EventBusGameplayCueManager(bus);

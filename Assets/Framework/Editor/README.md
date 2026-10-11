@@ -17,7 +17,7 @@
 |------|-----|------|
 | **Tools → Luban → Generate Client Config** | `LubanGenMenu` | 执行 `Config/Luban/gen_client.bat` 打表 |
 | **Tools → YooAsset → Generate Collector** | `YooAssetCollectorGenerator` | 生成 `BundleCollectorSetting.asset` |
-| **Tools → Determinism → Scan Battle Sim** | `SimDeterminismScanner` | 扫描 ECS/GAS/FixedMath/GamePlay/BehaviourTree/Core/Lockstep。Random、Time、DateTime.Now、Guid.NewGuid 一律阻断。float 在 ECS、Core、BehaviourTree 运行时和 Lockstep 模拟代码里阻断；GAS/GamePlay、行为树配置 DTO、Lockstep 调试绘制不阻断。Editor 目录不扫描 |
+| **Tools → Determinism → Scan Battle Sim** | `SimDeterminismScanner` | 扫描 ECS/GAS/FixedMath/GamePlay/BehaviourTree/Core/Lockstep。Random、Time、DateTime.Now、Guid.NewGuid 一律阻断。float 在 ECS、Core、BehaviourTree 运行时和 Lockstep 模拟代码里阻断；GAS/GamePlay、行为树配置 DTO、Lockstep 调试绘制不阻断。模拟层订阅 `GameEvent` / `GlobalEventBus` / `.Subscribe` / `.Listen` 也阻断。Editor 目录不扫描 |
 
 ## Luban 打表
 

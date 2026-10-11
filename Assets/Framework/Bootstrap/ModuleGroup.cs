@@ -12,6 +12,9 @@ namespace Framework.Bootstrap
 
         internal Exception LastError;
 
+        /// <summary>当前初始化代号。失败或重新开始时递增，迟到的完成回调据此丢弃。</summary>
+        internal int RunSerial;
+
         /// <summary>使用指定名称创建模块组，初始状态为 <see cref="ModuleGroupState.Idle"/>。</summary>
         /// <param name="name">组名，不可为 null。</param>
         /// <exception cref="ArgumentNullException"><paramref name="name"/> 为 null。</exception>

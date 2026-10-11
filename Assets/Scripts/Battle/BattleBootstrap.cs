@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using Framework.Coroutine;
+using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.Logging;
 using UnityEngine;
@@ -22,7 +24,16 @@ namespace Game
         BattleViewBinder _view;
         BattlePresentation _presentation;
         LocalLockstepHost _host;
+        ICoroutineHandle _startHandle;
         bool _battleStarted;
+        Action<BattleIntentFrame> _fillFrame;
+        Action<FP> _afterFixedStep;
+
+        void Awake()
+        {
+            _fillFrame = FillFrame;
+            _afterFixedStep = AfterFixedStep;
+        }
 
         void Start()
         {
@@ -30,7 +41,7 @@ namespace Game
             _input = new BattleInputController();
             _view = new BattleViewBinder();
             _presentation = new BattlePresentation();
-            GameCoroutine.StartGlobal(StartBattleAsync());
+            _startHandle = GameCoroutine.StartGlobal(StartBattleAsync());
         }
 
         IEnumerator StartBattleAsync()
@@ -92,10 +103,7 @@ namespace Game
             var framework = _session.Framework;
             _input.Sample(Time.unscaledDeltaTime);
             _presentation.TickHitStop();
-            _host.Tick(
-                Time.unscaledDeltaTime,
-                frame => _input.Encode(framework, _setup.HeroId, frame.Commands, _session.FixedDeltaTime),
-                fixedDeltaTime => _setup.TickWaves(framework, fixedDeltaTime));
+            _host.Tick(Time.unscaledDeltaTime, _fillFrame, _afterFixedStep);
             _presentation.Tick();
             _view.Sync(framework, _setup.HeroId, _setup.MonsterIds, _host.InterpolationAlpha, _presentation.FreezeViews);
             if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
@@ -169,8 +177,34 @@ namespace Game
             }
         }
 
+        void FillFrame(BattleIntentFrame frame)
+        {
+            if (_input == null || _session == null || _setup == null)
+            {
+                return;
+            }
+
+            _input.Encode(_session.Framework, _setup.HeroId, frame.Commands, _session.FixedDeltaTime);
+        }
+
+        void AfterFixedStep(FP fixedDeltaTime)
+        {
+            if (_setup == null || _session?.Framework == null)
+            {
+                return;
+            }
+
+            _setup.TickWaves(_session.Framework, fixedDeltaTime);
+        }
+
         void OnDestroy()
         {
+            if (_startHandle != null)
+            {
+                _startHandle.Stop();
+                _startHandle = null;
+            }
+
             _battleStarted = false;
             _host?.Clear();
             _input?.Dispose();

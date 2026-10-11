@@ -88,6 +88,15 @@ namespace Framework.Lockstep
 
         public bool checksumOk;
 
+        /// <summary>第一次校验和不一致的 tick。还没有不一致时为 -1，之后不会被后面的消息改回去。</summary>
+        public int FirstDesyncTick { get; private set; } = -1;
+
+        /// <summary>第一次校验和不一致的玩家。</summary>
+        public byte FirstDesyncPlayerId { get; private set; }
+
+        /// <summary>校验和第一次对不上时触发。参数是 tick 和玩家 id。</summary>
+        public event Action<int, byte> DesyncDetected;
+
         public CompoundStats compoundStats;
 
         public float deltaTime; // determinism-allow TrueSync 时钟仍是 float，战斗步长走 FP
@@ -268,6 +277,10 @@ namespace Framework.Lockstep
                 this.communicator.AddEventListener(new OnEventReceived(this.OnEventDataReceived));
             }
             this.physicsManager = physicsManager;
+            if (physicsManager != null)
+            {
+                ChecksumExtractor.Init(physicsManager);
+            }
             this.compoundStats = new CompoundStats();
             this.bufferSyncedInfo = new GenericBufferWindow<SyncedInfo>(3);
             this.checksumOk = true;
@@ -345,7 +358,7 @@ namespace Framework.Lockstep
             else
             {
                 bool flag2 = this.simulationState == AbstractLockstep.SimulationState.RUNNING;
-                if (true)
+                if (flag2)
                 {
                     this.compoundStats.UpdateTime(this.deltaTime);
                     bool flag3 = this.communicator != null;
@@ -809,19 +822,28 @@ namespace Framework.Lockstep
         private void OnChecksumReceived(SyncedInfo syncedInfo)
         {
             bool dropped = this.players[syncedInfo.playerId].dropped;
-            if (!dropped)
+            if (dropped || !this.checksumOk)
             {
-                this.checksumOk = true;
-                SyncedInfo[] buffer = this.bufferSyncedInfo.buffer;
-                for (int i = 0; i < buffer.Length; i++)
+                return;
+            }
+
+            SyncedInfo[] buffer = this.bufferSyncedInfo.buffer;
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                SyncedInfo syncedInfo2 = buffer[i];
+                bool flag = syncedInfo2.tick == syncedInfo.tick && syncedInfo2.checksum != syncedInfo.checksum;
+                if (flag)
                 {
-                    SyncedInfo syncedInfo2 = buffer[i];
-                    bool flag = syncedInfo2.tick == syncedInfo.tick && syncedInfo2.checksum != syncedInfo.checksum;
-                    if (flag)
+                    this.checksumOk = false;
+                    this.FirstDesyncTick = syncedInfo.tick;
+                    this.FirstDesyncPlayerId = syncedInfo.playerId;
+                    var handler = this.DesyncDetected;
+                    if (handler != null)
                     {
-                        this.checksumOk = false;
-                        break;
+                        handler(syncedInfo.tick, syncedInfo.playerId);
                     }
+
+                    break;
                 }
             }
         }

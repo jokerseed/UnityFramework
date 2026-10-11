@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using Framework.Core;
 using Framework.Coroutine;
@@ -96,6 +97,8 @@ namespace Game
         IEnumerator EnterBattleAsync()
         {
             _isEnteringBattle = true;
+            Exception failure = null;
+            IEnumerator load = null;
             try
             {
                 if (CurrentBattleFlow != null)
@@ -106,13 +109,60 @@ namespace Game
 
                 CurrentBattleFlow = new BattleFlow();
                 GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
-                yield return ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
+                load = ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            if (failure == null)
+            {
+                while (true)
+                {
+                    object current = null;
+                    var done = false;
+                    try
+                    {
+                        if (!load.MoveNext())
+                        {
+                            done = true;
+                        }
+                        else
+                        {
+                            current = load.Current;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                        break;
+                    }
+
+                    if (done)
+                    {
+                        break;
+                    }
+
+                    yield return current;
+                }
+            }
+
+            if (failure != null)
+            {
+                GameLog.Exception(LogCategories.Launch, failure, "Enter battle failed.");
+                if (CurrentBattleFlow != null)
+                {
+                    CurrentBattleFlow.Dispose();
+                    CurrentBattleFlow = null;
+                }
+            }
+            else
+            {
                 GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
             }
-            finally
-            {
-                _isEnteringBattle = false;
-            }
+
+            _isEnteringBattle = false;
         }
     }
 }

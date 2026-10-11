@@ -35,11 +35,16 @@ Assets/Scripts
     ├── BattleViewBinder.cs        View 同步与插值
     ├── BattlePresentation.cs      事件表现与 HitStop
     ├── BattleCuePresenter.cs      Cue -> 简易可视化
+    ├── MinimalBattleSample.cs     无视图最小战斗（近战 + 弹道，固定种子）
     ├── BattleMonsterView.cs       杂兵对象池 View
     └── Flow/
         ├── BattleFlow.cs          战斗流程 / Session 持有
         └── BattleFlowState.cs     战斗流程状态
 ```
+
+## 最小战斗样本
+
+`Game.MinimalBattleSample` 不走 Launch / Luban / 角色视图。新建空场景，把脚本挂到任意物体，Play。它调用 `Framework.GamePlay.MinimalBattle.Run`（种子 42，48 步，队伍 0 弹道、队伍 1 近战），把末帧校验和与双方生命写到 `GameLog`。同一逻辑由 EditMode `MinimalBattleTests` 跑两遍比对。没有随仓库提交场景文件。
 
 ## 整体运行链路
 
@@ -98,7 +103,7 @@ Launch 场景
 当前已实现能力：
 
 - `ShowMainPage()`：打开首页 UI。
-- `EnterBattle()`：发起进入战斗场景请求。
+- `EnterBattle()`：发起进入战斗场景请求。加载失败会清掉这次新建的 `BattleFlow`，并复位进入中的标记，避免按钮一直点不进去。
 - `EnsureBattleFlow()`：保证当前有一个可用的 `BattleFlow`，支持直接在编辑器打开 Battle 场景时自举。
 - `ClearBattleFlow()`：当战斗表现层销毁后，清空当前流程引用。
 - `RequestUnusedAssetsCleanup()`：在战斗流程退出后请求 `ResourceManager` 分帧执行 `UnloadUnusedAssets`。
@@ -162,10 +167,13 @@ Launch 场景
 
 清理顺序：
 
-1. 清掉 View
-2. 解绑表现层事件
-3. `BattleFlow.Exit()` 释放 Session
-4. `BattleSetup.TearDown()` 回收对象池等资源
+1. 停掉尚未结束的启动协程
+2. 清掉 View
+3. 解绑表现层事件
+4. `BattleFlow.Exit()` 释放 Session
+5. `BattleSetup.TearDown()` 回收对象池等资源
+
+每帧编码和刷波回调缓存在字段上。火球和 Cue 球体共用默认材质，颜色用 `MaterialPropertyBlock`。
 
 这套顺序的核心思想是：**输入采样和渲染帧绑定，逻辑只消费意图帧并用 unscaled 固定步长推进，表现同步放在逻辑之后。**
 

@@ -38,10 +38,10 @@ namespace Framework.Res
             return new ResourceScope(name);
         }
 
-        /// <summary>同步加载并登记句柄；失败时不登记，调用方须自行 <see cref="ResourceAssetHandle.Dispose"/>。</summary>
+        /// <summary>同步加载并登记句柄。失败时不登记；句柄仍可能有效，调用方须自行 <see cref="ResourceAssetHandle.Dispose"/>，并可读取 <see cref="ResourceAssetHandle.Error"/>。</summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
-        /// <returns>资源句柄；成功时由本作用域持有，失败时无效。</returns>
+        /// <returns>资源句柄。成功时由本作用域持有；失败时不持有，调用方负责释放。</returns>
         /// <exception cref="ObjectDisposedException">作用域已释放。</exception>
         /// <exception cref="InvalidOperationException"><see cref="ResourceManager"/> 尚未初始化。</exception>
         public ResourceAssetHandle LoadSync<T>(string location) where T : UnityEngine.Object
@@ -59,7 +59,7 @@ namespace Framework.Res
         /// <summary>异步加载并登记句柄；完成后通过回调返回句柄。</summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
-        /// <param name="onComplete">完成回调；成功时句柄已登记；失败或取消时为无效句柄；可为 null。</param>
+        /// <param name="onComplete">完成回调。成功时句柄已登记；失败或取消时句柄不登记，若仍然有效则由调用方 <see cref="ResourceAssetHandle.Dispose"/>。可为 null。</param>
         /// <param name="priority">调度优先级，数值越大越先处理；默认 0。</param>
         /// <returns>协程迭代器。</returns>
         /// <exception cref="ObjectDisposedException">作用域已释放。</exception>

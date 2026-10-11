@@ -101,6 +101,13 @@ namespace Framework.MemoryPool
             }
         }
 
+        /// <summary>进入 Play 时清空池。关闭 Domain Reload 后，上一轮取出的对象不能留到下一轮。</summary>
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetOnSubsystemRegistration()
+        {
+            ClearAll();
+        }
+
         /// <summary>获取各类型池的统计快照。</summary>
         /// <returns>所有已创建类型池的统计信息数组。</returns>
         public static MemoryPoolInfo[] GetAllInfos()

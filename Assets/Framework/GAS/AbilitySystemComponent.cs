@@ -21,6 +21,8 @@ namespace Framework.GAS
     public sealed partial class AbilitySystemComponent
     {
         int _nextSpecHandle = 1;
+        int _nextActiveInstanceId = 1;
+        int _nextActiveEffectHandle = 1;
 
         readonly Dictionary<GameplayAbilitySpecHandle, GameplayAbilitySpec> _grantedSpecs =
             new Dictionary<GameplayAbilitySpecHandle, GameplayAbilitySpec>();
@@ -29,6 +31,8 @@ namespace Framework.GAS
         readonly List<ActiveAbilityInstance> _activeInstances = new List<ActiveAbilityInstance>();
         readonly List<ActiveGameplayEffect> _activeEffects = new List<ActiveGameplayEffect>();
         readonly List<ActiveAbilityInstance> _activeInstancesScratch = new List<ActiveAbilityInstance>();
+        readonly List<GameplayAbilitySpec> _eventSpecScratch = new List<GameplayAbilitySpec>();
+        readonly List<ActiveGameplayEffect> _expiredEffects = new List<ActiveGameplayEffect>();
         readonly AttributeModifierAggregator _aggregator = new AttributeModifierAggregator();
         FP _appliedShieldBonus;
         bool _isDead;
@@ -273,15 +277,13 @@ namespace Framework.GAS
                 return canActivate;
             }
 
-            CancelMatchingAbilities(spec.Def.CancelAbilitiesWithTags, battle.Presentation);
-
             activationInfo ??= new AbilityActivationInfo
             {
                 Instigator = ActorId,
                 TriggerTarget = context.PrimaryTarget
             };
 
-            instance = new ActiveAbilityInstance(spec, context, activationInfo);
+            instance = new ActiveAbilityInstance(spec, context, activationInfo, _nextActiveInstanceId++);
             _activeInstances.Add(instance);
 
             var cost = spec.Def.CostAttributes;
@@ -301,6 +303,7 @@ namespace Framework.GAS
                 return AbilityActivationResult.Failed(AbilityActivationFailureReason.InsufficientResource);
             }
 
+            CancelMatchingAbilities(spec.Def.CancelAbilitiesWithTags, battle.Presentation, instance);
             instance.State = ActiveAbilityState.Active;
             GrantTags(spec.Def.ActivationOwnedTags, battle.Presentation);
             ability.Activate(this, instance, battle);
@@ -408,6 +411,11 @@ namespace Framework.GAS
         /// <returns>取消的实例数量。</returns>
         public int CancelAbilitiesWithTag(GameplayTag query, IEventBus eventBus)
         {
+            return CancelAbilitiesWithTag(query, eventBus, null);
+        }
+
+        int CancelAbilitiesWithTag(GameplayTag query, IEventBus eventBus, ActiveAbilityInstance except)
+        {
             if (!query.IsValid)
             {
                 return 0;
@@ -419,7 +427,7 @@ namespace Framework.GAS
             for (var i = 0; i < _activeInstancesScratch.Count; i++)
             {
                 var instance = _activeInstancesScratch[i];
-                if (!AbilityDefMatchesTag(instance.Spec.Def, query))
+                if (instance == except || !AbilityDefMatchesTag(instance.Spec.Def, query))
                 {
                     continue;
                 }
@@ -431,7 +439,10 @@ namespace Framework.GAS
             return cancelled;
         }
 
-        void CancelMatchingAbilities(IReadOnlyList<GameplayTag> queries, IEventBus eventBus)
+        void CancelMatchingAbilities(
+            IReadOnlyList<GameplayTag> queries,
+            IEventBus eventBus,
+            ActiveAbilityInstance except)
         {
             if (queries == null || queries.Count == 0)
             {
@@ -440,7 +451,7 @@ namespace Framework.GAS
 
             for (var i = 0; i < queries.Count; i++)
             {
-                CancelAbilitiesWithTag(queries[i], eventBus);
+                CancelAbilitiesWithTag(queries[i], eventBus, except);
             }
         }
 
@@ -504,6 +515,11 @@ namespace Framework.GAS
             }
 
             if (!CanApplyEffect(spec))
+            {
+                return false;
+            }
+
+            if (spec.DurationPolicy != EffectDurationPolicy.Instant && IsRejectedByExistingStack(spec, source))
             {
                 return false;
             }
@@ -868,6 +884,24 @@ namespace Framework.GAS
             return Tags.HasAll(spec.ApplicationRequiredTags);
         }
 
+        bool IsRejectedByExistingStack(GameplayEffectSpec spec, ActorId source)
+        {
+            if (spec.StackingPolicy != EffectStackingPolicy.None)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < _activeEffects.Count; i++)
+            {
+                if (IsSameStackGroup(_activeEffects[i], spec, source))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         bool TryStackOrAddEffect(
             GameplayEffectSpec spec,
             ActorId source,
@@ -916,7 +950,7 @@ namespace Framework.GAS
                 }
             }
 
-            var active = new ActiveGameplayEffect(spec, source) { SourceAsc = sourceAsc };
+            var active = new ActiveGameplayEffect(spec, source, _nextActiveEffectHandle++) { SourceAsc = sourceAsc };
             _activeEffects.Add(active);
             GrantTags(spec.GrantedTags, eventBus);
             GrantAbilities(active);
@@ -1010,7 +1044,7 @@ namespace Framework.GAS
 
         void TickEffects(FP deltaTime, IEventBus eventBus)
         {
-            var changed = false;
+            _expiredEffects.Clear();
             for (var i = _activeEffects.Count - 1; i >= 0; i--)
             {
                 var effect = _activeEffects[i];
@@ -1022,13 +1056,24 @@ namespace Framework.GAS
                 }
 
                 effect.RemainingTime -= deltaTime;
-                if (!effect.IsExpired)
+                if (effect.IsExpired)
+                {
+                    _expiredEffects.Add(effect);
+                }
+            }
+
+            var changed = false;
+            for (var i = 0; i < _expiredEffects.Count; i++)
+            {
+                var effect = _expiredEffects[i];
+                var index = _activeEffects.IndexOf(effect);
+                if (index < 0)
                 {
                     continue;
                 }
 
                 RemoveActiveEffectInternal(effect, eventBus);
-                _activeEffects.RemoveAt(i);
+                _activeEffects.RemoveAt(index);
                 changed = true;
             }
 
@@ -1046,13 +1091,18 @@ namespace Framework.GAS
             }
 
             effect.PeriodTimer -= deltaTime;
-            if (effect.PeriodTimer > FP.Zero)
+            var pulses = 0;
+            while (effect.PeriodTimer <= FP.Zero && pulses < 8)
             {
-                return;
+                effect.PeriodTimer += effect.Spec.Period;
+                ExecutePeriodic(effect, eventBus);
+                pulses++;
             }
 
-            effect.PeriodTimer = effect.Spec.Period;
-            ExecutePeriodic(effect, eventBus);
+            if (effect.PeriodTimer <= FP.Zero)
+            {
+                effect.PeriodTimer = effect.Spec.Period;
+            }
         }
 
         void ExecutePeriodic(ActiveGameplayEffect effect, IEventBus eventBus)
@@ -1195,9 +1245,16 @@ namespace Framework.GAS
             }
 
             var activated = false;
+            _eventSpecScratch.Clear();
             foreach (var pair in _grantedSpecs)
             {
-                var spec = pair.Value;
+                _eventSpecScratch.Add(pair.Value);
+            }
+
+            _eventSpecScratch.Sort((left, right) => left.Handle.Value.CompareTo(right.Handle.Value));
+            for (var i = 0; i < _eventSpecScratch.Count; i++)
+            {
+                var spec = _eventSpecScratch[i];
                 var trigger = spec.Def.TriggerTag;
                 if (!trigger.IsValid || trigger.Name != eventData.EventTag)
                 {
@@ -1222,9 +1279,15 @@ namespace Framework.GAS
                 }
             }
 
+            _activeInstancesScratch.Clear();
             for (var i = 0; i < _activeInstances.Count; i++)
             {
-                var instance = _activeInstances[i];
+                _activeInstancesScratch.Add(_activeInstances[i]);
+            }
+
+            for (var i = 0; i < _activeInstancesScratch.Count; i++)
+            {
+                var instance = _activeInstancesScratch[i];
                 if (instance.State == ActiveAbilityState.Active)
                 {
                     instance.TaskRunner.HandleGameplayEvent(eventData);
