@@ -6,7 +6,7 @@
 |------|------|
 | 单一数据源 | GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` |
 | 热路径命令化 | 模拟走 `BattleCommandBuffer`；玩家/AI 行为走 `BattleIntentCommand`（Move/Cast）；表现走 `IEventBus` |
-| 配置驱动 | Luban 导表 → `GamePlay.Data` 装配到 GAS |
+| 配置驱动 | `IBattleAbilityCatalog` / `IBattleEffectCatalog` 装配到 GAS；默认后端是 Luban |
 | 资源管线 | YooAsset 打包；运行时加载/释放统一走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
 | 示例文档化 | 演示与验证用例写在各模块 README，不单独维护 Samples/Tests 程序集 |
@@ -119,6 +119,8 @@ Config/Luban/Datas/battle/effect.xlsx
 | C# 代码 | `Assets/Generated/Luban/` |
 | 二进制 | `Assets/Bundles/Configs/*.bytes` |
 | JSON 调试 | `Config/Luban/Output/json/`（不参与运行时） |
+
+战斗侧通过 `LubanAbilityCatalog` / `LubanEffectCatalog` 消费这些表。换后端时实现 `IBattleAbilityCatalog` / `IBattleEffectCatalog`，不必改 GAS。
 
 ## YooAsset 资源
 

@@ -21,6 +21,11 @@ namespace Framework.GamePlay
         readonly ActorRegistry _registry;
         readonly List<ActorId> _areaScratch = new List<ActorId>(16);
 
+        /// <summary>
+        /// 具名效果目录。为 null 时结算仍按 Luban <see cref="ConfigManager"/> 查表，不在热路径分配目录。
+        /// </summary>
+        public IBattleEffectCatalog EffectCatalog { get; set; }
+
         /// <summary>创建命令处理器。</summary>
         /// <param name="world">ECS 世界实例，用于创建投射物实体。</param>
         /// <param name="registry">Actor 注册表，用于查找伤害目标的 GAS 组件。</param>
@@ -222,6 +227,22 @@ namespace Framework.GamePlay
         {
             if (string.IsNullOrEmpty(effectId) || !_registry.TryGet(target, out var targetActor))
             {
+                return;
+            }
+
+            if (EffectCatalog != null)
+            {
+                if (!EffectCatalog.TryCreateEffect(effectId, out var catalogDef))
+                {
+                    return;
+                }
+
+                _registry.TryGet(source, out var catalogSource);
+                targetActor.AbilitySystem.ApplyEffect(
+                    catalogDef,
+                    source,
+                    presentation,
+                    sourceAsc: catalogSource?.AbilitySystem);
                 return;
             }
 
