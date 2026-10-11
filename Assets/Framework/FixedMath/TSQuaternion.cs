@@ -97,7 +97,14 @@ namespace Framework.FixedMath
             TSQuaternion aInv = TSQuaternion.Inverse(a);
             TSQuaternion f = b * aInv;
 
-            FP angle = FP.Acos(f.w) * 2 * FP.Rad2Deg;
+            FP w = f.w;
+            if (w > FP.One) {
+                w = FP.One;
+            } else if (w < -FP.One) {
+                w = -FP.One;
+            }
+
+            FP angle = FP.Acos(w) * 2 * FP.Rad2Deg;
 
             if (angle > 180) {
                 angle = 360 - angle;
@@ -138,9 +145,17 @@ namespace Framework.FixedMath
                 dot = -dot;
             }
 
-            FP halfTheta = FP.Acos(dot);
+            if (dot > FP.One) {
+                dot = FP.One;
+            }
 
-            return Multiply(Multiply(from, FP.Sin((1 - t) * halfTheta)) + Multiply(to, FP.Sin(t * halfTheta)), 1 / FP.Sin(halfTheta));
+            FP halfTheta = FP.Acos(dot);
+            FP sinHalf = FP.Sin(halfTheta);
+            if (sinHalf == FP.Zero) {
+                return Lerp(from, to, t);
+            }
+
+            return Multiply(Multiply(from, FP.Sin((1 - t) * halfTheta)) + Multiply(to, FP.Sin(t * halfTheta)), 1 / sinHalf);
         }
 
         public static TSQuaternion RotateTowards(TSQuaternion from, TSQuaternion to, FP maxDegreesDelta) {
@@ -151,12 +166,16 @@ namespace Framework.FixedMath
                 dot = -dot;
             }
 
+            if (dot > FP.One) {
+                dot = FP.One;
+            }
+
             FP halfTheta = FP.Acos(dot);
             FP theta = halfTheta * 2;
 
             maxDegreesDelta *= FP.Deg2Rad;
 
-            if (maxDegreesDelta >= theta) {
+            if (halfTheta == FP.Zero || maxDegreesDelta >= theta) {
                 return to;
             }
 
@@ -250,7 +269,20 @@ namespace Framework.FixedMath
 
         public static TSQuaternion FromToRotation(TSVector fromVector, TSVector toVector) {
             TSVector w = TSVector.Cross(fromVector, toVector);
-            TSQuaternion q = new TSQuaternion(w.x, w.y, w.z, TSVector.Dot(fromVector, toVector));
+            FP dot = TSVector.Dot(fromVector, toVector);
+            if (w.sqrMagnitude == FP.Zero && dot < FP.Zero) {
+                TSVector axis = FP.Abs(fromVector.x) > FP.Abs(fromVector.z)
+                    ? new TSVector(fromVector.z, FP.Zero, -fromVector.x)
+                    : new TSVector(FP.Zero, -fromVector.z, fromVector.y);
+                if (axis.sqrMagnitude == FP.Zero) {
+                    axis = TSVector.right;
+                }
+
+                axis.Normalize();
+                return new TSQuaternion(axis.x, axis.y, axis.z, FP.Zero);
+            }
+
+            TSQuaternion q = new TSQuaternion(w.x, w.y, w.z, dot);
             q.w += FP.Sqrt(fromVector.sqrMagnitude * toVector.sqrMagnitude);
             q.Normalize();
 
@@ -375,7 +407,9 @@ namespace Framework.FixedMath
         #region public void Normalize()
         public void Normalize()
         {
-            FP num2 = (((this.x * this.x) + (this.y * this.y)) + (this.z * this.z)) + (this.w * this.w);
+            FP num2 = FP.OverflowAdd(
+                FP.OverflowAdd(this.x * this.x, this.y * this.y),
+                FP.OverflowAdd(this.z * this.z, this.w * this.w));
             FP num = 1 / (FP.Sqrt(num2));
             this.x *= num;
             this.y *= num;

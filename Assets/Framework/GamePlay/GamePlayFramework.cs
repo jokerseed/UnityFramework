@@ -12,6 +12,7 @@ using Framework.GAS.Cues;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
+using Framework.GamePlay.Data;
 using Framework.FixedMath;
 using UnityEngine;
 
@@ -19,7 +20,8 @@ namespace Framework.GamePlay
 {
     /// <summary>
     /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
-    /// Tick 顺序：按需补建空间索引 → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → 物理后重建索引 → Flush 结算 → SyncDeath → SyncPositions。
+    /// Tick 顺序由 <see cref="BattleTickPhase"/> 管线执行：按需补建空间索引 → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → 物理后重建索引 → Flush 结算 → SyncDeath → SyncPositions。
+    /// 用 <see cref="AddTickStep"/> 在这些顺序值之间插入步骤，不必改本类。默认不插入时，各步仍是原来的那几段代码。
     /// 空间索引契约：每个逻辑步在物理之后全量重建一次。GAS 的 ASC.Tick 读到的是上一物理步结束后的格子；
     /// 若步间发生创建、移除、传送或复活，则在本步 ASC.Tick 之前再重建一次。范围结算读物理之后的格子。
     /// AI 意图由 <see cref="CollectAiIntents"/> 在 Host 逻辑步写入帧，不在 Tick 内直接 Apply。
@@ -37,7 +39,11 @@ namespace Framework.GamePlay
         readonly EngageSlotAllocator _engageSlots = new EngageSlotAllocator();
         readonly List<ActorId> _agentOrder = new List<ActorId>(16);
         readonly List<ActorId> _actorOrder = new List<ActorId>(32);
+        readonly List<TickStep> _tickSteps = new List<TickStep>(12);
+        int _tickSequence;
+        bool _tickOrderDirty;
         static readonly Comparison<ActorId> ActorIdOrder = ActorRegistry.CompareActorId;
+        static readonly Comparison<TickStep> TickStepOrder = CompareTickStep;
         readonly TSRandom _random;
         List<BattleIntentCommand> _intentSink;
         static readonly FP FullAiRangeSqr = (FP)64;
@@ -64,6 +70,16 @@ namespace Framework.GamePlay
         /// <summary>Actor 注册表，维护所有参战单位的 GAS 与 ECS 双侧数据。</summary>
         public ActorRegistry Registry => _registry;
 
+        /// <summary>
+        /// 结算阶段按效果 ID 创建定义的目录。
+        /// 为 null 时命令处理器仍走 Luban <c>ConfigManager</c> 查表，与未设置时相同。
+        /// </summary>
+        public IBattleEffectCatalog EffectCatalog
+        {
+            get => _commandProcessor.EffectCatalog;
+            set => _commandProcessor.EffectCatalog = value;
+        }
+
         /// <summary>创建并初始化玩法框架，注册默认 ECS 系统。</summary>
         /// <param name="randomSeed">确定性随机种子。</param>
         public GamePlayFramework(int randomSeed = 1)
@@ -79,6 +95,73 @@ namespace Framework.GamePlay
             _world.AddSystem(new PhysicsSimulationSystem());
             _world.AddSystem(new SpatialIndexSystem());
             _world.AddSystem(new ProjectileLifetimeSystem());
+            RegisterDefaultTickSteps();
+        }
+
+        /// <summary>
+        /// 往逻辑步管线插入一步。默认顺序不变时，行为与原先写死的 Tick 相同。
+        /// 不要在某一步的回调里再插入，新步骤从下一步开始生效。
+        /// 本步 Actor 列表在 <see cref="BattleTickPhase.SyncCue"/> 拍下，同一步后面新创建的单位要到下一步才进入 ASC。
+        /// </summary>
+        /// <param name="order">顺序值，可取内置阶段之间的整数。</param>
+        /// <param name="name">步骤名，不可为空，也不可与已有步骤重名。</param>
+        /// <param name="step">回调；参数为逻辑步长。不可为 null。</param>
+        /// <exception cref="ArgumentException"><paramref name="name"/> 为空或重复。</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="step"/> 为 null。</exception>
+        public void AddTickStep(int order, string name, Action<FP> step)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new ArgumentException("Tick step name is required.", nameof(name));
+            }
+
+            if (step == null)
+            {
+                throw new ArgumentNullException(nameof(step));
+            }
+
+            for (var i = 0; i < _tickSteps.Count; i++)
+            {
+                if (_tickSteps[i].Name == name)
+                {
+                    throw new ArgumentException("Tick step already exists: " + name, nameof(name));
+                }
+            }
+
+            _tickSteps.Add(new TickStep(order, _tickSequence++, name, step));
+            _tickOrderDirty = true;
+        }
+
+        /// <summary>按执行顺序拷贝当前步骤名和顺序值。</summary>
+        /// <param name="destination">输出列表；调用前会被清空。不可为 null。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopyTickSteps(List<BattleTickStepInfo> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            SortTickStepsIfNeeded();
+            destination.Clear();
+            for (var i = 0; i < _tickSteps.Count; i++)
+            {
+                var step = _tickSteps[i];
+                destination.Add(new BattleTickStepInfo(step.Name, step.Order));
+            }
+        }
+
+        void RegisterDefaultTickSteps()
+        {
+            AddTickStep((int)BattleTickPhase.RebuildSpatialIndex, "RebuildSpatialIndex", RebuildSpatialIndexStep);
+            AddTickStep((int)BattleTickPhase.SyncCue, "SyncCue", SyncCueStep);
+            AddTickStep((int)BattleTickPhase.ApplyRootAndStun, "ApplyRootAndStun", ApplyRootAndStunStep);
+            AddTickStep((int)BattleTickPhase.TickAbilities, "TickAbilities", TickAbilitiesStep);
+            AddTickStep((int)BattleTickPhase.FlushSpawn, "FlushSpawn", FlushSpawnStep);
+            AddTickStep((int)BattleTickPhase.TickEcs, "TickEcs", TickEcsStep);
+            AddTickStep((int)BattleTickPhase.FlushOutcome, "FlushOutcome", FlushOutcomeStep);
+            AddTickStep((int)BattleTickPhase.SyncDeath, "SyncDeath", SyncDeathStep);
+            AddTickStep((int)BattleTickPhase.SyncPositions, "SyncPositions", SyncPositionsStep);
         }
 
         /// <summary>
@@ -391,16 +474,33 @@ namespace Framework.GamePlay
         /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）。</param>
         public void Tick(FP deltaTime)
         {
+            SortTickStepsIfNeeded();
+            var count = _tickSteps.Count;
+            for (var i = 0; i < count; i++)
+            {
+                _tickSteps[i].Action(deltaTime);
+            }
+        }
+
+        void RebuildSpatialIndexStep(FP deltaTime)
+        {
             var grid = _world.GetSingleton<SpatialHashGrid>();
             if (grid != null && grid.StructuralDirty)
             {
                 SpatialIndexService.RebuildActors(_world, grid);
             }
+        }
 
+        void SyncCueStep(FP deltaTime)
+        {
             _registry.CopySortedActorIds(_actorOrder);
             SyncCuePose();
-            ApplyRootAndStun();
+        }
 
+        void ApplyRootAndStunStep(FP deltaTime) => ApplyRootAndStun();
+
+        void TickAbilitiesStep(FP deltaTime)
+        {
             for (var i = 0; i < _actorOrder.Count; i++)
             {
                 if (!_registry.TryGet(_actorOrder[i], out var actor) || actor.AbilitySystem.IsDead)
@@ -410,12 +510,34 @@ namespace Framework.GamePlay
 
                 actor.AbilitySystem.Tick(deltaTime, _presentationBus);
             }
+        }
 
-            _commandProcessor.FlushSpawnCommands(_commandBuffer);
-            _world.Tick(deltaTime);
+        void FlushSpawnStep(FP deltaTime) => _commandProcessor.FlushSpawnCommands(_commandBuffer);
+
+        void TickEcsStep(FP deltaTime) => _world.Tick(deltaTime);
+
+        void FlushOutcomeStep(FP deltaTime) =>
             _commandProcessor.FlushOutcomeCommands(_commandBuffer, _presentationBus);
-            SyncDeath();
-            _registry.SyncPositionsFromEcs();
+
+        void SyncDeathStep(FP deltaTime) => SyncDeath();
+
+        void SyncPositionsStep(FP deltaTime) => _registry.SyncPositionsFromEcs();
+
+        void SortTickStepsIfNeeded()
+        {
+            if (!_tickOrderDirty)
+            {
+                return;
+            }
+
+            _tickSteps.Sort(TickStepOrder);
+            _tickOrderDirty = false;
+        }
+
+        static int CompareTickStep(TickStep left, TickStep right)
+        {
+            var order = left.Order.CompareTo(right.Order);
+            return order != 0 ? order : left.Sequence.CompareTo(right.Sequence);
         }
 
         void ITickable.Tick(float deltaTime) => Tick((FP)deltaTime);
@@ -534,6 +656,25 @@ namespace Framework.GamePlay
                     _registry.SetVelocity(actor.ActorId, TSVector.zero);
                 }
             }
+        }
+
+        sealed class TickStep
+        {
+            public TickStep(int order, int sequence, string name, Action<FP> action)
+            {
+                Order = order;
+                Sequence = sequence;
+                Name = name;
+                Action = action;
+            }
+
+            public int Order { get; }
+
+            public int Sequence { get; }
+
+            public string Name { get; }
+
+            public Action<FP> Action { get; }
         }
 
         /// <summary>释放玩法框架持有的全部资源，包括 ECS 世界、命令缓冲与事件总线。</summary>

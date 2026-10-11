@@ -1,7 +1,38 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Framework.Core
 {
+    /// <summary>
+    /// 关闭 Domain Reload 时复位各 <see cref="PersistentSingleton{T}"/> 的静态退出标志。
+    /// 泛型类型上的 <c>RuntimeInitializeOnLoadMethod</c> 不会被 Unity 收集，所以登记在这个非泛型类型上。
+    /// </summary>
+    static class PersistentSingletonReset
+    {
+        static readonly List<Action> Callbacks = new List<Action>();
+
+        /// <summary>进入 Play Mode 前清掉退出标志，避免第二次 Play 无法重建单例。</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetAll()
+        {
+            for (var i = 0; i < Callbacks.Count; i++)
+            {
+                Callbacks[i]();
+            }
+        }
+
+        /// <summary>登记某个单例类型的静态复位。</summary>
+        /// <param name="callback">复位回调；为 null 时忽略。</param>
+        public static void Register(Action callback)
+        {
+            if (callback != null)
+            {
+                Callbacks.Add(callback);
+            }
+        }
+    }
+
     /// <summary>
     /// 常驻 MonoBehaviour 单例：懒加载 + DontDestroyOnLoad + 重复实例保护。
     /// </summary>
@@ -10,6 +41,24 @@ namespace Framework.Core
         static T _instance;
         static readonly object Lock = new object();
         static bool _applicationQuitting;
+
+        static PersistentSingleton()
+        {
+            PersistentSingletonReset.Register(ResetStaticState);
+        }
+
+        /// <summary>
+        /// 清除退出标志。若静态引用已经指向被销毁的对象，一并置空。
+        /// 关闭 Domain Reload 时由 SubsystemRegistration 调用；测试也可直接调用。
+        /// </summary>
+        public static void ResetStaticState()
+        {
+            _applicationQuitting = false;
+            if (_instance == null)
+            {
+                _instance = null;
+            }
+        }
 
         /// <summary>获取单例是否已被创建（不触发懒加载）。</summary>
         public static bool HasInstance => _instance != null;
@@ -41,7 +90,10 @@ namespace Framework.Core
 
                     var go = new GameObject(typeof(T).Name);
                     _instance = go.AddComponent<T>();
-                    DontDestroyOnLoad(go);
+                    if (Application.isPlaying)
+                    {
+                        DontDestroyOnLoad(go);
+                    }
                 }
 
                 return _instance;
@@ -74,7 +126,10 @@ namespace Framework.Core
             }
 
             _instance = this as T;
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
         }
 
         /// <summary>Unity 生命周期：实例被销毁时清除静态引用。</summary>

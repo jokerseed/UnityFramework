@@ -60,6 +60,16 @@ namespace Framework.GAS.Abilities
             }
         }
 
+        /// <summary>挂上已恢复的任务，不再调用 <c>OnActivate</c>。</summary>
+        /// <param name="instance">所属激活实例。</param>
+        /// <param name="task">已写回进度的任务。</param>
+        internal void AdoptRestored(ActiveAbilityInstance instance, Tasks.AbilityTask task)
+        {
+            task.Bind(instance);
+            _tasks.Add(task);
+            instance.AddTask(task);
+        }
+
         /// <summary>取消所有任务。</summary>
         public void CancelAll()
         {
