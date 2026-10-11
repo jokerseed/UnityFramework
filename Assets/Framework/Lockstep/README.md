@@ -35,7 +35,7 @@
 | **业务锁步壳** | Client `LockStep/LockStepManager` 等进房开战流程不进基座 |
 | **网络适配实现** | 仅有 `ICommunicator`；无 Photon/自研网关实现 |
 | **与 GamePlay/GAS 对接** | 已有 `LocalLockstepHost` + 意图帧队列；网络 `ICommunicator` 与等输入缓冲未做 |
-| **预测回滚 / 状态快照** | `RollbackLockstep` / `StateTracker` 未接业务层。ECS、`TSRandom` 与 `GasSnapshot` 可还原；Farseer 接触、行为树仍不能还原。预测回滚未接线 |
+| **预测回滚 / 状态快照** | `RollbackLockstep` / `StateTracker` 未接业务层。ECS、`TSRandom`、`GasSnapshot` 与 `BattlePhysicsSnapshot` 可还原；行为树仍不能还原。预测回滚未接线 |
 | **干净 Host API** | 仍偏 TrueSync 原 API（回调一长串），未提供 Framework 风格的最小 `LockstepHost` 门面 |
 | **Editor 工具** | TrueSync Editor/调试面板未迁 |
 | **Coroutine 引擎** | Client `Engine/Coroutine` 未迁（锁步内协程若需要再补） |

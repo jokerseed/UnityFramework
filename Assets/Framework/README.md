@@ -17,7 +17,7 @@
 |----|------|
 | 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
 | 战斗 Demo 锁步权威 Tick | 已接 `LocalLockstepHost`（意图帧 + checksum + F8 对拍） |
-| **预测回滚 / 状态快照** | **GAS 与 ECS、随机数可往返，预测回滚仍未接到 Lockstep**。`GasSnapshot` 恢复 ASC（属性、修改器、标签、效果、冷却、技能句柄与进行中的内置任务、护盾加成）。`World.Restore` 会让旧 `Entity` 失效，GamePlay 需 `RebindEntitiesAfterSnapshot`。`BattlePhysicsWorld.SaveKinematics` 仍不含接触 |
+| **预测回滚 / 状态快照** | **GAS、ECS、随机数和 Farseer 接触可往返，预测回滚仍未接到 Lockstep**。`GasSnapshot` 恢复 ASC。`World.Restore` 会让旧 `Entity` 失效，GamePlay 需 `RebindEntitiesAfterSnapshot`。`BattlePhysicsWorld.SaveFull` 用内存中的 Farseer 克隆保存接触；`SaveKinematics` 不含接触 |
 | **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
 
 详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。
