@@ -12,6 +12,7 @@ using Framework.GAS.Cues;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
+using Framework.GamePlay.Data;
 using Framework.FixedMath;
 using UnityEngine;
 
@@ -63,6 +64,16 @@ namespace Framework.GamePlay
 
         /// <summary>Actor 注册表，维护所有参战单位的 GAS 与 ECS 双侧数据。</summary>
         public ActorRegistry Registry => _registry;
+
+        /// <summary>
+        /// 结算阶段按效果 ID 创建定义的目录。
+        /// 为 null 时命令处理器仍走 Luban <c>ConfigManager</c> 查表，与未设置时相同。
+        /// </summary>
+        public IBattleEffectCatalog EffectCatalog
+        {
+            get => _commandProcessor.EffectCatalog;
+            set => _commandProcessor.EffectCatalog = value;
+        }
 
         /// <summary>创建并初始化玩法框架，注册默认 ECS 系统。</summary>
         /// <param name="randomSeed">确定性随机种子。</param>

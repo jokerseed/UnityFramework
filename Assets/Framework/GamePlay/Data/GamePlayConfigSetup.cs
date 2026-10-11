@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using cfg;
 using Framework.Config;
@@ -6,7 +7,7 @@ using Framework.GAS.Abilities;
 
 namespace Framework.GamePlay.Data
 {
-    /// <summary>将 Luban 配置装配到 <see cref="GamePlayFramework"/> 的扩展方法。</summary>
+    /// <summary>将配置目录装配到 <see cref="GamePlayFramework"/> 的扩展方法。Luban 表是默认后端。</summary>
     public static class GamePlayConfigSetup
     {
         /// <summary>为 Actor 注册 Luban 配置的技能。</summary>
@@ -15,6 +16,8 @@ namespace Framework.GamePlay.Data
         /// <param name="teamId">队伍 ID。</param>
         /// <param name="abilityIds">技能 ID 列表。</param>
         /// <param name="tables">Luban 表；为 null 时通过 <see cref="ConfigManager.LoadTables"/> 按需加载。</param>
+        /// <exception cref="InvalidOperationException">表未能加载。</exception>
+        /// <exception cref="KeyNotFoundException">某个技能 ID 不在表中。</exception>
         public static void RegisterActorAbilities(
             this GamePlayFramework framework,
             ActorId actorId,
@@ -25,19 +28,45 @@ namespace Framework.GamePlay.Data
             tables ??= ConfigManager.Instance.LoadTables();
             if (tables == null)
             {
-                throw new System.InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables() first.");
+                throw new InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables() first.");
             }
 
-            var factory = new AbilityConfigFactory(framework.QueryNearestEnemy, framework.QueryEnemiesInCone);
+            var catalog = new LubanAbilityCatalog(
+                tables,
+                framework.QueryNearestEnemy,
+                framework.QueryEnemiesInCone);
+            RegisterActorAbilities(framework, actorId, teamId, abilityIds, catalog);
+        }
+
+        /// <summary>为 Actor 注册目录中的技能。调用方提供任意 <see cref="IBattleAbilityCatalog"/>。</summary>
+        /// <param name="framework">玩法框架。</param>
+        /// <param name="actorId">Actor ID。</param>
+        /// <param name="teamId">队伍 ID，传给目录。</param>
+        /// <param name="abilityIds">技能 ID 列表。</param>
+        /// <param name="catalog">技能目录；不可为 null。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="catalog"/> 为 null。</exception>
+        /// <exception cref="KeyNotFoundException">某个技能 ID 不在目录中。</exception>
+        public static void RegisterActorAbilities(
+            this GamePlayFramework framework,
+            ActorId actorId,
+            int teamId,
+            IReadOnlyList<string> abilityIds,
+            IBattleAbilityCatalog catalog)
+        {
+            if (catalog == null)
+            {
+                throw new ArgumentNullException(nameof(catalog));
+            }
+
             for (var i = 0; i < abilityIds.Count; i++)
             {
                 var abilityId = abilityIds[i];
-                if (!tables.CfgTbAbility.DataMap.TryGetValue(abilityId, out var def))
+                if (!catalog.TryCreateAbility(abilityId, teamId, out var def))
                 {
                     throw new KeyNotFoundException($"Ability config not found: {abilityId}");
                 }
 
-                framework.GiveAbility(actorId, factory.CreateDef(def, teamId));
+                framework.GiveAbility(actorId, def);
             }
         }
     }

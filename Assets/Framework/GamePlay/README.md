@@ -72,14 +72,17 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 
 ## GamePlay.Data（配置装配层）
 
-命名空间 `Framework.GamePlay.Data`：读 `cfg.CfgTables`，装配到 GAS，**不含 Tick/模拟**。
+命名空间 `Framework.GamePlay.Data`。装配入口是 `IBattleAbilityCatalog` / `IBattleEffectCatalog`，接口上没有 Luban 类型。默认实现 `LubanAbilityCatalog` / `LubanEffectCatalog` 仍读 `cfg.CfgTables`，映射细节留在 `AbilityConfigFactory` / `EffectConfigFactory`。`RegisterActorAbilities` 与 `BattleConfigApplier.ApplyEffect` 保留 `CfgTables` 重载，内部转成上述目录。`GamePlayFramework.EffectCatalog` 为 null 时，命中结算仍直接查 `ConfigManager`，不在每次命中上分配目录。本层不含 Tick。
 
 | 类型 | 职责 |
 |------|------|
+| `IBattleAbilityCatalog` | `abilityId` + 队伍 → `GameplayAbilityDef` |
+| `IBattleEffectCatalog` | `effectId` → `GameplayEffectDef` |
+| `LubanAbilityCatalog` / `LubanEffectCatalog` | Luban 默认后端 |
 | `AbilityConfigFactory` | Luban 技能行 → `GameplayAbilityDef` |
 | `EffectConfigFactory` | Luban 效果行 → `GameplayEffectDef` |
 | `GamePlayConfigSetup` | `RegisterActorAbilities` 扩展方法 |
-| `BattleConfigApplier` | 对 ASC 应用 Luban 效果 |
+| `BattleConfigApplier` | 对 ASC 应用效果 |
 
 ## 行为指令（玩家 / AI 共用）
 
