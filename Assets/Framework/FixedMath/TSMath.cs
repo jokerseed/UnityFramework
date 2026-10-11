@@ -223,7 +223,7 @@ namespace Framework.FixedMath {
         /// Returns the smallest integral value that is greater than or equal to the specified number.
         /// </summary>
         public static FP Ceiling(FP value) {
-            return value;
+            return FP.Ceiling(value);
         }
 
         /// <summary>

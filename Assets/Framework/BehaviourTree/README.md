@@ -42,6 +42,8 @@ tree.Tick(ctx);
 
 换分支必须走 `Abort`：`BtAction` 的 `onAbort` 先于 Reset；组合用 `AbortChild` / `AbortChildrenFrom`。
 
+`BtCooldown` 的剩余时间在父 Selector/Sequence 完成并 `Reset` 子树后仍然保留，只在该节点被 Tick 时递减。`Abort` 会清掉冷却槽。
+
 ## 快照
 
 `CaptureSnapshot` / `RestoreSnapshot` 还原：FrameIndex、LastStatus、Runtime、权威黑板。  

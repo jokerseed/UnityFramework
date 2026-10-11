@@ -9,6 +9,10 @@
         "Framework.GamePlay",
         "Framework.Editor",
         "Framework.Logging",
+        "Framework.Events",
+        "Framework.BehaviourTree",
+        "Framework.Bootstrap",
+        "Framework.MemoryPool",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
