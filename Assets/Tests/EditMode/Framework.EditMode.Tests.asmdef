@@ -7,6 +7,7 @@
         "Framework.FixedMath",
         "Framework.GAS",
         "Framework.GamePlay",
+        "Framework.Lockstep",
         "Framework.Editor",
         "Framework.Logging",
         "UnityEngine.TestRunner",
