@@ -73,6 +73,13 @@ namespace Framework.ECS
             return entity;
         }
 
+        /// <summary>按 ID 查找当前世界里的实体对象。</summary>
+        /// <param name="entityId">实体 ID。</param>
+        /// <param name="entity">找到时为世界字典中的实例。</param>
+        /// <returns>世界里仍有该 ID 时返回 true。</returns>
+        public bool TryGetEntity(uint entityId, out Entity entity) =>
+            _entities.TryGetValue(entityId, out entity);
+
         /// <summary>判断实体是否仍在世界中存活。</summary>
         /// <param name="entity">要检查的实体；可为 null。</param>
         /// <returns>实体非 null、标记存活且仍在世界字典中时返回 <c>true</c>。</returns>

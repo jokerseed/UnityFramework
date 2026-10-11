@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.FixedMath;
@@ -37,6 +38,15 @@ namespace Framework.GAS.Attributes
         /// <summary>直接覆写当前值（用于受到伤害、治疗等即时改变场景）。</summary>
         /// <param name="value">新当前值。</param>
         public void SetCurrentValue(FP value) => CurrentValue = value;
+
+        /// <summary>按快照同时写回基础值和当前值，不触发重算。</summary>
+        /// <param name="baseValue">基础值。</param>
+        /// <param name="currentValue">当前值。</param>
+        internal void RestoreValues(FP baseValue, FP currentValue)
+        {
+            BaseValue = baseValue;
+            CurrentValue = currentValue;
+        }
 
         /// <summary>用加法偏移和乘法系数重新计算当前值：<c>CurrentValue = (BaseValue + additive) * multiplier</c>。</summary>
         /// <param name="additive">加法修改量。</param>
@@ -150,6 +160,67 @@ namespace Framework.GAS.Attributes
             result = (baseValue + (hasAdd ? add : FP.Zero)) * (hasMul ? mul : FP.One);
             return true;
         }
+
+        /// <summary>把当前汇总按属性名排序写入快照。</summary>
+        /// <param name="writer">写入器。</param>
+        internal void WriteTo(Framework.Core.Snapshot.SnapshotWriter writer)
+        {
+            WriteMap(writer, _additive);
+            WriteMap(writer, _multiplier);
+            WriteMap(writer, _override);
+        }
+
+        /// <summary>核对快照中的汇总与当前桶一致。</summary>
+        /// <param name="reader">读取器。</param>
+        /// <exception cref="InvalidOperationException">修改器汇总与快照不一致。</exception>
+        internal void ReadExpected(Framework.Core.Snapshot.SnapshotReader reader)
+        {
+            ReadExpectedMap(reader, _additive, "additive");
+            ReadExpectedMap(reader, _multiplier, "multiplier");
+            ReadExpectedMap(reader, _override, "override");
+        }
+
+        static void WriteMap(Framework.Core.Snapshot.SnapshotWriter writer, Dictionary<string, FP> map)
+        {
+            var keys = new List<string>(map.Count);
+            foreach (var key in map.Keys)
+            {
+                keys.Add(key);
+            }
+
+            keys.Sort(CompareOrdinal);
+            writer.WriteInt(keys.Count);
+            for (var i = 0; i < keys.Count; i++)
+            {
+                writer.WriteString(keys[i]);
+                writer.WriteFp(map[keys[i]]);
+            }
+        }
+
+        static void ReadExpectedMap(
+            Framework.Core.Snapshot.SnapshotReader reader,
+            Dictionary<string, FP> actual,
+            string bucket)
+        {
+            var count = reader.ReadInt();
+            if (count != actual.Count)
+            {
+                throw new InvalidOperationException(
+                    "Modifier " + bucket + " count mismatch. snapshot=" + count + " actual=" + actual.Count);
+            }
+
+            for (var i = 0; i < count; i++)
+            {
+                var key = reader.ReadString();
+                var value = reader.ReadFp();
+                if (!actual.TryGetValue(key, out var have) || have.RawValue != value.RawValue)
+                {
+                    throw new InvalidOperationException("Modifier " + bucket + " mismatch for " + key);
+                }
+            }
+        }
+
+        static int CompareOrdinal(string left, string right) => string.CompareOrdinal(left, right);
     }
 
     /// <summary>属性集合，以属性名为键存储并按需创建 <see cref="GameplayAttribute"/> 实例。</summary>
@@ -211,5 +282,8 @@ namespace Framework.GAS.Attributes
         /// <summary>枚举所有已创建属性。</summary>
         /// <returns>属性名 → 属性实例。</returns>
         public IEnumerable<KeyValuePair<string, GameplayAttribute>> GetAllAttributes() => _attributes;
+
+        /// <summary>清空属性，供快照恢复前重建。</summary>
+        internal void Clear() => _attributes.Clear();
     }
 }

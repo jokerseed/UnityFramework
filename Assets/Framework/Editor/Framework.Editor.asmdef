@@ -3,8 +3,7 @@
     "rootNamespace": "Framework.Editor",
     "references": [
         "Framework.Logging",
-        "YooAsset.Editor",
-        "BehaviorDesigner"
+        "YooAsset.Editor"
     ],
     "includePlatforms": [
         "Editor"

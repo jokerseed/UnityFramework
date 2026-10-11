@@ -134,33 +134,25 @@ namespace Framework.Bootstrap
             group.SetState(ModuleGroupState.Running);
 
             Exception failure = null;
-            var routine = RunGroupInternal(group);
-            while (true)
+            var driven = NestedCoroutine.Drive(RunGroupInternal(group), ex => failure = ex);
+            while (failure == null && driven.MoveNext())
             {
-                object current;
-                try
-                {
-                    if (!routine.MoveNext())
-                    {
-                        break;
-                    }
-
-                    current = routine.Current;
-                }
-                catch (Exception ex)
-                {
-                    failure = ex;
-                    break;
-                }
-
-                yield return current;
+                yield return driven.Current;
             }
 
             if (failure != null)
             {
                 GameLog.Exception(LogCategories.Bootstrap, failure);
+                try
+                {
+                    ShutdownGroup(group);
+                }
+                catch (Exception shutdownError)
+                {
+                    GameLog.Exception(LogCategories.Bootstrap, shutdownError);
+                }
+
                 group.SetState(ModuleGroupState.Failed, failure);
-                yield break;
             }
         }
 
@@ -296,25 +288,17 @@ namespace Framework.Bootstrap
                 yield break;
             }
 
-            while (true)
+            Exception failure = null;
+            var driven = NestedCoroutine.Drive(routine, ex => failure = ex);
+            while (failure == null && driven.MoveNext())
             {
-                object current;
-                try
-                {
-                    if (!routine.MoveNext())
-                    {
-                        break;
-                    }
+                yield return driven.Current;
+            }
 
-                    current = routine.Current;
-                }
-                catch (Exception ex)
-                {
-                    onError?.Invoke(ex);
-                    yield break;
-                }
-
-                yield return current;
+            if (failure != null)
+            {
+                onError?.Invoke(failure);
+                yield break;
             }
 
             CompleteModule(group, module);
