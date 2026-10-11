@@ -11,7 +11,7 @@ namespace Framework.ECS
     public sealed partial class World : ISnapshotable
     {
         const int SnapshotMagic = 0x31534345;
-        const int SnapshotVersion = 1;
+        const int SnapshotVersion = 2;
         const int TypeTransform = 1;
         const int TypeVelocity = 2;
         const int TypeKnockback = 3;
@@ -380,6 +380,15 @@ namespace Framework.ECS
                 writer.WriteString(projectile.HitEffectId);
                 writer.WriteFp(projectile.ExplodeRadius);
                 writer.WriteInt((int)projectile.DamageType);
+                var hits = projectile.HitEntityIds;
+                writer.WriteInt(hits != null ? hits.Count : 0);
+                if (hits != null)
+                {
+                    for (var h = 0; h < hits.Count; h++)
+                    {
+                        writer.WriteUInt(hits[h]);
+                    }
+                }
             }
         }
 
@@ -401,9 +410,27 @@ namespace Framework.ECS
                     PierceRemaining = reader.ReadInt(),
                     HitEffectId = reader.ReadString(),
                     ExplodeRadius = reader.ReadFp(),
-                    DamageType = (BattleDamageType)reader.ReadInt()
+                    DamageType = (BattleDamageType)reader.ReadInt(),
+                    HitEntityIds = ReadHitEntities(reader)
                 });
             }
+        }
+
+        static List<uint> ReadHitEntities(SnapshotReader reader)
+        {
+            var count = reader.ReadInt();
+            if (count <= 0)
+            {
+                return null;
+            }
+
+            var hits = new List<uint>(count);
+            for (var i = 0; i < count; i++)
+            {
+                hits.Add(reader.ReadUInt());
+            }
+
+            return hits;
         }
 
         static int ExpectBlock(SnapshotReader reader, int typeId)

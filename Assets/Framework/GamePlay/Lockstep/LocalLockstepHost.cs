@@ -29,6 +29,11 @@ namespace Framework.GamePlay
         /// <summary>内存录像器。</summary>
         public BattleReplayRecorder Recorder => _recorder;
 
+        /// <summary>
+        /// 输入在队列里多留几帧再执行。0 与原来一样，入队后立刻出队，已有录像不变。
+        /// </summary>
+        public int InputDelayFrames { get; set; }
+
         /// <summary>下一逻辑帧号。</summary>
         public int NextFrameIndex => _nextFrameIndex;
 
@@ -64,13 +69,11 @@ namespace Framework.GamePlay
                 _session.Framework.CollectAiIntents(frame.Commands, _session.FixedDeltaTime);
                 _queue.Enqueue(frame);
 
-                if (!_queue.TryDequeue(out var ready))
+                while (_queue.Count > InputDelayFrames && _queue.TryDequeue(out var ready))
                 {
-                    return;
+                    BattleIntentApplier.ApplyAll(_session.Framework, ready.Commands);
+                    _pendingRecord = ready;
                 }
-
-                BattleIntentApplier.ApplyAll(_session.Framework, ready.Commands);
-                _pendingRecord = ready;
             }, dt =>
             {
                 afterFixedStep?.Invoke(dt);

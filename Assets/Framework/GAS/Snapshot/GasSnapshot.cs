@@ -20,8 +20,11 @@ namespace Framework.GAS.Snapshot
         /// <summary>快照魔数，小端字节为 GAS1。</summary>
         public const int Magic = 0x31534147;
 
-        /// <summary>当前快照版本。</summary>
-        public const int Version = 1;
+        /// <summary>
+        /// 当前快照版本。版本 2 在每个 ASC 里追加技能实例和下一个活跃效果句柄的计数。
+        /// 版本 1 的字节不能再读：那两个计数已经从进程静态挪到 ASC。
+        /// </summary>
+        public const int Version = 2;
 
         readonly IList<AbilitySystemComponent> _components;
         readonly BattleContext _battle;

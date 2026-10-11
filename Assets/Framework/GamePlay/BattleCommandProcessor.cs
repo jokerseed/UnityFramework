@@ -9,6 +9,7 @@ using Framework.GAS;
 using Framework.GAS.Combat;
 using Framework.GAS.Targeting;
 using Framework.GamePlay.Data;
+using Framework.Logging;
 using Framework.FixedMath;
 using UnityEngine;
 
@@ -100,16 +101,28 @@ namespace Framework.GamePlay
         /// <param name="presentation">表现层事件总线。</param>
         public void FlushOutcomeCommands(BattleCommandBuffer buffer, IEventBus presentation)
         {
-            FlushDamage(buffer, presentation);
-            FlushHeal(buffer, presentation);
-            FlushEffects(buffer, presentation);
-            FlushArea(buffer, presentation);
-            FlushDisplace(buffer);
-            buffer.ClearApplyDamage();
-            buffer.ClearApplyHeal();
-            buffer.ClearApplyEffect();
-            buffer.ClearApplyAreaEffect();
-            buffer.ClearApplyDisplace();
+            for (var round = 0; round < 4; round++)
+            {
+                if (buffer.ApplyDamage.Count == 0 &&
+                    buffer.ApplyHeal.Count == 0 &&
+                    buffer.ApplyEffect.Count == 0 &&
+                    buffer.ApplyAreaEffect.Count == 0 &&
+                    buffer.ApplyDisplace.Count == 0)
+                {
+                    break;
+                }
+
+                FlushDamage(buffer, presentation);
+                buffer.ClearApplyDamage();
+                FlushHeal(buffer, presentation);
+                buffer.ClearApplyHeal();
+                FlushEffects(buffer, presentation);
+                buffer.ClearApplyEffect();
+                FlushArea(buffer, presentation);
+                buffer.ClearApplyAreaEffect();
+                FlushDisplace(buffer);
+                buffer.ClearApplyDisplace();
+            }
         }
 
         void FlushDamage(BattleCommandBuffer buffer, IEventBus presentation)
@@ -248,12 +261,14 @@ namespace Framework.GamePlay
 
             if (!ConfigManager.HasInstance)
             {
+                GameLog.Error(LogCategories.GamePlay, $"Effect '{effectId}' skipped: config is not loaded.");
                 return;
             }
 
             var tables = ConfigManager.Instance.GetTables();
             if (tables == null || !tables.CfgTbEffect.DataMap.TryGetValue(effectId, out var row))
             {
+                GameLog.Error(LogCategories.GamePlay, $"Effect config not found: {effectId}");
                 return;
             }
 

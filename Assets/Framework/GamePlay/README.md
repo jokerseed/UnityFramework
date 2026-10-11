@@ -23,7 +23,7 @@
 | `BattleAgent` / `BattleAiNodes` | GamePlay 侧 BT 叶子 |
 | `BattleIntentCommand` / `BattleIntentApplier` | 玩家与 AI 共用的 Move / Cast 行为指令与执行器 |
 | `BattleIntentFrame` / `BattleIntentFrameQueue` | 按逻辑帧归档的意图队列 |
-| `LocalLockstepHost` | 单机自循环：编码入队后立刻出队，用 unscaled 固定步长推进；每步录像 + checksum |
+| `LocalLockstepHost` | 单机自循环。`InputDelayFrames` 为 0 时入队后立刻出队，与原来相同；大于 0 时多留几帧。用 unscaled 固定步长推进；每步录像 + checksum |
 | `BattleFrameChecksum` | 逻辑步结束后的轻量状态哈希 |
 | `BattleReplayTape` / `BattleReplayRecorder` / `BattleReplayVerifier` | 内存录像与影子 Session 对拍 |
 | `EngageSlotAllocator` | 按追击目标把杂兵铺在环上，避免叠点 |
@@ -107,6 +107,8 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 - 渲染帧只 `Sample` 锁存；逻辑帧把意图写入 `BattleIntentFrame` 再入队执行，禁止 Sample 直接改模拟
 
 ## 单机锁步 Host
+
+结算命令最多再刷 4 轮，避免本轮事件里新入队的伤害在清空时被丢掉。平时只有一轮，结果与原来相同。
 
 `LocalLockstepHost` 用 `Time.unscaledDeltaTime`（仅渲染追赶）追赶 `BattleSession.FixedDeltaTime`（`FP` 逻辑步长）。追赶累加器是 `FP`：float 只在 `Tick(float)` 入口转换一次，比较和扣减不再用 float，因此相同的 float 输入序列得到相同的逻辑步数。`InterpolationAlpha` 仍是 float，只给表现插值。录像重放走 `BattleSession.Step(1)`，不把步长转回 float。每个逻辑步的 `beforeFixedStep` / `afterFixedStep`、`CollectAiIntents`、`Framework.Tick`、刷波与录像带均携带该 `FP`：
 

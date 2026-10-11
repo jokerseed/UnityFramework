@@ -47,7 +47,7 @@ tree.Tick(ctx);
 ## 快照
 
 `CaptureSnapshot` / `RestoreSnapshot` 还原：FrameIndex、LastStatus、Runtime、权威黑板。  
-**不还原** object 袋与 `TSRandom`。
+**不还原** `TSRandom`。权威槽覆盖时会清空 object 袋，避免恢复后留下更新的对象。object 袋本身仍不写入快照。
 
 ## 类型化黑板
 

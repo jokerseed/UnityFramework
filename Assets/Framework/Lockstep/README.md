@@ -53,7 +53,7 @@
 
 `LockstepHost` 在某一步收齐所有玩家的 `LockstepInputMessage` 之前不会调用 `Simulate`。`PredictRemote` 可以先填占位；正式输入若不同，就从最近的检查点重放。检查点间隔至少为 1，第 0 步一定会存。
 
-战斗侧是 `BattleLockstepSimulation`：随机数、ECS、`GasSnapshot`、`BattlePhysicsSnapshot` 记在同一次检查点里。`World.Restore` 之后要重新绑定 Actor。Farseer 的刚体 ID 计数和 GAS 的句柄计数是进程全局的；同一进程里两场世界同时回滚并不隔离。测试只比较已经记下的校验和，开局之后不再创建刚体。
+战斗侧是 `BattleLockstepSimulation`：随机数、ECS、`GasSnapshot`（版本 2）、`BattlePhysicsSnapshot` 记在同一次检查点里。`World.Restore` 之后要重新绑定 Actor。Farseer 的刚体 ID 和效果 Spec 的 RuntimeId 仍是进程全局的，同一进程里两场世界同时回滚并不隔离这两项。技能实例 ID 和活跃效果句柄在每个 ASC 上，随该 ASC 的快照回写。测试只比较已经记下的校验和，开局之后不再创建刚体。
 
 真实套接字不在这里实现。
 
