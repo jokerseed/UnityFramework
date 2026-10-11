@@ -22,6 +22,34 @@
 
 详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。
 
+## 两套锁步不要混
+
+| | 战斗 Demo | TrueSync 基座 |
+|--|--|--|
+| 入口 | `LocalLockstepHost` | `AbstractLockstep` |
+| 步长 | `BattleSession.FixedDeltaTime`（`FP`） | 构造参数 `float deltaTime` |
+| 校验 | `BattleFrameChecksum` | `ChecksumExtractor`（物理体 MD5） |
+| 录像 | `BattleReplayTape`（内存） | `ReplayRecord` |
+| 回滚 | 本分支未接预测回滚 | `RollbackLockstep` 只克隆物理世界，GAS/ECS/行为树不还原 |
+
+战斗结果以 Demo 这一列为准。TrueSync 类型留在 `Framework.Lockstep`，给以后的输入同步用，不驱动当前 Battle。
+
+## 线程
+
+模拟、事件、UI、资源、对象池、音频、配置都在主线程。网络收发的完成回调在 IO 线程，只负责把字节放进待分发队列；`NetworkManager.Update` 再在主线程调用处理器和 `GameEvent`。IO 回调里不要碰 GAS、ECS、行为树或 `GameEvent`。内存池的取还目前也没有和 IO 线程对齐，不要在完成回调里 `Acquire`。
+
+## 时间源
+
+| 模块 | 时钟 | 原因 |
+|------|------|------|
+| 战斗模拟 | `FP` 固定步长 | 校验和只认这个 |
+| `LocalLockstepHost` 追赶 | `Time.unscaledDeltaTime` 只在入口转一次 | 暂停 `timeScale` 时逻辑仍追帧 |
+| `ITickable.Tick(float)` | 调用方传入 | 桥，内部应立刻转 `FP` |
+| `ObjectPoolManager` | `Time.deltaTime`（受 `timeScale` 影响） | 表现对象过期跟着游戏暂停 |
+| 对象池过期戳 | `DateTime.UtcNow` | 墙钟，不进模拟 |
+| `NetworkManager` | `Time.unscaledDeltaTime` | 心跳不受暂停影响 |
+| 音频淡入淡出 | `Time.unscaledDeltaTime` | 暂停时 BGM 仍能淡出 |
+
 ## 程序集与文档
 
 | 程序集 | 职责 | 文档 |

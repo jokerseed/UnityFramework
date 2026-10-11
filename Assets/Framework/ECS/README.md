@@ -98,3 +98,4 @@ GamePlayFramework.Tick
 - `Framework.GamePlay` — 创建 `World`、注册 `BattlePhysicsWorld` 与 System、驱动 Tick
 - `Framework.GamePlay.ActorRegistry` — 创建 Entity / 刚体并绑定 ActorId
 - 战斗物理只用 Farseer 2D。Jitter 3D 仍打在 `Framework.LockstepPhysics` 里，本程序集不引用其类型。拆分见 LockstepPhysics README
+- `BattlePhysicsWorld` 放在本程序集，所以 ECS 会引用 `Framework.LockstepPhysics`。把它拆成单独的物理程序集要连同 `World.DestroyEntity` 和 System 一起搬，这次只把边界写在这里，没有改引用。

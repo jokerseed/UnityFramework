@@ -76,7 +76,7 @@ NetworkManager.Instance.DestroyChannel("Game");
 | `NetworkErrorEvent` | 连接/收发/解析失败 |
 | `NetworkMissHeartBeatEvent` | 心跳间隔内未收到任何包 |
 
-收发包完成回调都在 **主线程** `NetworkManager.Update` 中执行。
+收发包完成回调都在 **主线程** `NetworkManager.Update` 中执行。心跳用的是 `Update` 传入的 `Time.unscaledDeltaTime`，不受 `timeScale` 影响。IO 线程只入队，不要在完成回调里发布事件或取内存池。
 
 ## Bootstrap
 

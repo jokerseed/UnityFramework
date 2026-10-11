@@ -10,9 +10,10 @@ namespace Framework.Editor.Determinism
     /// <summary>
     /// 扫描战斗逻辑程序集，标出容易破坏确定性的 API。
     /// 错误级：<c>UnityEngine.Random</c>、<c>System.Random</c>、<c>Time.*</c>、<c>DateTime.Now</c>、<c>Guid.NewGuid</c>，
-    /// 以及 ECS 里新出现的 <c>float</c>（<c>ITickable.Tick(float)</c> 桥除外）。
-    /// GAS / GamePlay 的 float 留在配置装配和表现边界，扫描器只记录、不阻断。
-    /// 行尾写 <c>determinism-allow</c> 可跳过该行。
+    /// 以及 ECS、Core、BehaviourTree 运行时、Lockstep 模拟代码里的 <c>float</c>。
+    /// <c>ITickable.Tick(float)</c> 桥、BehaviourTree 配置 DTO、Lockstep 的调试绘制/统计文件不阻断。
+    /// GAS / GamePlay 的 float 留在配置装配和表现边界，扫描器只记录、不阻断（本方法不把它们放进返回列表）。
+    /// 行尾写 <c>determinism-allow</c> 可跳过该行。Editor 目录不扫描。
     /// </summary>
     public static class SimDeterminismScanner
     {
@@ -22,6 +23,9 @@ namespace Framework.Editor.Determinism
             "Framework/GAS",
             "Framework/FixedMath",
             "Framework/GamePlay",
+            "Framework/BehaviourTree",
+            "Framework/Core",
+            "Framework/Lockstep",
         };
 
         static readonly Regex Forbidden = new Regex(
@@ -48,8 +52,13 @@ namespace Framework.Editor.Determinism
                 var files = Directory.GetFiles(directory, "*.cs", SearchOption.AllDirectories);
                 for (var f = 0; f < files.Length; f++)
                 {
-                    var relative = files[f].Replace('\\', '/');
-                    var source = File.ReadAllText(files[f]);
+                var relative = files[f].Replace('\\', '/');
+                if (relative.Contains("/Editor/"))
+                {
+                    continue;
+                }
+
+                var source = File.ReadAllText(files[f]);
                     CollectViolations(relative, source, violations);
                 }
             }
@@ -68,8 +77,7 @@ namespace Framework.Editor.Determinism
                 return;
             }
 
-            var checkFloat = relativePath != null &&
-                             relativePath.Replace('\\', '/').Contains("Framework/ECS");
+            var checkFloat = BlocksFloat(relativePath);
             var inBlock = false;
             var lines = source.Replace("\r\n", "\n").Split('\n');
             for (var i = 0; i < lines.Length; i++)
@@ -92,9 +100,9 @@ namespace Framework.Editor.Determinism
                     continue;
                 }
 
-                if (checkFloat && FloatToken.IsMatch(code) && code.IndexOf("Tick(float", System.StringComparison.Ordinal) < 0)
+                if (checkFloat && FloatToken.IsMatch(code) && !IsFloatBridge(code))
                 {
-                    violations.Add(relativePath + ":" + (i + 1) + " float in ECS: " + code.Trim());
+                    violations.Add(relativePath + ":" + (i + 1) + " float in sim: " + code.Trim());
                 }
             }
         }
@@ -114,6 +122,45 @@ namespace Framework.Editor.Determinism
             {
                 GameLog.Error(LogCategories.GamePlay, violations[i]);
             }
+        }
+
+        static bool BlocksFloat(string relativePath)
+        {
+            if (string.IsNullOrEmpty(relativePath))
+            {
+                return false;
+            }
+
+            var path = relativePath.Replace('\\', '/');
+            if (path.Contains("/Editor/"))
+            {
+                return false;
+            }
+
+            if (path.Contains("Framework/ECS") || path.Contains("Framework/Core"))
+            {
+                return true;
+            }
+
+            if (path.Contains("Framework/BehaviourTree"))
+            {
+                return !path.Contains("Framework/BehaviourTree/Config/");
+            }
+
+            if (path.Contains("Framework/Lockstep"))
+            {
+                return !path.EndsWith("TrueSyncStats.cs", System.StringComparison.Ordinal)
+                    && !path.EndsWith("Drawing.cs", System.StringComparison.Ordinal)
+                    && !path.EndsWith("CountInfo.cs", System.StringComparison.Ordinal)
+                    && !path.EndsWith("CompoundStats.cs", System.StringComparison.Ordinal);
+            }
+
+            return false;
+        }
+
+        static bool IsFloatBridge(string code)
+        {
+            return code.IndexOf("Tick(float", System.StringComparison.Ordinal) >= 0;
         }
 
         static string StripComments(string line, ref bool inBlock)

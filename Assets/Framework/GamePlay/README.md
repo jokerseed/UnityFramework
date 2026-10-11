@@ -106,6 +106,8 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 
 `LocalLockstepHost` 用 `Time.unscaledDeltaTime`（仅渲染追赶）追赶 `BattleSession.FixedDeltaTime`（`FP` 逻辑步长）。追赶累加器是 `FP`：float 只在 `Tick(float)` 入口转换一次，比较和扣减不再用 float，因此相同的 float 输入序列得到相同的逻辑步数。`InterpolationAlpha` 仍是 float，只给表现插值。录像重放走 `BattleSession.Step(1)`，不把步长转回 float。每个逻辑步的 `beforeFixedStep` / `afterFixedStep`、`CollectAiIntents`、`Framework.Tick`、刷波与录像带均携带该 `FP`：
 
+这套和 `Framework.Lockstep` 里的 TrueSync（`AbstractLockstep`、`ReplayRecord`、`ChecksumExtractor`）不是同一条链路。战斗校验和是 `BattleFrameChecksum`，录像是内存里的 `BattleReplayTape`。不要把 TrueSync 的 MD5 物理校验和当成战斗结果。
+
 ```
 fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequeue → BattleIntentApplier → Framework.Tick → 刷波 → checksum / 录像
 ```
