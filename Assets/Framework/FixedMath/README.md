@@ -5,7 +5,7 @@
 
 > 源路径：`D:\Client\Assets\Script\Core\TrueSync\Engine\Math\`  
 > 命名空间改为 `Framework.FixedMath`；已去掉 Client 侧 `Obscured*` / `IWGames` 依赖。  
-> Sin/Tan/Acos **LUT 数组内容与主干逐项一致**（已对拍）。
+> Sin/Tan **LUT 数组内容与主干逐项一致**（已对拍）。Acos 不读查找表，走 `Atan`。
 
 ## 程序集
 
@@ -20,7 +20,7 @@
 
 | 类型 | 职责 |
 |------|------|
-| `FP` | Q31.32 定点数（完整 Sin/Tan/Acos LUT，`LUT_SIZE≈205887`） |
+| `FP` | Q31.32 定点数（Sin/Tan LUT，`LUT_SIZE≈205887`）。Acos 用 `Atan`，没有 Acos 表 |
 | `TSMath` | Mathf 风格静态入口 |
 | `TSVector` / `TSVector2` / `TSVector4` | 向量 |
 | `TSQuaternion` | 四元数 |
@@ -67,9 +67,15 @@ var roll = rng.Next(0, 100);
 transform.position = FPConversions.ToVector3(pos);
 ```
 
-## 三角函数查找表（约 3MB × 3）
+## 三角函数查找表（Sin / Tan 各约 3MB）
 
-`Fix64SinLut.cs`、`Fix64TanLut.cs`、`Fix64AcosLut.cs` 各约 3.0MB、25741 行，内容是 `long[]` 字面量。运行时直接使用这些静态数组，没有加载步骤。
+`Fix64SinLut.cs`、`Fix64TanLut.cs` 各约 3.0MB，内容是 `long[]` 字面量。运行时 `Sin`/`Cos`/`Tan` 直接使用这些静态数组，没有加载步骤。`Sin`/`Cos` 取最近表项：`indexError` 被写成 0，注释里的线性插值目前不生效。改回插值会改变所有三角函数结果，已有校验和要重录。
+
+`Atan2` 用 `z/(1+0.28z²)` 近似，和 `Atan` 的级数不是同一精度，最大误差大约 0.0049 弧度。欧拉角和 `TSVector2` 的角度会吃到这个近似。这次没有改公式。
+
+`Fix64AcosLut.cs` 已删除。全仓库没有代码读取 `AcosLut`，`Acos` 走 `Atan`。生成函数仍留在 `Fix64` 里，它写出的命名空间是旧的 `FixMath.NET`，不要把它的输出直接编进工程。
+
+`TSMath.Pi`、`PiOver2`、`Epsilon`、`Deg2Rad`、`Rad2Deg`、`Infinity` 以及 `TSVector.InternalZero` 是 `readonly`，数值和原来的初值相同。
 
 不在这次改成“启动时生成”或“从 TextAsset / 二进制加载”：
 

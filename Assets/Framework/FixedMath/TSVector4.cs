@@ -30,7 +30,7 @@ namespace Framework.FixedMath
     {
 
         private static FP ZeroEpsilonSq = TSMath.Epsilon;
-        internal static TSVector4 InternalZero;
+        internal static readonly TSVector4 InternalZero;
 
         /// <summary>The X component of the vector.</summary>
         public FP x;

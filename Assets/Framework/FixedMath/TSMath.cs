@@ -28,34 +28,34 @@ namespace Framework.FixedMath {
         /// <summary>
         /// PI constant.
         /// </summary>
-        public static FP Pi = FP.Pi;
+        public static readonly FP Pi = FP.Pi;
 
         /**
         *  @brief PI over 2 constant.
         **/
-        public static FP PiOver2 = FP.PiOver2;
+        public static readonly FP PiOver2 = FP.PiOver2;
 
         /// <summary>
         /// A small value often used to decide if numeric 
         /// results are zero.
         /// </summary>
-		public static FP Epsilon = FP.Epsilon;
+		public static readonly FP Epsilon = FP.Epsilon;
 
         /**
         *  @brief Degree to radians constant.
         **/
-        public static FP Deg2Rad = FP.Deg2Rad;
+        public static readonly FP Deg2Rad = FP.Deg2Rad;
 
         /**
         *  @brief Radians to degree constant.
         **/
-        public static FP Rad2Deg = FP.Rad2Deg;
+        public static readonly FP Rad2Deg = FP.Rad2Deg;
 
 
         /**
          * @brief FP infinity.
          * */
-        public static FP Infinity = FP.MaxValue;
+        public static readonly FP Infinity = FP.MaxValue;
 
         /// <summary>
         /// Gets the square root.
