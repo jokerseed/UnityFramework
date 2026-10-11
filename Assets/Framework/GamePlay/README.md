@@ -124,11 +124,16 @@ EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests
 LocalLockstepHost.Tick(unscaledDeltaTime)
   fillFrame（玩家）→ CollectAiIntents（AI 只入帧）
   Enqueue → Dequeue → BattleIntentApplier
-  GamePlayFramework.Tick(fixedDt)
-    0. 仅当空间索引 StructuralDirty 时 RebuildActors（刷出 / 传送 / 复活）
-    1. SyncCuePose → 定身/眩晕/倒地清速度
-    2. 存活 ASC.Tick（查询读本步物理前的格子）
-    3. Flush Spawn → Farseer Step → SpatialIndex（每逻辑步必做的一次全量重建）→ 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
+  GamePlayFramework.Tick(fixedDt) 按 BattleTickPhase 执行，可用 AddTickStep 在顺序值之间插入
+    0. RebuildSpatialIndex：仅当空间索引 StructuralDirty 时 RebuildActors（刷出 / 传送 / 复活）
+    100. SyncCue：拍下本步 Actor 列表，同步 Cue
+    200. ApplyRootAndStun：定身/眩晕/倒地清速度
+    300. TickAbilities：存活 ASC.Tick（查询读本步物理前的格子）
+    400. FlushSpawn
+    500. TickEcs：Farseer Step → SpatialIndex（每逻辑步必做的一次全量重建）→ 投射物寿命
+    600. FlushOutcome
+    700. SyncDeath
+    800. SyncPositions
   afterFixedStep（刷波）→ checksum → 录像
 ```
 
