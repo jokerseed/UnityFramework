@@ -1,0 +1,45 @@
+# 可选工作流，不是必需检查。
+# 不会在 push 或 pull_request 上自动运行。需要时在 Actions 页手动 Run workflow。
+# 不要把本工作流设成分支保护的 required check。
+#
+# 需要的仓库 Secret（见 https://game.ci/docs/github/activation ）：
+#   UNITY_LICENSE   .ulf 许可证文件的全文。个人版把许可证内容放进这个 Secret。
+#   UNITY_EMAIL     Unity 账号邮箱
+#   UNITY_PASSWORD  Unity 账号密码
+# 没有这些 Secret 时，手动运行会在激活阶段失败。本仓库不提供许可证。
+#
+# Unity 版本与 ProjectSettings/ProjectVersion.txt 一致：2021.3.21f1。
+# 只跑 EditMode（含 MinimalBattleTests 与其它 Framework.EditMode.Tests）。
+
+name: EditMode tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  editmode:
+    name: Unity EditMode
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run EditMode tests
+        id: tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: .
+          unityVersion: 2021.3.21f1
+          testMode: editmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: editmode-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
