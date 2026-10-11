@@ -14,6 +14,7 @@
         "Framework.BehaviourTree",
         "Framework.Bootstrap",
         "Framework.MemoryPool",
+        "Framework.Network",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

@@ -62,7 +62,7 @@ var manager = ResourceManager.Instance;
 | `Run(name)` | 启动该组初始化（协程） |
 | `RunAsync(name)` | `yield return` 等待该组完成 |
 | `GetGroup(name)` | 获取组句柄，查 `IsReady` / 状态事件 |
-| `ResetGroup(name)` | 关闭并清空该组，可重新配置 |
+| `ResetGroup(name)` | 关闭并清空该组，可重新配置。组仍在 `Running` 时抛异常 |
 
 ## 初始化模式
 
@@ -85,7 +85,7 @@ SetModules("b", ...)  →  Idle（独立组）
 Run("b")              →  Running → Ready / Failed
 ```
 
-初始化协程里的异常（包括 `yield return` 嵌套进去的 `InitializeAsync`）会把组设为 `Failed` 并触发 `Failed` 事件，已初始化的模块按逆序 `Shutdown`。不要依赖 Unity 把嵌套协程的异常抛回外层 `try`。
+初始化协程里的异常（包括 `yield return` 嵌套进去的 `InitializeAsync`）由 `NestedCoroutine` 收上来，把组设为 `Failed` 并触发 `Failed` 事件。已初始化的模块按逆序 `Shutdown`；某个模块的 `Shutdown` 抛异常不会挡住后面的模块。失败会递增 `RunSerial`，迟到的完成不会再记进已初始化列表。失败后再次 `Run` 会重新初始化。不要依赖 Unity 把嵌套协程的异常抛回外层 `try`。
 
 ## 相关模块
 

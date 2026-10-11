@@ -86,9 +86,10 @@ namespace Framework.Config
                 var handle = ResourceManager.Instance.LoadAssetSync<TextAsset>(location);
                 if (!handle.IsValid || !handle.Succeeded)
                 {
+                    var error = handle.Error;
                     handle.Dispose();
                     throw new InvalidOperationException(
-                        $"[Config] Load config failed: {tableName}, location={location}, error={handle.Error}");
+                        $"[Config] Load config failed: {tableName}, location={location}, error={error}");
                 }
 
                 _tableAssetCache[location] = handle;

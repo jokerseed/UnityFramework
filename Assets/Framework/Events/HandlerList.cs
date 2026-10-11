@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Framework.Logging;
 
 namespace Framework.Events
 {
@@ -12,19 +13,47 @@ namespace Framework.Events
         readonly List<Action<T>> _handlers = new List<Action<T>>(4);
         readonly List<Action<T>> _pendingAdds = new List<Action<T>>(2);
         readonly List<Action<T>> _pendingRemoves = new List<Action<T>>(2);
+        int _invokeDepth;
         bool _invoking;
         bool _dirty;
 
         public void Invoke(in T evt)
         {
+            _invokeDepth++;
             _invoking = true;
-            for (var i = 0; i < _handlers.Count; i++)
+            try
             {
-                _handlers[i](evt);
-            }
+                for (var i = 0; i < _handlers.Count; i++)
+                {
+                    var handler = _handlers[i];
+                    if (IsPendingRemove(handler))
+                    {
+                        continue;
+                    }
 
-            _invoking = false;
-            ApplyPendingChanges();
+                    try
+                    {
+                        handler(evt);
+                    }
+                    catch (Exception ex)
+                    {
+                        GameLog.Exception(LogCategories.Events, ex, "Event handler failed.");
+                    }
+                }
+            }
+            finally
+            {
+                if (_invokeDepth > 0)
+                {
+                    _invokeDepth--;
+                }
+
+                if (_invokeDepth == 0)
+                {
+                    _invoking = false;
+                    ApplyPendingChanges();
+                }
+            }
         }
 
         public void Add(Action<T> handler)
@@ -70,7 +99,21 @@ namespace Framework.Events
             _pendingAdds.Clear();
             _pendingRemoves.Clear();
             _dirty = false;
+            _invokeDepth = 0;
             _invoking = false;
+        }
+
+        bool IsPendingRemove(Action<T> handler)
+        {
+            for (var i = 0; i < _pendingRemoves.Count; i++)
+            {
+                if (_pendingRemoves[i] == handler)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         void ApplyPendingChanges()

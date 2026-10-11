@@ -39,7 +39,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 
 ## 定点约定
 
-技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。`AbilityActivationContext.Origin` / `Direction` 与 ASC `CueSimPosition` / `CueSimDirection` 为 `TSVector`；`CuePosition` / `CueDirection` 仍供 Cue 与事件 float 发布。`GameplayEventData.TargetSimLocation` 为仿真坐标（`TSVector`），`HandleGameplayEvent` 直接用于施法原点。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(FP)` 由 `GamePlayFramework` 以会话固定步长驱动，不再在入口把 float 转定点。超大数值战斗结算不要用 Q31.32。
+技能与效果的**仿真数值**使用 `Framework.FixedMath.FP`（含冷却、范围、半角、弹速、伤害、击退、属性、Cost / SetByCaller）。`AbilityActivationContext.Origin` / `Direction` 与 ASC `CueSimPosition` / `CueSimDirection` 为 `TSVector`；`CuePosition` / `CueDirection` 仍供 Cue 与事件 float 发布。`GameplayEventData.TargetSimLocation` 为仿真坐标（`TSVector`），`HandleGameplayEvent` 直接用于施法原点。Luban 表仍为 float，只在 `AbilityConfigFactory` / `EffectConfigFactory` 装配时转入。`DamageDealtEvent` / `AttributeChangedEvent` 等表现事件保持 float，由 ASC 在 Publish 时 `AsFloat()`。`ASC.Tick(FP)` 由 `GamePlayFramework` 以会话固定步长驱动，不再在入口把 float 转定点。超大数值战斗结算不要用 Q31.32。进入 Play 时，技能实例号和效果句柄的进程计数会回到 1。这些句柄不在 `BattleFrameChecksum` 里，同一次战斗的校验和不变。
 
 ## Tick 顺序（GamePlay 驱动）
 

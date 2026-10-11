@@ -89,12 +89,27 @@ namespace Framework.UI
             var loadHandle = ResourceManager.Instance.LoadAssetSync<GameObject>(metadata.Location);
             if (!loadHandle.IsValid || !loadHandle.Succeeded)
             {
+                var error = loadHandle.Error;
                 loadHandle.Dispose();
                 throw new InvalidOperationException(
-                    $"[UI] Load window failed: {windowType.Name}, location={metadata.Location}, error={loadHandle.Error}");
+                    $"[UI] Load window failed: {windowType.Name}, location={metadata.Location}, error={error}");
             }
 
-            var window = CreateWindowInstance<TWindow>(loadHandle, metadata, userData);
+            TWindow window;
+            try
+            {
+                window = CreateWindowInstance<TWindow>(loadHandle, metadata, userData);
+            }
+            catch
+            {
+                if (loadHandle.IsValid)
+                {
+                    loadHandle.Dispose();
+                }
+
+                throw;
+            }
+
             window.AssetHandle = loadHandle;
             return window;
         }
@@ -445,11 +460,23 @@ namespace Framework.UI
             var window = new TWindow();
             window.ReleasePolicy = metadata.ReleasePolicy;
             window.DelayUnloadSeconds = metadata.DelayUnloadSeconds;
-            window.InternalCreate(this, instance, null, userData);
-            window.SetupWindow(layerRoot, metadata.Layer, metadata.FullScreen, sortingOrder);
+            try
+            {
+                window.InternalCreate(this, instance, null, userData);
+                window.SetupWindow(layerRoot, metadata.Layer, metadata.FullScreen, sortingOrder);
+                RegisterWindow(window);
+                return window;
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.UI, ex, $"Create window failed: {typeof(TWindow).Name}");
+                if (instance != null)
+                {
+                    Destroy(instance);
+                }
 
-            RegisterWindow(window);
-            return window;
+                throw;
+            }
         }
 
         bool TryReviveCached<TWindow>(Type windowType, object userData, out TWindow window)
@@ -592,16 +619,21 @@ namespace Framework.UI
 
             var gameObject = window.GameObject;
             var assetHandle = window.AssetHandle;
-            window.InternalDestroy();
-
-            if (gameObject != null)
+            try
             {
-                Destroy(gameObject);
+                window.InternalDestroy();
             }
-
-            if (assetHandle.IsValid)
+            finally
             {
-                assetHandle.Dispose();
+                if (gameObject != null)
+                {
+                    Destroy(gameObject);
+                }
+
+                if (assetHandle.IsValid)
+                {
+                    assetHandle.Dispose();
+                }
             }
 
             GameLog.Info(LogCategories.UI, $"Destroy {LogStyle.Name(windowType.Name)}");

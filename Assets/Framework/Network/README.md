@@ -57,6 +57,7 @@ channel.RegisterHandler(1002, (c, packet) =>
 {
     // packet 在回调返回后归还内存池，不要缓存
 });
+channel.UnregisterHandler(1002);
 
 channel.Connect("127.0.0.1", 9000);
 
@@ -76,7 +77,11 @@ NetworkManager.Instance.DestroyChannel("Game");
 | `NetworkErrorEvent` | 连接/收发/解析失败 |
 | `NetworkMissHeartBeatEvent` | 心跳间隔内未收到任何包 |
 
-收发包完成回调都在 **主线程** `NetworkManager.Update` 中执行。
+收发包完成回调都在 **主线程** `NetworkManager.Update` 中执行。单个处理器抛异常只跳过这一条消息，后面的频道继续 `Update`。
+
+重连会递增连接代号。旧 socket 的完成回调如果晚到，会被丢掉，并且要等上一笔 Connect/Receive/Send 结束后才复用 `SocketAsyncEventArgs`。`SendAsync` 只写出一部分时会从剩余偏移继续发，整包发完才增加 `SentPacketCount`。同一消息号再次 `RegisterHandler` 会覆盖并打警告。
+
+IO 线程和主线程仍然会同时碰到 `_socket`、接收偏移这些字段。连接状态还没有收成一把锁。
 
 ## Bootstrap
 

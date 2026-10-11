@@ -23,6 +23,12 @@ namespace Framework.GAS.Abilities
     {
         static int s_nextInstanceId = 1;
 
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetProcessCounter()
+        {
+            s_nextInstanceId = 1;
+        }
+
         readonly List<Tasks.AbilityTask> _tasks = new List<Tasks.AbilityTask>();
 
         /// <summary>实例唯一 ID，用于 Cancel 查找。</summary>

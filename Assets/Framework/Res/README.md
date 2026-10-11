@@ -165,11 +165,13 @@ battle.Dispose();
 | 配置 TextAsset 缓存 | `ConfigManager.ReleaseTableAssetCache()` |
 | 模块/应用关闭 | `ResourceModule.Shutdown()` → 取消调度队列 → `ResourceManager.Shutdown()` |
 
+`ResourceScope.LoadSync` 和 `LoadAsync` 失败时都不登记句柄。句柄若仍然有效，由调用方 `Dispose`，失败原因留在 `Error` 上。
+
 ### 场景生命周期
 
 | 操作 | API |
 |------|-----|
-| 切换主场景（Single） | `LoadMainSceneAsync(location)` — 自动 `Dispose` 旧主场景句柄与全部 Additive 句柄 |
+| 切换主场景（Single） | `LoadMainSceneAsync(location)` — 新场景成功后才 `Dispose` 旧主场景句柄与全部 Additive 句柄；失败保留旧句柄。进行中再次调用会抛异常 |
 | 加载 Additive | `LoadAdditiveSceneAsync(location)` — 登记到内部列表 |
 | 卸载 Additive | `UnloadAdditiveSceneAsync(handle)` — `UnloadAsync` + `Dispose` + 移出列表 |
 | 查询 | `ActiveScene`（Unity 激活场景）、`CurrentMainScene` / `CurrentMainSceneHandle` |
@@ -195,7 +197,7 @@ Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，协程等待会结�
 new ResourceModule(),
 ```
 
-初始化选项与调度预算都在 `ResourceManager` Inspector 上配置。
+初始化选项与调度预算都在 `ResourceManager` Inspector 上配置。`InitializeAsync` 任一步失败会清掉本次的选项和调度器，并尝试销毁这次用到的包裹，方便下一次重新初始化。销毁失败只记日志，原始初始化异常仍会抛出。
 
 ## 被谁使用
 

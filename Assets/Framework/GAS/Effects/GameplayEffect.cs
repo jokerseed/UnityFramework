@@ -68,6 +68,12 @@ namespace Framework.GAS.Effects
     {
         static int s_nextHandle = 1;
 
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetProcessCounter()
+        {
+            s_nextHandle = 1;
+        }
+
         /// <summary>运行时 Spec 句柄（Apply 时分配）。</summary>
         public int RuntimeId { get; }
 
@@ -189,6 +195,12 @@ namespace Framework.GAS.Effects
     public sealed class ActiveGameplayEffect
     {
         static int s_nextHandle = 1;
+
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetProcessCounter()
+        {
+            s_nextHandle = 1;
+        }
 
         /// <summary>活跃效果句柄。</summary>
         public GameplayEffectHandle Handle { get; }

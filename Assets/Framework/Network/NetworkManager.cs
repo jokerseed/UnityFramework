@@ -36,7 +36,14 @@ namespace Framework.Network
 
             for (var i = 0; i < _tickScratch.Count; i++)
             {
-                _tickScratch[i].Update(elapseSeconds);
+                try
+                {
+                    _tickScratch[i].Update(elapseSeconds);
+                }
+                catch (Exception ex)
+                {
+                    GameLog.Exception(LogCategories.Network, ex, "Channel update failed.");
+                }
             }
         }
 

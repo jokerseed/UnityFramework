@@ -34,9 +34,9 @@ namespace Framework.Bootstrap
         /// 将模块列表按依赖关系拓扑排序，返回可并发执行的波次列表。
         /// 同一波次内的模块互无依赖，可并发初始化。
         /// </summary>
-        /// <param name="modules">待排序的模块列表，不可含重复类型；可为 null 或空。</param>
+        /// <param name="modules">待排序的模块列表，不可含重复类型；可为 null 或空。模块的 <see cref="IGameModule.Dependencies"/> 为 null 时视为无依赖，重复类型只计一次。</param>
         /// <returns>波次列表，每个波次为可并发执行的模块子集；输入为空时返回空数组。</returns>
-        /// <exception cref="InvalidOperationException">存在循环依赖、重复注册或依赖模块未注册。</exception>
+        /// <exception cref="InvalidOperationException">存在循环依赖、重复注册、依赖为 null，或依赖模块未注册。</exception>
         public static IReadOnlyList<IReadOnlyList<IGameModule>> SortIntoWaves(IReadOnlyList<IGameModule> modules)
         {
             if (modules == null || modules.Count == 0)
@@ -136,17 +136,7 @@ namespace Framework.Bootstrap
             {
                 var module = modules[i];
                 var dependencies = module.Dependencies;
-                inDegree[module.GetType()] = dependencies.Count;
-
-                for (var j = 0; j < dependencies.Count; j++)
-                {
-                    var dependency = dependencies[j];
-                    if (!moduleByType.ContainsKey(dependency))
-                    {
-                        throw new InvalidOperationException(
-                            $"Module '{module.Name}' depends on '{dependency.Name}', but it is not registered.");
-                    }
-                }
+                inDegree[module.GetType()] = CountDependencies(module, dependencies, moduleByType);
             }
 
             return inDegree;
@@ -168,6 +158,11 @@ namespace Framework.Bootstrap
 
         static bool ContainsDependency(IReadOnlyList<Type> dependencies, Type dependency)
         {
+            if (dependencies == null)
+            {
+                return false;
+            }
+
             for (var i = 0; i < dependencies.Count; i++)
             {
                 if (dependencies[i] == dependency)
@@ -177,6 +172,50 @@ namespace Framework.Bootstrap
             }
 
             return false;
+        }
+
+        static int CountDependencies(
+            IGameModule module,
+            IReadOnlyList<Type> dependencies,
+            Dictionary<Type, IGameModule> moduleByType)
+        {
+            if (dependencies == null)
+            {
+                return 0;
+            }
+
+            var seen = new List<Type>(dependencies.Count);
+            for (var i = 0; i < dependencies.Count; i++)
+            {
+                var dependency = dependencies[i];
+                if (dependency == null)
+                {
+                    throw new InvalidOperationException($"Module '{module.Name}' has a null dependency.");
+                }
+
+                if (!moduleByType.ContainsKey(dependency))
+                {
+                    throw new InvalidOperationException(
+                        $"Module '{module.Name}' depends on '{dependency.Name}', but it is not registered.");
+                }
+
+                var duplicate = false;
+                for (var j = 0; j < seen.Count; j++)
+                {
+                    if (seen[j] == dependency)
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+
+                if (!duplicate)
+                {
+                    seen.Add(dependency);
+                }
+            }
+
+            return seen.Count;
         }
 
         static int CompareModules(IGameModule left, IGameModule right)

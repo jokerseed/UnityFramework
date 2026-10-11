@@ -50,5 +50,8 @@ namespace Framework.Logging
 
         /// <summary>音频模块。</summary>
         public const string Audio = "Audio";
+
+        /// <summary>事件总线。</summary>
+        public const string Events = "Events";
     }
 }
