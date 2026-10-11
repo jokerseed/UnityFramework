@@ -586,6 +586,31 @@ namespace Framework.GamePlay
             _world.AddComponent(entity, transform);
         }
 
+        /// <summary>
+        /// <see cref="World.Restore"/> 会换成新的实体对象并让旧引用失效。
+        /// 按原实体 ID 把注册表重新指到当前世界里的实体。
+        /// </summary>
+        /// <exception cref="InvalidOperationException">快照里缺少注册表仍引用的实体。</exception>
+        public void RebindEntitiesAfterSnapshot()
+        {
+            CopySortedActorIds(_sortScratch);
+            for (var i = 0; i < _sortScratch.Count; i++)
+            {
+                if (!_actors.TryGetValue(_sortScratch[i], out var actor) || actor.EcsEntity == null)
+                {
+                    continue;
+                }
+
+                var entityId = actor.EcsEntity.Id;
+                if (!_world.TryGetEntity(entityId, out var rebound))
+                {
+                    throw new InvalidOperationException("Snapshot is missing entity " + entityId + ".");
+                }
+
+                actor.EcsEntity = rebound;
+            }
+        }
+
         /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.SimPosition"/> 与表现缓存，每帧 Tick 末尾调用。</summary>
         public void SyncPositionsFromEcs()
         {

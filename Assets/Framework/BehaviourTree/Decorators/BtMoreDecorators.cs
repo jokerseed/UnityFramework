@@ -48,7 +48,11 @@ namespace Framework.BehaviourTree
         }
     }
 
-    /// <summary>冷却：子节点 Success 后在持续时间内再 Tick 直接 Failure。</summary>
+    /// <summary>
+    /// 冷却：子节点 Success 后在持续时间内再 Tick 直接 Failure。
+    /// 剩余时间存在本节点 FP 槽，父组合节点完成时的 Reset 不会清掉它。
+    /// 只在本节点被 Tick 时递减；父节点改走其他分支时暂停。整树 Abort 仍会清槽。
+    /// </summary>
     public sealed class BtCooldown : BtDecorator
     {
         readonly FP _duration;
@@ -83,6 +87,13 @@ namespace Framework.BehaviourTree
             }
 
             return Commit(context, status);
+        }
+
+        /// <summary>重置子节点，但保留冷却剩余时间。父 Selector/Sequence 完成时会 Reset 整棵子树。</summary>
+        /// <param name="context">Tick 上下文；不可为 null。</param>
+        public override void Reset(BtContext context)
+        {
+            Child.Reset(context);
         }
     }
 

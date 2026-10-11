@@ -85,6 +85,8 @@ SetModules("b", ...)  →  Idle（独立组）
 Run("b")              →  Running → Ready / Failed
 ```
 
+初始化协程里的异常（包括 `yield return` 嵌套进去的 `InitializeAsync`）会把组设为 `Failed` 并触发 `Failed` 事件，已初始化的模块按逆序 `Shutdown`。不要依赖 Unity 把嵌套协程的异常抛回外层 `try`。
+
 ## 相关模块
 
 - `Framework.Res` → `ResourceModule`

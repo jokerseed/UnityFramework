@@ -40,7 +40,7 @@ ECS/
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
 | 确定性物理 | `BattlePhysicsWorld`：Actor 动态圆、投射物运动学传感器；步进与逻辑 `FP` 步长一致 |
 | 空间索引 | `SpatialHashGrid`（定点格子）供 GAS 目标查询；`QueryNearby` 结果按实体 ID 升序 |
-| 快照 | `World.Save/Restore` 写入 `SnapshotBuffer`。不含 Farseer 接触；运动学另见 `BattlePhysicsWorld.SaveKinematics`（刚体须已存在） |
+| 快照 | `World.Save/Restore` 写入 `SnapshotBuffer`。Restore 把旧 `Entity` 标成死亡并按 ID 重建，调用方要重新绑定引用（GamePlay：`ActorRegistry.RebindEntitiesAfterSnapshot`）。`SaveKinematics` 只写运动学。互相推挤用 `SaveFull` / `BattlePhysicsSnapshot`（内存中的 Farseer 克隆：接触冲量、宽相、岛、TOI）。克隆要求同一批刚体实例还在；关节不克隆；不能从字节流单独还原 |
 
 未接：Jitter 3D 刚体、关节、地面/墙壁静态几何。当前 Demo 是 XZ 平面割草，只用 Farseer 2D。
 
@@ -84,12 +84,12 @@ GamePlayFramework.Tick
   7. SyncDeath → Sync Positions
 ```
 
-纯移动帧只有步骤 5 的那一次全量重建。格子是宽相位；精确距离仍用查询当下的 `TransformComponent`。
+纯移动帧只有步骤 5 的那一次全量重建。`QueryNearby` 覆盖查询圆轴对齐包围盒所跨的格子，是保守超集，可能带上圆外的实体；精确距离仍用查询当下的 `TransformComponent`。
 
 ## 与 GAS 的协作
 
 - ECS 通过 `ActorLinkComponent.ActorId` 关联 GAS 的 `AbilitySystemComponent`
-- `ActorRegistry` 目标查询走 `SpatialHashGrid` broadphase + GAS Tag narrowphase
+- `ActorRegistry` 目标查询走 `SpatialHashGrid` 格子粗筛（圆的 AABB 所跨格子）+ GAS Tag 窄相位
 - 投射物命中由 Farseer 接触写入 `ApplyDamageCommand` / `ApplyAreaEffectCommand`
 - **不在 ECS 组件中存储生命值/攻击力**，避免双源数据
 

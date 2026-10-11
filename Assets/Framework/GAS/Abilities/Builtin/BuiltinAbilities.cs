@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
+using Framework.Core.Snapshot;
 using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Events;
@@ -345,6 +347,50 @@ namespace Framework.GAS.Abilities.Builtin
 
         /// <inheritdoc/>
         public override bool AutoCommit => true;
+
+        /// <inheritdoc/>
+        public override void SaveActiveTasks(ActiveAbilityInstance instance, SnapshotWriter writer)
+        {
+            var task = ExpectDelay(instance);
+            writer.WriteInt(1);
+            task.WriteProgress(writer);
+        }
+
+        /// <inheritdoc/>
+        public override void RestoreActiveTasks(
+            AbilitySystemComponent owner,
+            ActiveAbilityInstance instance,
+            BattleContext battle,
+            SnapshotReader reader)
+        {
+            if (reader.ReadInt() != 1)
+            {
+                throw new InvalidOperationException("ChanneledProjectileAbility snapshot expected one delay task.");
+            }
+
+            var task = new Tasks.WaitDelayTask(_channelTime, () =>
+            {
+                if (instance.State == ActiveAbilityState.Active)
+                {
+                    _projectile.Activate(owner, instance, battle);
+                }
+            });
+            task.ReadProgress(reader);
+            instance.TaskRunner.AdoptRestored(instance, task);
+        }
+
+        static Tasks.WaitDelayTask ExpectDelay(ActiveAbilityInstance instance)
+        {
+            var delay = instance != null && instance.Tasks.Count == 1
+                ? instance.Tasks[0] as Tasks.WaitDelayTask
+                : null;
+            if (delay == null)
+            {
+                throw new InvalidOperationException("ChanneledProjectileAbility snapshot expected one WaitDelayTask.");
+            }
+
+            return delay;
+        }
     }
 
     /// <summary>近战扇形多目标：前摇、判定窗口、后摇；窗口内每个目标只结算一次。</summary>
@@ -448,6 +494,57 @@ namespace Framework.GAS.Abilities.Builtin
         {
             ProjectileAbility.PublishCast(owner, instance, battle, primaryTarget);
         }
+
+        /// <inheritdoc/>
+        public override void SaveActiveTasks(ActiveAbilityInstance instance, SnapshotWriter writer)
+        {
+            var sweep = instance != null && instance.Tasks.Count == 1
+                ? instance.Tasks[0] as Tasks.MeleeSweepTask
+                : null;
+            if (sweep == null)
+            {
+                throw new InvalidOperationException("MeleeSweepAbility snapshot expected one MeleeSweepTask.");
+            }
+
+            writer.WriteInt(1);
+            sweep.WriteProgress(writer);
+        }
+
+        /// <inheritdoc/>
+        public override void RestoreActiveTasks(
+            AbilitySystemComponent owner,
+            ActiveAbilityInstance instance,
+            BattleContext battle,
+            SnapshotReader reader)
+        {
+            if (battle == null)
+            {
+                throw new ArgumentNullException(nameof(battle));
+            }
+
+            if (reader.ReadInt() != 1)
+            {
+                throw new InvalidOperationException("MeleeSweepAbility snapshot expected one sweep task.");
+            }
+
+            var task = new Tasks.MeleeSweepTask(
+                owner,
+                battle,
+                _queryCone,
+                _windup,
+                _hitDuration,
+                _recovery,
+                _range,
+                _halfAngleDegrees,
+                _damage,
+                _knockback,
+                AbilityId,
+                _hitEffectId,
+                _comboEffectId,
+                _damageType);
+            task.ReadProgress(reader);
+            instance.TaskRunner.AdoptRestored(instance, task);
+        }
     }
 
     /// <summary>闪避冲刺：给自身上无敌帧，并沿朝向写入击退冲量。</summary>
@@ -514,6 +611,38 @@ namespace Framework.GAS.Abilities.Builtin
             }
 
             instance.TaskRunner.AddTask(instance, new Tasks.WaitDelayTask(_duration, () => { }));
+        }
+
+        /// <inheritdoc/>
+        public override void SaveActiveTasks(ActiveAbilityInstance instance, SnapshotWriter writer)
+        {
+            var delay = instance != null && instance.Tasks.Count == 1
+                ? instance.Tasks[0] as Tasks.WaitDelayTask
+                : null;
+            if (delay == null)
+            {
+                throw new InvalidOperationException("DashAbility snapshot expected one WaitDelayTask.");
+            }
+
+            writer.WriteInt(1);
+            delay.WriteProgress(writer);
+        }
+
+        /// <inheritdoc/>
+        public override void RestoreActiveTasks(
+            AbilitySystemComponent owner,
+            ActiveAbilityInstance instance,
+            BattleContext battle,
+            SnapshotReader reader)
+        {
+            if (reader.ReadInt() != 1)
+            {
+                throw new InvalidOperationException("DashAbility snapshot expected one delay task.");
+            }
+
+            var task = new Tasks.WaitDelayTask(_duration, () => { });
+            task.ReadProgress(reader);
+            instance.TaskRunner.AdoptRestored(instance, task);
         }
     }
 }
