@@ -18,7 +18,7 @@ namespace Framework.GAS
     /// 技能系统组件（ASC），是 GAS 的核心运行时对象。
     /// 每个战斗单位持有一个 ASC，负责管理技能 Spec、属性、标签、持续效果与冷却。
     /// </summary>
-    public sealed class AbilitySystemComponent
+    public sealed partial class AbilitySystemComponent
     {
         int _nextSpecHandle = 1;
         int _nextActiveInstanceId = 1;
@@ -1353,12 +1353,8 @@ namespace Framework.GAS
             }
         }
 
-        void RecalculateAttributes(IEventBus eventBus)
+        void AccumulateModifiers(AttributeModifierAggregator aggregator)
         {
-            var oldValues = CaptureAttributeValues();
-            Attributes.RecalculateAll();
-            _aggregator.Clear();
-
             for (var i = 0; i < _activeEffects.Count; i++)
             {
                 var effect = _activeEffects[i];
@@ -1367,10 +1363,17 @@ namespace Framework.GAS
                 {
                     var modifier = modifiers[j];
                     var magnitude = modifier.Magnitude.Evaluate(effect.SourceAsc ?? this, this, effect.Spec.SetByCaller);
-                    _aggregator.Add(modifier.AttributeName, magnitude, modifier.Operation, effect.StackCount);
+                    aggregator.Add(modifier.AttributeName, magnitude, modifier.Operation, effect.StackCount);
                 }
             }
+        }
 
+        void RecalculateAttributes(IEventBus eventBus)
+        {
+            var oldValues = CaptureAttributeValues();
+            Attributes.RecalculateAll();
+            _aggregator.Clear();
+            AccumulateModifiers(_aggregator);
             _aggregator.ApplyTo(Attributes);
 
             var shieldBase = Attributes.GetBaseValue(BattleConstants.Shield);

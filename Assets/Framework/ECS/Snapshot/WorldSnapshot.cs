@@ -94,6 +94,7 @@ namespace Framework.ECS
 
         /// <summary>
         /// 清空实体和组件后按快照重建。不销毁系统，不碰单例。
+        /// 旧的 <see cref="Entity"/> 会被标成死亡；持有者要按 ID 重新绑定。
         /// 若物理刚体还在，需要另调 <see cref="BattlePhysicsWorld.RestoreKinematics"/>。
         /// </summary>
         /// <param name="reader">读取器。</param>
@@ -157,6 +158,11 @@ namespace Framework.ECS
 
         void ClearEntitiesAndComponents()
         {
+            foreach (var pair in _entities)
+            {
+                pair.Value.IsAlive = false;
+            }
+
             foreach (var storage in _storages.Values)
             {
                 storage.Clear();

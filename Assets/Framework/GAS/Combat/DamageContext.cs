@@ -35,10 +35,11 @@ namespace Framework.GAS.Combat
         /// <param name="target">目标单位 ID。</param>
         /// <param name="rawDamage">原始伤害量。</param>
         /// <param name="abilityId">施放技能 ID。</param>
-        /// <param name="finalDamage">最终伤害量；≤0 时自动取 <paramref name="rawDamage"/>。</param>
+        /// <param name="finalDamage">最终伤害量。未标记 <paramref name="hasFinalDamage"/> 且小于等于 0 时，视为未结算并回退到 <paramref name="rawDamage"/>。</param>
         /// <param name="damageType">伤害类型；默认物理。</param>
         /// <param name="isCrit">是否暴击。</param>
         /// <param name="shieldAbsorbed">护盾吸收量。</param>
+        /// <param name="hasFinalDamage">为 true 时保留 <paramref name="finalDamage"/>，包括 0。管线结算必须传 true，否则免疫、护甲抵消和护盾全吸收会被当成未结算。</param>
         public DamageContext(
             ActorId source,
             ActorId target,
@@ -47,30 +48,31 @@ namespace Framework.GAS.Combat
             FP finalDamage = default,
             BattleDamageType damageType = BattleDamageType.Physical,
             bool isCrit = false,
-            FP shieldAbsorbed = default)
+            FP shieldAbsorbed = default,
+            bool hasFinalDamage = false)
         {
             Source = source;
             Target = target;
             RawDamage = rawDamage;
             AbilityId = abilityId;
             DamageType = damageType;
-            FinalDamage = finalDamage > FP.Zero ? finalDamage : rawDamage;
+            FinalDamage = hasFinalDamage || finalDamage > FP.Zero ? finalDamage : rawDamage;
             IsCrit = isCrit;
             ShieldAbsorbed = shieldAbsorbed;
         }
 
         /// <summary>返回一个仅替换 <see cref="FinalDamage"/> 的新上下文（不可变模式）。</summary>
-        /// <param name="finalDamage">新的最终伤害量。</param>
+        /// <param name="finalDamage">新的最终伤害量；0 表示本击不扣生命。</param>
         /// <returns>拷贝后替换了最终伤害的新上下文。</returns>
         public DamageContext WithFinalDamage(FP finalDamage) =>
-            new DamageContext(Source, Target, RawDamage, AbilityId, finalDamage, DamageType, IsCrit, ShieldAbsorbed);
+            new DamageContext(Source, Target, RawDamage, AbilityId, finalDamage, DamageType, IsCrit, ShieldAbsorbed, true);
 
         /// <summary>返回替换管线结算结果的新上下文。</summary>
-        /// <param name="finalDamage">最终生命扣除。</param>
+        /// <param name="finalDamage">最终生命扣除；0 表示不扣生命。</param>
         /// <param name="isCrit">是否暴击。</param>
         /// <param name="shieldAbsorbed">护盾吸收量。</param>
-        /// <returns>新上下文。</returns>
+        /// <returns>新上下文。最终伤害按传入值保留，不再把 0 改回原始伤害。</returns>
         public DamageContext WithPipelineResult(FP finalDamage, bool isCrit, FP shieldAbsorbed) =>
-            new DamageContext(Source, Target, RawDamage, AbilityId, finalDamage, DamageType, isCrit, shieldAbsorbed);
+            new DamageContext(Source, Target, RawDamage, AbilityId, finalDamage, DamageType, isCrit, shieldAbsorbed, true);
     }
 }

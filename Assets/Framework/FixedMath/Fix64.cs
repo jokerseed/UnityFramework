@@ -389,8 +389,17 @@ namespace Framework.FixedMath {
             var yl = y._serializedValue;
 
             if (yl == 0) {
-                return MAX_VALUE;
-                //throw new DivideByZeroException();
+                if (xl > 0) {
+                    return MaxValue;
+                }
+
+                if (xl < 0) {
+                    return MinValue;
+                }
+
+                FP zero;
+                zero._serializedValue = 0;
+                return zero;
             }
 
             var remainder = (ulong)(xl >= 0 ? xl : -xl);
@@ -441,6 +450,11 @@ namespace Framework.FixedMath {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static FP operator %(FP x, FP y) {
             FP result;
+            if (y._serializedValue == 0) {
+                result._serializedValue = 0;
+                return result;
+            }
+
             result._serializedValue = x._serializedValue == MIN_VALUE & y._serializedValue == -1 ?
                 0 :
                 x._serializedValue % y._serializedValue;
@@ -457,6 +471,11 @@ namespace Framework.FixedMath {
         /// </summary>
         public static FP FastMod(FP x, FP y) {
             FP result;
+            if (y._serializedValue == 0) {
+                result._serializedValue = 0;
+                return result;
+            }
+
             result._serializedValue = x._serializedValue % y._serializedValue;
             return result;
             //return new FP(x._serializedValue % y._serializedValue);
@@ -492,18 +511,17 @@ namespace Framework.FixedMath {
 
 
         /// <summary>
-        /// Returns the square root of a specified number.
+        /// 返回平方根。负数返回 0，不再抛异常。非负数的计算过程与原来相同。
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// The argument was negative.
-        /// </exception>
+        /// <param name="x">被开方数。</param>
+        /// <returns>非负数的平方根；负数时为 0。</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static FP Sqrt(FP x) {
             var xl = x._serializedValue;
             if (xl < 0) {
-                // We cannot represent infinities like Single and Double, and Sqrt is
-                // mathematically undefined for x < 0. So we just throw an exception.
-                throw new ArgumentOutOfRangeException("Negative value passed to Sqrt", "x");
+                FP zero;
+                zero._serializedValue = 0;
+                return zero;
             }
 
             var num = (ulong)xl;
@@ -573,8 +591,8 @@ namespace Framework.FixedMath {
             var clampedL = ClampSinValue(x._serializedValue, out flipHorizontal, out flipVertical);
             var clamped = new FP(clampedL);
 
-            // Find the two closest values in the LUT and perform linear interpolation
-            // This is what kills the performance of this function on x86 - x64 is fine though
+            // Nearest LUT entry. indexError is forced to 0, so the interpolation below is a no-op.
+            // Restoring a non-zero indexError would change every Sin/Cos result and recorded checksums.
             var rawIndex = FastMul(clamped, LutInterval);
             var roundedIndex = Round(rawIndex);
             var indexError = 0;//FastSub(rawIndex, roundedIndex);
@@ -809,16 +827,18 @@ namespace Framework.FixedMath {
         }
 
         /// <summary>
-        /// Returns the arccos of of the specified number, calculated using Atan and Sqrt
-        /// This function has at least 7 decimals of accuracy.
+        /// 反余弦，单位是弧度。超出 [-1, 1] 的输入先夹到端点，得到 0 或 π，不再返回 ±90。
+        /// [-1, 1] 内的计算与原来相同。
+        /// </summary>
+        /// <param name="x">余弦值。</param>
+        /// <returns>弧度，范围 [0, π]。</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static FP Acos(FP x)
         {
-            if (x < -One || x > One)
-            {
-                if (x < 0)
-                    return new FP(-90);
-                return new FP(90);
+            if (x < -One) {
+                x = -One;
+            } else if (x > One) {
+                x = One;
             }
 
             if (x.RawValue == 0) return PiOver2;

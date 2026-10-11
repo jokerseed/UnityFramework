@@ -3,18 +3,86 @@ using System.Collections.Generic;
 
 namespace Framework.MemoryPool
 {
-    /// <summary>单类型内存集合（内部）。</summary>
+    /// <summary>
+    /// 单类型内存集合（内部）。Acquire / Release 与计数共用一把锁，供主线程和网络 IO 线程同时访问。
+    /// <see cref="IMemory.Clear"/> 在锁内调用，实现里不要再进入同一个类型池。
+    /// </summary>
     sealed class MemoryCollection
     {
+        readonly object _gate = new object();
         readonly Queue<IMemory> _unused = new Queue<IMemory>(8);
         readonly Type _memoryType;
+        int _usingCount;
+        int _acquireCount;
+        int _releaseCount;
+        int _addCount;
+        int _removeCount;
 
-        public int UnusedCount => _unused.Count;
-        public int UsingCount { get; private set; }
-        public int AcquireCount { get; private set; }
-        public int ReleaseCount { get; private set; }
-        public int AddCount { get; private set; }
-        public int RemoveCount { get; private set; }
+        public int UnusedCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _unused.Count;
+                }
+            }
+        }
+
+        public int UsingCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _usingCount;
+                }
+            }
+        }
+
+        public int AcquireCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _acquireCount;
+                }
+            }
+        }
+
+        public int ReleaseCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _releaseCount;
+                }
+            }
+        }
+
+        public int AddCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _addCount;
+                }
+            }
+        }
+
+        public int RemoveCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _removeCount;
+                }
+            }
+        }
 
         public MemoryCollection(Type memoryType)
         {
@@ -23,59 +91,84 @@ namespace Framework.MemoryPool
 
         public T Acquire<T>() where T : class, IMemory, new()
         {
-            AcquireCount++;
-            T memory;
-            if (_unused.Count > 0)
+            lock (_gate)
             {
-                memory = (T)_unused.Dequeue();
-            }
-            else
-            {
-                memory = new T();
-                AddCount++;
-            }
+                _acquireCount++;
+                T memory;
+                if (_unused.Count > 0)
+                {
+                    memory = (T)_unused.Dequeue();
+                }
+                else
+                {
+                    memory = new T();
+                    _addCount++;
+                }
 
-            UsingCount++;
-            return memory;
+                _usingCount++;
+                return memory;
+            }
         }
 
         public IMemory Acquire()
         {
-            AcquireCount++;
-            IMemory memory;
-            if (_unused.Count > 0)
+            lock (_gate)
             {
-                memory = _unused.Dequeue();
-            }
-            else
-            {
-                memory = (IMemory)Activator.CreateInstance(_memoryType);
-                AddCount++;
-            }
+                _acquireCount++;
+                IMemory memory;
+                if (_unused.Count > 0)
+                {
+                    memory = _unused.Dequeue();
+                }
+                else
+                {
+                    memory = (IMemory)Activator.CreateInstance(_memoryType);
+                    _addCount++;
+                }
 
-            UsingCount++;
-            return memory;
+                _usingCount++;
+                return memory;
+            }
         }
 
-        public void Release(IMemory memory)
+        /// <summary>归还对象。严格检查与入队在同一把锁里完成。</summary>
+        /// <param name="memory">要归还的对象。</param>
+        /// <param name="strict">为 true 且没有在用对象时抛异常。</param>
+        /// <exception cref="InvalidOperationException">严格检查发现没有对应的 Acquire。</exception>
+        public void Release(IMemory memory, bool strict)
         {
-            memory.Clear();
-            _unused.Enqueue(memory);
-            ReleaseCount++;
-            UsingCount--;
+            lock (_gate)
+            {
+                if (strict && _usingCount <= 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Release mismatch for '{_memoryType.FullName}': no outstanding Acquire.");
+                }
+
+                memory.Clear();
+                _unused.Enqueue(memory);
+                _releaseCount++;
+                _usingCount--;
+            }
         }
 
         public void Add(IMemory memory)
         {
-            _unused.Enqueue(memory);
-            AddCount++;
+            lock (_gate)
+            {
+                _unused.Enqueue(memory);
+                _addCount++;
+            }
         }
 
         public void RemoveAll()
         {
-            RemoveCount += _unused.Count;
-            _unused.Clear();
-            UsingCount = 0;
+            lock (_gate)
+            {
+                _removeCount += _unused.Count;
+                _unused.Clear();
+                _usingCount = 0;
+            }
         }
     }
 }

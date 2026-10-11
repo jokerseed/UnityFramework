@@ -44,7 +44,7 @@ Core/
 | `BattleContext` | 将 `Commands` + `Presentation` + `IDeterministicRandom` 打包，供 GAS 使用 |
 | `BattleConstants` | GAS 属性名、标签与物理默认值 |
 | `IDeterministicRandom` | 战斗模拟随机契约，`Next01()` 返回 `FP`；由 GamePlay 注入 `TSRandom` |
-| `PersistentSingleton<T>` | 懒加载 + `DontDestroyOnLoad` 常驻单例 |
+| `PersistentSingleton<T>` | 懒加载 + `DontDestroyOnLoad` 常驻单例。退出标志在 SubsystemRegistration 时由 `ResetStaticState` 清掉，关闭 Domain Reload 后可以再次进入 Play |
 | `BattleCommandBuffer` | 模拟热路径命令批量刷写（生成投射物、结算伤害）；不含玩家 / AI 行为意图 |
 | `ITickable` | `GamePlayFramework`、`World` 的统一 Tick 契约 |
 
@@ -56,11 +56,14 @@ public sealed class AudioManager : PersistentSingleton<AudioManager>
     public void Play(string clip) { /* ... */ }
 }
 
-// 首次访问时自动创建 GameObject 并 DontDestroyOnLoad
+// 首次访问时自动创建 GameObject；Play Mode 下 DontDestroyOnLoad
 AudioManager.Instance.Play("bgm_main");
 
 // 需要销毁时（如热更切换）
 AudioManager.DestroyInstance();
+
+// 关闭 Domain Reload 时框架会在进入 Play 前调用；测试里也可以手动清退出标志
+AudioManager.ResetStaticState();
 ```
 
 ## 设计原则

@@ -6,7 +6,7 @@
 |------|------|
 | 单一数据源 | GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` |
 | 热路径命令化 | 模拟走 `BattleCommandBuffer`；玩家/AI 行为走 `BattleIntentCommand`（Move/Cast）；表现走 `IEventBus` |
-| 配置驱动 | Luban 导表 → `GamePlay.Data` 装配到 GAS |
+| 配置驱动 | `IBattleAbilityCatalog` / `IBattleEffectCatalog` 装配到 GAS；默认后端是 Luban |
 | 资源管线 | YooAsset 打包；运行时加载/释放统一走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
 | 示例文档化 | 演示与验证用例写在各模块 README，不单独维护 Samples/Tests 程序集 |
@@ -17,7 +17,7 @@
 |----|------|
 | 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
 | 战斗 Demo 锁步权威 Tick | 已接 `LocalLockstepHost`（意图帧 + checksum + F8 对拍） |
-| **预测回滚 / 状态快照** | **接口已有，未接线**。`Framework.Core.Snapshot.ISnapshotable`；ECS `World` 与 `DeterministicRandomSnapshot` 可往返；`UnsupportedGasSnapshot`、`BattlePhysicsWorld.SaveKinematics`（不含接触）是扩展点。预测回滚仍未做 |
+| **预测回滚 / 状态快照** | **`LockstepHost` 可等输入，并按检查点回滚重放**。检查点含 `GasSnapshot`（版本 2）、ECS、随机数和 `BattlePhysicsSnapshot`（内存克隆，不是字节流）。`World.Restore` 之后要 `RebindEntitiesAfterSnapshot`。行为树游标和旧的 `RollbackLockstep` 仍未接入。Farseer 刚体 ID 与效果 Spec 的 RuntimeId 仍是进程全局的；技能实例 ID 和活跃效果句柄在每个 ASC 上递增 |
 | **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
 
 详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。
@@ -39,7 +39,7 @@
 | `Framework.Coroutine` | 协程（Global / Scene / GameObject） | [Coroutine/README.md](Coroutine/README.md) |
 | `Framework.FixedMath` | 确定性定点数（锁步基座 A） | [FixedMath/README.md](FixedMath/README.md) |
 | `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） | [Lockstep/README.md](Lockstep/README.md) |
-| `Framework.LockstepPhysics` | 确定性 2D/3D 物理（基座 D） | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
+| `Framework.LockstepPhysics` | 确定性 Farseer 2D；Jitter 3D 在可选程序集 `Framework.LockstepPhysics.Jitter` | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree/README.md](BehaviourTree/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
 | `Framework.Network` | TCP 网络频道（`NetworkManager` / `INetworkChannel`） | [Network/README.md](Network/README.md) |
@@ -119,6 +119,8 @@ Config/Luban/Datas/battle/effect.xlsx
 | C# 代码 | `Assets/Generated/Luban/` |
 | 二进制 | `Assets/Bundles/Configs/*.bytes` |
 | JSON 调试 | `Config/Luban/Output/json/`（不参与运行时） |
+
+战斗侧通过 `LubanAbilityCatalog` / `LubanEffectCatalog` 消费这些表。换后端时实现 `IBattleAbilityCatalog` / `IBattleEffectCatalog`，不必改 GAS。
 
 ## YooAsset 资源
 
