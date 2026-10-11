@@ -12,16 +12,24 @@ namespace Framework.ECS
         {
             grid.Clear();
             var combat = world.GetStorage<CombatStateComponent>();
-            world.ForEach<ActorLinkComponent, TransformComponent>(
-                (entityId, _, transform) =>
+            var transforms = world.GetStorage<TransformComponent>();
+            foreach (var pair in world.GetStorage<ActorLinkComponent>())
+            {
+                var entityId = pair.Key;
+                if (combat.TryGet(entityId, out var state) && !state.IsAlive)
                 {
-                    if (combat.TryGet(entityId, out var state) && !state.IsAlive)
-                    {
-                        return;
-                    }
+                    continue;
+                }
 
-                    grid.Insert(entityId, transform.Position);
-                });
+                if (!transforms.TryGet(entityId, out var transform))
+                {
+                    continue;
+                }
+
+                grid.Insert(entityId, transform.Position);
+            }
+
+            grid.ClearStructuralDirty();
         }
     }
 }

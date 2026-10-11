@@ -31,6 +31,20 @@ namespace Framework.GAS
         readonly List<ActiveAbilityInstance> _activeInstancesScratch = new List<ActiveAbilityInstance>();
         readonly AttributeModifierAggregator _aggregator = new AttributeModifierAggregator();
         FP _appliedShieldBonus;
+        bool _isDead;
+        bool _isStunned;
+        bool _isRooted;
+        bool _isKnockedDown;
+        bool _hasHyperArmor;
+        bool _isSilenced;
+
+        static readonly GameplayTag DeadTag = new GameplayTag(BattleConstants.TagDead);
+        static readonly GameplayTag StunnedTag = new GameplayTag(BattleConstants.TagStunned);
+        static readonly GameplayTag RootedTag = new GameplayTag(BattleConstants.TagRooted);
+        static readonly GameplayTag KnockedDownTag = new GameplayTag(BattleConstants.TagKnockedDown);
+        static readonly GameplayTag HyperArmorTag = new GameplayTag(BattleConstants.TagHyperArmor);
+        static readonly GameplayTag SilencedTag = new GameplayTag(BattleConstants.TagSilenced);
+        static readonly GameplayTag CooldownTag = new GameplayTag(BattleConstants.TagCooldown);
 
         /// <summary>所属单位的唯一标识符。</summary>
         public ActorId ActorId { get; }
@@ -50,8 +64,32 @@ namespace Framework.GAS
         /// <summary>当前激活中的技能实例（只读）。</summary>
         public IReadOnlyList<ActiveAbilityInstance> ActiveInstances => _activeInstances;
 
-        /// <summary>是否已死亡（持有死亡标签）。</summary>
-        public bool IsDead => Tags.HasTag(new GameplayTag(BattleConstants.TagDead));
+        /// <summary>当前活跃效果数量，含冷却 GE。</summary>
+        public int ActiveEffectCount => _activeEffects.Count;
+
+        /// <summary>按施加顺序读取活跃效果。</summary>
+        /// <param name="index">下标，范围 [0, <see cref="ActiveEffectCount"/>)。</param>
+        /// <returns>活跃效果实例。</returns>
+        /// <exception cref="ArgumentOutOfRangeException">下标越界。</exception>
+        public ActiveGameplayEffect GetActiveEffect(int index) => _activeEffects[index];
+
+        /// <summary>是否已死亡（持有死亡标签）。由标签变更时刷新，读取不扫描容器。</summary>
+        public bool IsDead => _isDead;
+
+        /// <summary>是否眩晕。由标签变更时刷新。</summary>
+        public bool IsStunned => _isStunned;
+
+        /// <summary>是否定身。由标签变更时刷新。</summary>
+        public bool IsRooted => _isRooted;
+
+        /// <summary>是否倒地。由标签变更时刷新。</summary>
+        public bool IsKnockedDown => _isKnockedDown;
+
+        /// <summary>是否霸体。由标签变更时刷新。</summary>
+        public bool HasHyperArmor => _hasHyperArmor;
+
+        /// <summary>是否沉默。由标签变更时刷新。</summary>
+        public bool IsSilenced => _isSilenced;
 
         /// <summary>Cue 管理器；为 null 时直接向 EventBus 发布 <see cref="GameplayCueEvent"/>。</summary>
         public IGameplayCueManager CueManager { get; set; }
@@ -73,6 +111,17 @@ namespace Framework.GAS
         public AbilitySystemComponent(ActorId actorId)
         {
             ActorId = actorId;
+            Tags.BindMutationListener(RefreshControlFlags);
+        }
+
+        void RefreshControlFlags()
+        {
+            _isDead = Tags.HasTag(DeadTag);
+            _isStunned = Tags.HasTag(StunnedTag);
+            _isRooted = Tags.HasTag(RootedTag);
+            _isKnockedDown = Tags.HasTag(KnockedDownTag);
+            _hasHyperArmor = Tags.HasTag(HyperArmorTag);
+            _isSilenced = Tags.HasTag(SilencedTag);
         }
 
         /// <summary>当前是否有指定技能处于激活中。</summary>
@@ -413,7 +462,7 @@ namespace Framework.GAS
                 BattleConstants.CooldownEffectPrefix + abilityId,
                 EffectDurationPolicy.Duration,
                 cooldown,
-                grantedTags: new[] { new GameplayTag(BattleConstants.TagCooldown) },
+                grantedTags: new[] { CooldownTag },
                 stackingPolicy: EffectStackingPolicy.RefreshDuration);
             ApplyEffect(def, ActorId, eventBus ?? NullEventBus.Instance, sourceAsc: this);
         }
@@ -1384,14 +1433,13 @@ namespace Framework.GAS
 
         void InterruptIfCrowdControlled(IEventBus eventBus)
         {
-            if (Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
+            if (IsKnockedDown)
             {
                 CancelAllAbilities(eventBus);
                 return;
             }
 
-            if (Tags.HasTag(new GameplayTag(BattleConstants.TagStunned)) &&
-                !Tags.HasTag(new GameplayTag(BattleConstants.TagHyperArmor)))
+            if (IsStunned && !HasHyperArmor)
             {
                 CancelAllAbilities(eventBus);
             }
@@ -1404,7 +1452,7 @@ namespace Framework.GAS
                 return;
             }
 
-            if (Tags.AddTag(new GameplayTag(BattleConstants.TagDead)))
+            if (Tags.AddTag(DeadTag))
             {
                 eventBus.Publish(new TagChangedEvent
                 {

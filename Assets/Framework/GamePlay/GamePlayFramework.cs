@@ -19,7 +19,9 @@ namespace Framework.GamePlay
 {
     /// <summary>
     /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
-    /// Tick 顺序：RebuildActors → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → Flush 结算 → SyncDeath → SyncPositions。
+    /// Tick 顺序：按需补建空间索引 → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → 物理后重建索引 → Flush 结算 → SyncDeath → SyncPositions。
+    /// 空间索引契约：每个逻辑步在物理之后全量重建一次。GAS 的 ASC.Tick 读到的是上一物理步结束后的格子；
+    /// 若步间发生创建、移除、传送或复活，则在本步 ASC.Tick 之前再重建一次。范围结算读物理之后的格子。
     /// AI 意图由 <see cref="CollectAiIntents"/> 在 Host 逻辑步写入帧，不在 Tick 内直接 Apply。
     /// </summary>
     public sealed class GamePlayFramework : ITickable, IDisposable
@@ -34,6 +36,8 @@ namespace Framework.GamePlay
         readonly Dictionary<ActorId, BattleAgent> _agents = new Dictionary<ActorId, BattleAgent>();
         readonly EngageSlotAllocator _engageSlots = new EngageSlotAllocator();
         readonly List<ActorId> _agentOrder = new List<ActorId>(16);
+        readonly List<ActorId> _actorOrder = new List<ActorId>(32);
+        static readonly Comparison<ActorId> ActorIdOrder = ActorRegistry.CompareActorId;
         readonly TSRandom _random;
         List<BattleIntentCommand> _intentSink;
         static readonly FP FullAiRangeSqr = (FP)64;
@@ -388,18 +392,18 @@ namespace Framework.GamePlay
         public void Tick(FP deltaTime)
         {
             var grid = _world.GetSingleton<SpatialHashGrid>();
-            if (grid != null)
+            if (grid != null && grid.StructuralDirty)
             {
                 SpatialIndexService.RebuildActors(_world, grid);
             }
 
+            _registry.CopySortedActorIds(_actorOrder);
             SyncCuePose();
             ApplyRootAndStun();
 
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
-                if (actor.AbilitySystem.IsDead)
+                if (!_registry.TryGet(_actorOrder[i], out var actor) || actor.AbilitySystem.IsDead)
                 {
                     continue;
                 }
@@ -418,10 +422,9 @@ namespace Framework.GamePlay
 
         void SyncCuePose()
         {
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
-                if (actor.AbilitySystem.IsDead)
+                if (!_registry.TryGet(_actorOrder[i], out var actor) || actor.AbilitySystem.IsDead)
                 {
                     continue;
                 }
@@ -435,16 +438,15 @@ namespace Framework.GamePlay
 
         void ApplyRootAndStun()
         {
-            var stunned = new GameplayTag(BattleConstants.TagStunned);
-            var rooted = new GameplayTag(BattleConstants.TagRooted);
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
+                if (!_registry.TryGet(_actorOrder[i], out var actor))
+                {
+                    continue;
+                }
+
                 var asc = actor.AbilitySystem;
-                if (asc.IsDead ||
-                    asc.Tags.HasTag(rooted) ||
-                    asc.Tags.HasTag(stunned) ||
-                    asc.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
+                if (asc.IsDead || asc.IsRooted || asc.IsStunned || asc.IsKnockedDown)
                 {
                     _registry.SetVelocity(actor.ActorId, TSVector.zero);
                 }
@@ -454,23 +456,21 @@ namespace Framework.GamePlay
         void TickAgents(FP deltaTime)
         {
             _engageSlots.Rebuild(_registry, _agents);
-            var stunned = new GameplayTag(BattleConstants.TagStunned);
-            var knocked = new GameplayTag(BattleConstants.TagKnockedDown);
             _agentOrder.Clear();
             foreach (var pair in _agents)
             {
                 _agentOrder.Add(pair.Key);
             }
 
-            _agentOrder.Sort((a, b) => a.Value.CompareTo(b.Value));
+            _agentOrder.Sort(ActorIdOrder);
             for (var i = 0; i < _agentOrder.Count; i++)
             {
                 var actorId = _agentOrder[i];
                 if (!_agents.TryGetValue(actorId, out var agent) ||
                     !_registry.TryGet(actorId, out var actor) ||
                     actor.AbilitySystem.IsDead ||
-                    actor.AbilitySystem.Tags.HasTag(knocked) ||
-                    actor.AbilitySystem.Tags.HasTag(stunned))
+                    actor.AbilitySystem.IsKnockedDown ||
+                    actor.AbilitySystem.IsStunned)
                 {
                     continue;
                 }
@@ -520,9 +520,13 @@ namespace Framework.GamePlay
 
         void SyncDeath()
         {
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
+                if (!_registry.TryGet(_actorOrder[i], out var actor))
+                {
+                    continue;
+                }
+
                 actor.AbilitySystem.SyncDeathIfNeeded(_presentationBus);
                 if (actor.AbilitySystem.IsDead)
                 {

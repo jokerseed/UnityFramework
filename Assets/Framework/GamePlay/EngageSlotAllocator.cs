@@ -144,7 +144,10 @@ namespace Framework.GamePlay
             }
         }
 
-        int CompareAngle(ActorId a, ActorId b) =>
-            _angles[a.Value].CompareTo(_angles[b.Value]);
+        int CompareAngle(ActorId a, ActorId b)
+        {
+            var angle = _angles[a.Value].CompareTo(_angles[b.Value]);
+            return angle != 0 ? angle : a.Value.CompareTo(b.Value);
+        }
     }
 }

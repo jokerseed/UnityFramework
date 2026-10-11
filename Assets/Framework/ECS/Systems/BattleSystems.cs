@@ -27,7 +27,10 @@ namespace Framework.ECS.Systems
         /// <inheritdoc/>
         public void OnDestroy(World world) { }
 
-        /// <summary>物理步进之后重建 Actor 空间索引。</summary>
+        /// <summary>
+        /// 物理步进之后重建 Actor 空间索引。
+        /// 这是每个逻辑步唯一一次必做的全量重建；步初仅在 <see cref="SpatialHashGrid.StructuralDirty"/> 时补建。
+        /// </summary>
         /// <param name="world">拥有该系统的 ECS 世界。</param>
         /// <param name="deltaTime">距上一帧的时间间隔（秒，定点）；本系统未使用。</param>
         public void Update(World world, FP deltaTime)
@@ -63,11 +66,12 @@ namespace Framework.ECS.Systems
             _ids.Clear();
             var projectiles = world.GetStorage<ProjectileComponent>();
 
-            foreach (var pair in projectiles.All)
+            foreach (var pair in projectiles)
             {
                 _ids.Add(pair.Key);
             }
 
+            _ids.Sort();
             for (var i = 0; i < _ids.Count; i++)
             {
                 var entityId = _ids[i];

@@ -10,7 +10,10 @@ namespace Framework.FixedMath {
         // Class TSRandom generates random numbers
         // from a uniform distribution using the Mersenne
         // Twister algorithm.
-        private const int N = 624;
+        /// <summary>内部状态表长度。拷贝状态时目标数组至少要这么长。</summary>
+        public const int StateLength = 624;
+
+        private const int N = StateLength;
         private const int M = 397;
         private const uint MATRIX_A = 0x9908b0dfU;
         private const uint UPPER_MASK = 0x80000000U;
@@ -42,7 +45,7 @@ namespace Framework.FixedMath {
         }
 
         private TSRandom() {
-            init_genrand((uint)DateTime.Now.Millisecond);
+            init_genrand((uint)DateTime.Now.Millisecond); // determinism-allow: 无种子构造不进战斗；战斗用 New(seed)
         }
 
         private TSRandom(int seed) {
@@ -124,6 +127,42 @@ namespace Framework.FixedMath {
             return ((FP) Next()) / (MaxRandomInt);
         }
 
+        /// <summary>把内部 MT 状态拷出，不消耗随机序列。</summary>
+        /// <param name="destination">长度至少为 <see cref="StateLength"/> 的数组。</param>
+        /// <param name="index">当前 <c>mti</c>。</param>
+        /// <exception cref="ArgumentException">数组过短。</exception>
+        public void CopyState(uint[] destination, out int index)
+        {
+            if (destination == null || destination.Length < N)
+            {
+                throw new ArgumentException("destination must hold StateLength uints.", nameof(destination));
+            }
+
+            Array.Copy(mt, destination, N);
+            index = mti;
+        }
+
+        /// <summary>从先前的 <see cref="CopyState"/> 结果恢复，使后续随机序列与拷贝时一致。</summary>
+        /// <param name="source">状态表。</param>
+        /// <param name="index"><see cref="CopyState"/> 返回的下标。</param>
+        /// <exception cref="ArgumentException">数组过短。</exception>
+        /// <exception cref="ArgumentOutOfRangeException">下标非法。</exception>
+        public void LoadState(uint[] source, int index)
+        {
+            if (source == null || source.Length < N)
+            {
+                throw new ArgumentException("source must hold StateLength uints.", nameof(source));
+            }
+
+            if (index < 0 || index > N + 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            Array.Copy(source, mt, N);
+            mti = index;
+        }
+
         /// <summary>当前生成器内部状态的稳定哈希，不消耗随机序列。</summary>
         /// <returns>由 <c>mti</c> 与 <c>mt</c> 表混合得到的 32 位哈希。</returns>
         public int GetStateHash()
@@ -194,7 +233,7 @@ namespace Framework.FixedMath {
         }
 
         public void Initialize() {
-            init_genrand((uint)DateTime.Now.Millisecond);
+            init_genrand((uint)DateTime.Now.Millisecond); // determinism-allow: 无种子重置不进战斗；战斗用 Initialize(int)
         }
 
         public void Initialize(int seed) {

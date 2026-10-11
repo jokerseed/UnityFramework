@@ -98,12 +98,13 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 - 刷波环上坐标与 `ReviveActor` 直接用 `TSVector` / `SimPosition`，不做 FP→Vector3→FP 往返
 - 眩晕 / 倒地禁移动、闪避中不覆盖速度，留在 **执行器** 作为规则
 - 刷波、`CreateActor` 不是行为意图
+- 模拟内 Actor 遍历（ASC.Tick、Cue、定身、死亡同步、位置回写）按 `ActorId` 升序，不依赖 `Dictionary` 枚举顺序。AI Agent 同样按 `ActorId` 排序后再 Tick。空间查询候选与投射物寿命销毁也按实体 ID 升序。围攻槽位在方位角相同时用 ActorId 打破平局
 - 指令带来源 `Player` / `Ai` / `Replay`，只用于日志与回放过滤，不改变规则
 - 渲染帧只 `Sample` 锁存；逻辑帧把意图写入 `BattleIntentFrame` 再入队执行，禁止 Sample 直接改模拟
 
 ## 单机锁步 Host
 
-`LocalLockstepHost` 用 `Time.unscaledDeltaTime`（仅渲染追赶累加器）追赶 `BattleSession.FixedDeltaTime`（`FP` 逻辑步长）。每个逻辑步的 `beforeFixedStep` / `afterFixedStep`、`CollectAiIntents`、`Framework.Tick`、刷波与录像带均携带该 `FP`：
+`LocalLockstepHost` 用 `Time.unscaledDeltaTime`（仅渲染追赶）追赶 `BattleSession.FixedDeltaTime`（`FP` 逻辑步长）。追赶累加器是 `FP`：float 只在 `Tick(float)` 入口转换一次，比较和扣减不再用 float，因此相同的 float 输入序列得到相同的逻辑步数。`InterpolationAlpha` 仍是 float，只给表现插值。录像重放走 `BattleSession.Step(1)`，不把步长转回 float。每个逻辑步的 `beforeFixedStep` / `afterFixedStep`、`CollectAiIntents`、`Framework.Tick`、刷波与录像带均携带该 `FP`：
 
 ```
 fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequeue → BattleIntentApplier → Framework.Tick → 刷波 → checksum / 录像
@@ -113,6 +114,10 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 战斗中按 **F8** 会用当前录像在影子 Session 上重放指令（不跑 AI 收集），逐帧比对 `BattleFrameChecksum`。
 
+`BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、行为树节点游标和表现层 float。字符串按字符序哈希，不用 `string.GetHashCode`。
+
+EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。`LocalLockstepHost` 还不做预测回滚；GAS 快照会抛 `NotSupportedException`。
+
 ## Tick 流程
 
 ```
@@ -120,10 +125,10 @@ LocalLockstepHost.Tick(unscaledDeltaTime)
   fillFrame（玩家）→ CollectAiIntents（AI 只入帧）
   Enqueue → Dequeue → BattleIntentApplier
   GamePlayFramework.Tick(fixedDt)
-    0. RebuildActors
+    0. 仅当空间索引 StructuralDirty 时 RebuildActors（刷出 / 传送 / 复活）
     1. SyncCuePose → 定身/眩晕/倒地清速度
-    2. 存活 ASC.Tick
-    3. Flush Spawn → Farseer Step → SpatialIndex → 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
+    2. 存活 ASC.Tick（查询读本步物理前的格子）
+    3. Flush Spawn → Farseer Step → SpatialIndex（每逻辑步必做的一次全量重建）→ 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
   afterFixedStep（刷波）→ checksum → 录像
 ```
 

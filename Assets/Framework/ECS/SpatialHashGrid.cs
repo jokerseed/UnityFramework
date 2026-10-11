@@ -14,6 +14,18 @@ namespace Framework.ECS
 
         readonly Stack<HashSet<uint>> _setPool = new Stack<HashSet<uint>>(64);
 
+        /// <summary>
+        /// 自上次 <see cref="SpatialIndexService.RebuildActors"/> 以来，Actor 集合或传送坐标发生过变化。
+        /// 仅速度变化不置位。逻辑步开头只在此为 true 时补一次重建；物理步进后由系统无条件重建并清零。
+        /// </summary>
+        public bool StructuralDirty { get; private set; }
+
+        /// <summary>标记需要在下一次逻辑步开头补建索引（创建、移除、传送、复活）。</summary>
+        public void MarkStructuralDirty() => StructuralDirty = true;
+
+        /// <summary>重建完成后清掉结构脏标记。</summary>
+        public void ClearStructuralDirty() => StructuralDirty = false;
+
         /// <summary>创建空间哈希网格。</summary>
         /// <param name="cellSize">单格边长（世界单位）；值越大每格容纳实体越多，查询精度越低。</param>
         public SpatialHashGrid(FP cellSize)
@@ -79,6 +91,7 @@ namespace Framework.ECS
                 }
             }
 
+            _queryScratch.Sort();
             return _queryScratch;
         }
 

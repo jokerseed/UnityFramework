@@ -4,7 +4,7 @@ Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配�
 
 面向需要「配置驱动战斗、可渐进接入锁步」的 Unity 项目。这是**模块化战斗基座**，不是 ET 式整包服务端框架。
 
-> **当前能力边界：** 支持等输入锁步基座（FixedMath / Lockstep 类型迁移）与逻辑帧行为树；**预测回滚 / 状态快照尚未实现**；**反作弊未接线**（checksum 类型已迁，内存混淆 `Obscured*` 刻意未进 FixedMath）。详见 [帧同步与回滚](#帧同步与回滚)、[反作弊](#反作弊)。
+> **当前能力边界：** 支持等输入锁步基座（FixedMath / Lockstep 类型迁移）与逻辑帧行为树；**预测回滚未接线**（已有 `ISnapshotable`，ECS 与确定性随机可往返，GAS / 物理接触 / 行为树还不能还原）；**反作弊未接线**（checksum 类型已迁，内存混淆 `Obscured*` 刻意未进 FixedMath）。详见 [帧同步与回滚](#帧同步与回滚)、[反作弊](#反作弊)。
 
 [快速开始](#快速开始) · [架构](#架构) · [帧同步与回滚](#帧同步与回滚) · [反作弊](#反作弊) · [模块](#模块) · [行为树](#行为树-ai) · [AI 选型](#ai-选型说明) · [对比](#与常见方案对比) · [Roadmap](#roadmap) · [文档](#文档)
 
@@ -30,7 +30,7 @@ Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配�
 | 锁步调度类型（`DefaultLockstep` / `RollbackLockstep` / `StateTracker`） | ✅ 已迁移（底层） |
 | `LockstepHost` / 与 GamePlay 对接 | ⚠️ 已有 `LocalLockstepHost`（单机自循环）；网络 `ICommunicator` 未接 |
 | 战斗演示（Battle） | ⚠️ 本地固定步长 + 意图帧 + F8 对拍；尚未联机等输入 |
-| **预测回滚 / 状态快照** | ❌ **未实现**（GAS / ECS / BehaviourTree 均不可还原） |
+| **预测回滚 / 状态快照** | ⚠️ 接口已有。`ISnapshotable` + ECS 世界 + `TSRandom` 可 Save/Restore；GAS、Farseer 接触、行为树未接入，预测回滚未接线 |
 | 本地录像对拍 Demo | ⚠️ 战斗内 F8 影子 Session 对拍（非独立示例工程） |
 
 说明：Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开回滚）。Framework 当前目标与之对齐；回滚快照在 Roadmap 中单独规划。
@@ -241,7 +241,7 @@ Framework/
 - [ ] `LockstepHost` + `ILockstepSimulation` 门面
 - [ ] 本地 `NullCommunicator` + 联机等输入
 - [ ] GamePlay 固定逻辑帧 + FP 战斗对接
-- [ ] **预测回滚 / 状态快照**（GAS + ECS + BehaviourTree + Lockstep 接线）
+- [ ] **预测回滚 / 状态快照**（已有 `ISnapshotable`、ECS 与随机数实现；GAS / Farseer 接触 / 行为树 / Lockstep 接线仍缺）
 - [ ] **反作弊：帧 checksum 接线**（接 Host，暴露 `checksumOk` / 对拍告警）
 - [ ] **反作弊：可选 Obscured ↔ FP 适配**（边界转换；FixedMath 仍保持无依赖）
 - [ ] 根目录 LICENSE、CONTRIBUTING、CI 编译

@@ -106,13 +106,7 @@ namespace Framework.ECS.Systems
         void PullTransforms(World world)
         {
             var transforms = world.GetStorage<TransformComponent>();
-            _bodyIds.Clear();
-            foreach (var pair in transforms.All)
-            {
-                _bodyIds.Add(pair.Key);
-            }
-
-            _bodyIds.Sort();
+            _physics.CopyBodyEntityIds(_bodyIds);
             for (var i = 0; i < _bodyIds.Count; i++)
             {
                 var entityId = _bodyIds[i];

@@ -57,12 +57,34 @@ namespace Framework.GAS.Tags
                 return false;
             }
 
-            if (owned.Name == query.Name)
+            return MatchesName(owned.Name, query.Name);
+        }
+
+        /// <summary>
+        /// 判断已持有名称是否匹配查询名称（相等，或查询名后紧跟点号的前缀）。
+        /// 不拼接字符串。
+        /// </summary>
+        /// <param name="owned">已持有的标签名。</param>
+        /// <param name="query">查询标签名。</param>
+        /// <returns>匹配则返回 true。</returns>
+        public static bool MatchesName(string owned, string query)
+        {
+            if (string.IsNullOrEmpty(owned) || string.IsNullOrEmpty(query))
+            {
+                return false;
+            }
+
+            if (owned == query)
             {
                 return true;
             }
 
-            return owned.Name.StartsWith(query.Name + ".", StringComparison.Ordinal);
+            if (owned.Length <= query.Length || owned[query.Length] != '.')
+            {
+                return false;
+            }
+
+            return owned.StartsWith(query, StringComparison.Ordinal);
         }
     }
 
@@ -70,9 +92,17 @@ namespace Framework.GAS.Tags
     public sealed class GameplayTagContainer
     {
         readonly Dictionary<string, int> _counts = new Dictionary<string, int>();
+        Action _mutationListener;
 
         /// <summary>当前持有的所有标签名称集合（只读视图，计数大于 0 的键）。</summary>
         public IReadOnlyCollection<string> Tags => _counts.Keys;
+
+        /// <summary>
+        /// 绑定唯一的变更回调，在增删或清空后调用。重复绑定会替换上一次。
+        /// 回调里不要再改本容器。
+        /// </summary>
+        /// <param name="listener">回调；传 null 则取消。</param>
+        public void BindMutationListener(Action listener) => _mutationListener = listener;
 
         /// <summary>检查容器是否持有与 <paramref name="tag"/> 匹配的标签（支持层级前缀匹配）。</summary>
         /// <param name="tag">要查询的标签；无效标签始终返回 false。</param>
@@ -84,15 +114,27 @@ namespace Framework.GAS.Tags
                 return false;
             }
 
+            var query = tag.Name;
             foreach (var owned in _counts.Keys)
             {
-                if (GameplayTagMatcher.Matches(new GameplayTag(owned), tag))
+                if (GameplayTagMatcher.MatchesName(owned, query))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        /// <summary>把当前计数拷到列表，供校验和等按稳定顺序再排序的调用方使用。</summary>
+        /// <param name="destination">输出列表；调用前会被清空。不可为 null。</param>
+        public void CopyCounts(List<KeyValuePair<string, int>> destination)
+        {
+            destination.Clear();
+            foreach (var pair in _counts)
+            {
+                destination.Add(pair);
+            }
         }
 
         /// <summary>检查容器是否持有 <paramref name="tags"/> 中任意一个标签（OR 语义）。</summary>
@@ -154,6 +196,7 @@ namespace Framework.GAS.Tags
             }
 
             _counts[tag.Name] = 1;
+            NotifyMutated();
             return true;
         }
 
@@ -174,10 +217,22 @@ namespace Framework.GAS.Tags
             }
 
             _counts.Remove(tag.Name);
+            NotifyMutated();
             return true;
         }
 
         /// <summary>清空容器中所有标签及计数。</summary>
-        public void Clear() => _counts.Clear();
+        public void Clear()
+        {
+            if (_counts.Count == 0)
+            {
+                return;
+            }
+
+            _counts.Clear();
+            NotifyMutated();
+        }
+
+        void NotifyMutated() => _mutationListener?.Invoke();
     }
 }
