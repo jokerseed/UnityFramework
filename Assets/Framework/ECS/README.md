@@ -90,7 +90,7 @@ GamePlayFramework.Tick
 
 - ECS 通过 `ActorLinkComponent.ActorId` 关联 GAS 的 `AbilitySystemComponent`
 - `ActorRegistry` 目标查询走 `SpatialHashGrid` broadphase + GAS Tag narrowphase
-- 投射物命中由 Farseer 接触写入 `ApplyDamageCommand` / `ApplyAreaEffectCommand`
+- 投射物命中由 Farseer 接触写入 `ApplyDamageCommand` / `ApplyAreaEffectCommand`。同一实体只结算一次，命中名单随 ECS 快照版本 2 保存
 - **不在 ECS 组件中存储生命值/攻击力**，避免双源数据
 
 ## 被谁使用

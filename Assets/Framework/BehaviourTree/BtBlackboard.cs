@@ -246,7 +246,7 @@ namespace Framework.BehaviourTree
             return copy;
         }
 
-        /// <summary>用权威槽覆盖当前黑板（不改 object 袋）。</summary>
+        /// <summary>用权威槽覆盖当前黑板，并清空 object 袋，避免恢复后留下覆盖之后写入的对象。</summary>
         /// <param name="source">来源；不可为 null。</param>
         public void CopyAuthoritativeFrom(BtBlackboard source)
         {
@@ -259,6 +259,7 @@ namespace Framework.BehaviourTree
             _bools.Clear();
             _fps.Clear();
             _ids.Clear();
+            _objects.Clear();
             foreach (var pair in source._ints)
             {
                 _ints[pair.Key] = pair.Value;

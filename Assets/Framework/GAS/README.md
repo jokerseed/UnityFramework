@@ -25,7 +25,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 控制 | 眩晕打断禁手、沉默禁手、定身禁移动（Tag 常量）。`IsDead` / `IsStunned` / `IsRooted` / `IsKnockedDown` / `HasHyperArmor` / `IsSilenced` 在标签变更时刷新，读取不扫描容器 |
 | 标签匹配 | `GameplayTagMatcher.MatchesName` 用前缀比较，不拼接 `query + "."`。`HasTag` 仍是层级匹配，公开 API 不变 |
 | 冷却 | 可驱散的冷却 GE；`CooldownId` 共享组 |
-| 叠层 | `MaxStacks` + `AggregateBySource` 按来源 |
+| 叠层 | `MaxStacks` + `AggregateBySource` 按来源。持续修改器：Add 乘层数；Multiply 为 `1+(幅度-1)×层数`；Override 不乘层数。层数为 1 时与原来相同 |
 | 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`） |
 | 驱散 | `DispelEffects(tagQuery, maxCount)` |
 | 资源属性 | Health / Mana / Shield 当前值不被 Modifier 全量重算覆盖 |

@@ -48,8 +48,11 @@ namespace Framework.GAS.Abilities
         /// <returns>冷却键。</returns>
         public string GetCooldownId() => string.IsNullOrEmpty(CooldownId) ? AbilityId : CooldownId;
 
-        /// <summary>使用已有技能实例包装为定义（共享同一实例模板）。</summary>
-        /// <param name="ability">技能实例；不可为 null。</param>
+        /// <summary>
+        /// 使用已有技能实例包装为定义。工厂每次返回同一个对象，技能字段会在所有 Actor 之间共享。
+        /// 技能必须无状态；需要每个 Actor 一份实例时用 <c>Func&lt;GameplayAbility&gt;</c> 工厂构造。
+        /// </summary>
+        /// <param name="ability">技能实例；不可为 null。调用方须保证它没有跨 Actor 的可变字段。</param>
         public GameplayAbilityDef(GameplayAbility ability)
         {
             if (ability == null)

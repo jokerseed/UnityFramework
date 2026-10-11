@@ -198,9 +198,17 @@ namespace Framework.GAS.Effects
         public AbilitySystemComponent SourceAsc { get; set; }
 
         /// <summary>创建活跃效果。</summary>
-        public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source)
+        /// <param name="spec">效果 Spec。</param>
+        /// <param name="source">来源 Actor。</param>
+        /// <param name="handle">ASC 分配的句柄；≤0 时仍使用进程计数器，仅兼容直接 new。</param>
+        public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source, int handle = 0)
         {
-            Handle = new GameplayEffectHandle(s_nextHandle++);
+            if (handle <= 0)
+            {
+                handle = s_nextHandle++;
+            }
+
+            Handle = new GameplayEffectHandle(handle);
             Spec = spec;
             Source = source;
             RemainingTime = spec.Duration;

@@ -176,6 +176,11 @@ namespace Framework.ECS.Systems
                         continue;
                     }
 
+                    if (projectile.HitEntityIds != null && projectile.HitEntityIds.Contains(otherId))
+                    {
+                        continue;
+                    }
+
                     hitEntity = otherId;
                     found = true;
                     break;
@@ -225,6 +230,12 @@ namespace Framework.ECS.Systems
                     }
                 }
 
+                if (projectile.HitEntityIds == null)
+                {
+                    projectile.HitEntityIds = new List<uint>(4);
+                }
+
+                projectile.HitEntityIds.Add(hitEntity);
                 if (projectile.PierceRemaining > 0)
                 {
                     projectile.PierceRemaining--;

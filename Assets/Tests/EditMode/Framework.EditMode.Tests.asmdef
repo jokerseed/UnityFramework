@@ -9,6 +9,7 @@
         "Framework.GamePlay",
         "Framework.Editor",
         "Framework.Logging",
+        "Framework.BehaviourTree",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

@@ -21,8 +21,6 @@ namespace Framework.GAS.Abilities
     /// <summary>单次技能激活实例，持有 Spec、上下文与 Task 运行器。</summary>
     public sealed class ActiveAbilityInstance
     {
-        static int s_nextInstanceId = 1;
-
         readonly List<Tasks.AbilityTask> _tasks = new List<Tasks.AbilityTask>();
 
         /// <summary>实例唯一 ID，用于 Cancel 查找。</summary>
@@ -49,9 +47,10 @@ namespace Framework.GAS.Abilities
         internal ActiveAbilityInstance(
             GameplayAbilitySpec spec,
             in AbilityActivationContext context,
-            AbilityActivationInfo activationInfo)
+            AbilityActivationInfo activationInfo,
+            int instanceId)
         {
-            InstanceId = s_nextInstanceId++;
+            InstanceId = instanceId;
             Spec = spec;
             Context = context;
             ActivationInfo = activationInfo ?? new AbilityActivationInfo();

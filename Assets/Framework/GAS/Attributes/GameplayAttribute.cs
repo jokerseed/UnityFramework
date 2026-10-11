@@ -68,20 +68,28 @@ namespace Framework.GAS.Attributes
         /// <param name="attributeName">属性名。</param>
         /// <param name="magnitude">单层幅度。</param>
         /// <param name="operation">运算方式。</param>
-        /// <param name="stackCount">叠层；幅度会乘以该值。</param>
+        /// <param name="stackCount">叠层。Add 线性相乘；Multiply 为 <c>1+(幅度-1)×层数</c>；Override 不乘层数。</param>
         public void Add(string attributeName, FP magnitude, Effects.EffectModifierOperation operation, int stackCount = 1)
         {
-            var scaled = magnitude * stackCount;
+            if (stackCount < 1)
+            {
+                stackCount = 1;
+            }
+
             switch (operation)
             {
                 case Effects.EffectModifierOperation.Add:
+                    var scaled = magnitude * stackCount;
                     _additive[attributeName] = _additive.TryGetValue(attributeName, out var add) ? add + scaled : scaled;
                     break;
                 case Effects.EffectModifierOperation.Multiply:
-                    _multiplier[attributeName] = _multiplier.TryGetValue(attributeName, out var mul) ? mul * scaled : scaled;
+                    var factor = stackCount == 1
+                        ? magnitude
+                        : FP.One + (magnitude - FP.One) * stackCount;
+                    _multiplier[attributeName] = _multiplier.TryGetValue(attributeName, out var mul) ? mul * factor : factor;
                     break;
                 case Effects.EffectModifierOperation.Override:
-                    _override[attributeName] = scaled;
+                    _override[attributeName] = magnitude;
                     break;
             }
         }
