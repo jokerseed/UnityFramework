@@ -16,7 +16,7 @@
 ```
 ECS/
 ├── World.cs                     ECS 世界，Phase 调度、Singleton、组件存储
-├── Entity.cs                    实体与 ComponentStorage
+├── Entity.cs                    实体与按实体 ID 升序的 ComponentStorage（稠密数组）
 ├── ISystem.cs                   IComponent / ISystem / EcsSystemPhase
 ├── EntityQuery.cs               ForEach 组件交集查询
 ├── BattlePhysicsWorld.cs        Farseer 2D 包装（XZ 圆体、无重力）
@@ -34,7 +34,8 @@ ECS/
 | 能力 | 类型 |
 |------|------|
 | System Phase | `EcsSystemPhase.Simulate` / `Cleanup`；`ISystem.Update` / `World.Tick` 的 `deltaTime` 为 `FP` |
-| 组件查询 | `foreach (var pair in world.GetStorage<T>())` 不装箱；`VisitPairs` 供结构体访问者。`ForEach(Action)` 仍可用，捕获变量的 lambda 会分配委托 |
+| 组件存储 | `ComponentStorage<T>` 按实体 ID 升序迭代，查找走稀疏表；插入/删除 O(n)。`foreach` 不装箱 |
+| 组件查询 | `foreach (var pair in world.GetStorage<T>())`；`VisitPairs` 供结构体访问者。`ForEach(Action)` 仍可用，捕获变量的 lambda 会分配委托 |
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
 | 确定性物理 | `BattlePhysicsWorld`：Actor 动态圆、投射物运动学传感器；步进与逻辑 `FP` 步长一致 |
 | 空间索引 | `SpatialHashGrid`（定点格子）供 GAS 目标查询；`QueryNearby` 结果按实体 ID 升序 |
