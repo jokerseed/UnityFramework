@@ -73,9 +73,7 @@ namespace Framework.GAS.Abilities
                 return AbilityActivationResult.Failed(AbilityActivationFailureReason.Dead);
             }
 
-            if (owner.Tags.HasTag(new GameplayTag(BattleConstants.TagStunned)) ||
-                owner.Tags.HasTag(new GameplayTag(BattleConstants.TagSilenced)) ||
-                owner.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
+            if (owner.IsStunned || owner.IsSilenced || owner.IsKnockedDown)
             {
                 return AbilityActivationResult.Failed(AbilityActivationFailureReason.CrowdControlled);
             }

@@ -437,16 +437,11 @@ namespace Framework.GamePlay
 
         void ApplyRootAndStun()
         {
-            var stunned = new GameplayTag(BattleConstants.TagStunned);
-            var rooted = new GameplayTag(BattleConstants.TagRooted);
             foreach (var pair in _registry.Actors)
             {
                 var actor = pair.Value;
                 var asc = actor.AbilitySystem;
-                if (asc.IsDead ||
-                    asc.Tags.HasTag(rooted) ||
-                    asc.Tags.HasTag(stunned) ||
-                    asc.Tags.HasTag(new GameplayTag(BattleConstants.TagKnockedDown)))
+                if (asc.IsDead || asc.IsRooted || asc.IsStunned || asc.IsKnockedDown)
                 {
                     _registry.SetVelocity(actor.ActorId, TSVector.zero);
                 }
@@ -456,8 +451,6 @@ namespace Framework.GamePlay
         void TickAgents(FP deltaTime)
         {
             _engageSlots.Rebuild(_registry, _agents);
-            var stunned = new GameplayTag(BattleConstants.TagStunned);
-            var knocked = new GameplayTag(BattleConstants.TagKnockedDown);
             _agentOrder.Clear();
             foreach (var pair in _agents)
             {
@@ -471,8 +464,8 @@ namespace Framework.GamePlay
                 if (!_agents.TryGetValue(actorId, out var agent) ||
                     !_registry.TryGet(actorId, out var actor) ||
                     actor.AbilitySystem.IsDead ||
-                    actor.AbilitySystem.Tags.HasTag(knocked) ||
-                    actor.AbilitySystem.Tags.HasTag(stunned))
+                    actor.AbilitySystem.IsKnockedDown ||
+                    actor.AbilitySystem.IsStunned)
                 {
                     continue;
                 }

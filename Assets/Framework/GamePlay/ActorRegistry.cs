@@ -249,7 +249,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                if (target.AbilitySystem.Tags.HasTag(new GAS.Tags.GameplayTag(BattleConstants.TagDead)))
+                if (target.AbilitySystem.IsDead)
                 {
                     continue;
                 }
@@ -304,7 +304,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                if (target.AbilitySystem.Tags.HasTag(new GAS.Tags.GameplayTag(BattleConstants.TagDead)))
+                if (target.AbilitySystem.IsDead)
                 {
                     continue;
                 }
@@ -381,7 +381,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                if (target.AbilitySystem.Tags.HasTag(new GAS.Tags.GameplayTag(BattleConstants.TagDead)))
+                if (target.AbilitySystem.IsDead)
                 {
                     continue;
                 }
