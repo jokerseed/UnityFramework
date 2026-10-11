@@ -36,6 +36,8 @@ namespace Framework.GamePlay
         readonly Dictionary<ActorId, BattleAgent> _agents = new Dictionary<ActorId, BattleAgent>();
         readonly EngageSlotAllocator _engageSlots = new EngageSlotAllocator();
         readonly List<ActorId> _agentOrder = new List<ActorId>(16);
+        readonly List<ActorId> _actorOrder = new List<ActorId>(32);
+        static readonly Comparison<ActorId> ActorIdOrder = ActorRegistry.CompareActorId;
         readonly TSRandom _random;
         List<BattleIntentCommand> _intentSink;
         static readonly FP FullAiRangeSqr = (FP)64;
@@ -395,13 +397,13 @@ namespace Framework.GamePlay
                 SpatialIndexService.RebuildActors(_world, grid);
             }
 
+            _registry.CopySortedActorIds(_actorOrder);
             SyncCuePose();
             ApplyRootAndStun();
 
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
-                if (actor.AbilitySystem.IsDead)
+                if (!_registry.TryGet(_actorOrder[i], out var actor) || actor.AbilitySystem.IsDead)
                 {
                     continue;
                 }
@@ -420,10 +422,9 @@ namespace Framework.GamePlay
 
         void SyncCuePose()
         {
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
-                if (actor.AbilitySystem.IsDead)
+                if (!_registry.TryGet(_actorOrder[i], out var actor) || actor.AbilitySystem.IsDead)
                 {
                     continue;
                 }
@@ -437,9 +438,13 @@ namespace Framework.GamePlay
 
         void ApplyRootAndStun()
         {
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
+                if (!_registry.TryGet(_actorOrder[i], out var actor))
+                {
+                    continue;
+                }
+
                 var asc = actor.AbilitySystem;
                 if (asc.IsDead || asc.IsRooted || asc.IsStunned || asc.IsKnockedDown)
                 {
@@ -457,7 +462,7 @@ namespace Framework.GamePlay
                 _agentOrder.Add(pair.Key);
             }
 
-            _agentOrder.Sort((a, b) => a.Value.CompareTo(b.Value));
+            _agentOrder.Sort(ActorIdOrder);
             for (var i = 0; i < _agentOrder.Count; i++)
             {
                 var actorId = _agentOrder[i];
@@ -515,9 +520,13 @@ namespace Framework.GamePlay
 
         void SyncDeath()
         {
-            foreach (var pair in _registry.Actors)
+            for (var i = 0; i < _actorOrder.Count; i++)
             {
-                var actor = pair.Value;
+                if (!_registry.TryGet(_actorOrder[i], out var actor))
+                {
+                    continue;
+                }
+
                 actor.AbilitySystem.SyncDeathIfNeeded(_presentationBus);
                 if (actor.AbilitySystem.IsDead)
                 {

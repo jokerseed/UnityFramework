@@ -37,7 +37,7 @@ ECS/
 | 组件查询 | `foreach (var pair in world.GetStorage<T>())` 不装箱；`VisitPairs` 供结构体访问者。`ForEach(Action)` 仍可用，捕获变量的 lambda 会分配委托 |
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
 | 确定性物理 | `BattlePhysicsWorld`：Actor 动态圆、投射物运动学传感器；步进与逻辑 `FP` 步长一致 |
-| 空间索引 | `SpatialHashGrid`（定点格子）供 GAS 目标查询 |
+| 空间索引 | `SpatialHashGrid`（定点格子）供 GAS 目标查询；`QueryNearby` 结果按实体 ID 升序 |
 
 未接：Jitter 3D 刚体、关节、地面/墙壁静态几何。当前 Demo 是 XZ 平面割草，只用 Farseer 2D。
 

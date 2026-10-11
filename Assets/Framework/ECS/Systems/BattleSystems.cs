@@ -66,11 +66,12 @@ namespace Framework.ECS.Systems
             _ids.Clear();
             var projectiles = world.GetStorage<ProjectileComponent>();
 
-            foreach (var pair in projectiles.All)
+            foreach (var pair in projectiles)
             {
                 _ids.Add(pair.Key);
             }
 
+            _ids.Sort();
             for (var i = 0; i < _ids.Count; i++)
             {
                 var entityId = _ids[i];

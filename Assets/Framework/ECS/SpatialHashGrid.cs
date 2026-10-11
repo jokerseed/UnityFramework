@@ -91,6 +91,7 @@ namespace Framework.ECS
                 }
             }
 
+            _queryScratch.Sort();
             return _queryScratch;
         }
 

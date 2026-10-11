@@ -51,7 +51,15 @@ namespace Framework.GamePlay
     public sealed class ActorRegistry
     {
         readonly Dictionary<ActorId, BattleActor> _actors = new Dictionary<ActorId, BattleActor>();
+        readonly List<ActorId> _sortScratch = new List<ActorId>(32);
         readonly World _world;
+        static readonly Comparison<ActorId> ActorIdOrder = CompareActorId;
+
+        /// <summary>按 <see cref="ActorId.Value"/> 升序比较。</summary>
+        /// <param name="a">左操作数。</param>
+        /// <param name="b">右操作数。</param>
+        /// <returns>标准比较结果。</returns>
+        public static int CompareActorId(ActorId a, ActorId b) => a.Value.CompareTo(b.Value);
 
         /// <summary>创建 Actor 注册表。</summary>
         /// <param name="world">关联的 ECS 世界，用于创建和销毁实体。</param>
@@ -60,8 +68,27 @@ namespace Framework.GamePlay
             _world = world;
         }
 
-        /// <summary>当前所有已注册 Actor 的只读字典，键为 <see cref="ActorId"/>，值为 <see cref="BattleActor"/>。</summary>
+        /// <summary>当前所有已注册 Actor 的只读字典，键为 <see cref="ActorId"/>，值为 <see cref="BattleActor"/>。枚举顺序不稳定，模拟请用 <see cref="CopySortedActorIds"/>。</summary>
         public IReadOnlyDictionary<ActorId, BattleActor> Actors => _actors;
+
+        /// <summary>把当前 ActorId 拷贝到列表并按 ID 升序排列。</summary>
+        /// <param name="destination">输出列表；调用前会被清空。不可为 null。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopySortedActorIds(List<ActorId> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            destination.Clear();
+            foreach (var pair in _actors)
+            {
+                destination.Add(pair.Key);
+            }
+
+            destination.Sort(ActorIdOrder);
+        }
 
         /// <summary>
         /// 创建一个新 Actor：初始化 <see cref="BattleActor"/> 并在 ECS 世界中生成对应实体与组件。
@@ -562,10 +589,10 @@ namespace Framework.GamePlay
         /// <summary>将所有 Actor 的位置从 ECS <see cref="TransformComponent"/> 同步到 <see cref="BattleActor.SimPosition"/> 与表现缓存，每帧 Tick 末尾调用。</summary>
         public void SyncPositionsFromEcs()
         {
-            foreach (var pair in _actors)
+            CopySortedActorIds(_sortScratch);
+            for (var i = 0; i < _sortScratch.Count; i++)
             {
-                var actor = pair.Value;
-                if (actor.EcsEntity == null)
+                if (!_actors.TryGetValue(_sortScratch[i], out var actor) || actor.EcsEntity == null)
                 {
                     continue;
                 }

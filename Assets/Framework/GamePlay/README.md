@@ -98,6 +98,7 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 - 刷波环上坐标与 `ReviveActor` 直接用 `TSVector` / `SimPosition`，不做 FP→Vector3→FP 往返
 - 眩晕 / 倒地禁移动、闪避中不覆盖速度，留在 **执行器** 作为规则
 - 刷波、`CreateActor` 不是行为意图
+- 模拟内 Actor 遍历（ASC.Tick、Cue、定身、死亡同步、位置回写）按 `ActorId` 升序，不依赖 `Dictionary` 枚举顺序。AI Agent 同样按 `ActorId` 排序后再 Tick。空间查询候选与投射物寿命销毁也按实体 ID 升序。围攻槽位在方位角相同时用 ActorId 打破平局
 - 指令带来源 `Player` / `Ai` / `Replay`，只用于日志与回放过滤，不改变规则
 - 渲染帧只 `Sample` 锁存；逻辑帧把意图写入 `BattleIntentFrame` 再入队执行，禁止 Sample 直接改模拟
 
