@@ -591,8 +591,8 @@ namespace Framework.FixedMath {
             var clampedL = ClampSinValue(x._serializedValue, out flipHorizontal, out flipVertical);
             var clamped = new FP(clampedL);
 
-            // Find the two closest values in the LUT and perform linear interpolation
-            // This is what kills the performance of this function on x86 - x64 is fine though
+            // Nearest LUT entry. indexError is forced to 0, so the interpolation below is a no-op.
+            // Restoring a non-zero indexError would change every Sin/Cos result and recorded checksums.
             var rawIndex = FastMul(clamped, LutInterval);
             var roundedIndex = Round(rawIndex);
             var indexError = 0;//FastSub(rawIndex, roundedIndex);

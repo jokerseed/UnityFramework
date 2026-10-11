@@ -31,8 +31,8 @@ namespace Framework.FixedMath
     {
 
         private static FP ZeroEpsilonSq = TSMath.Epsilon;
-        public static TSVector InternalZero;
-        internal static TSVector Arbitrary;
+        public static readonly TSVector InternalZero;
+        internal static readonly TSVector Arbitrary;
 
         /// <summary>The X component of the vector.</summary>
         public FP x;
