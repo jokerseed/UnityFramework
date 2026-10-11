@@ -2,10 +2,31 @@ using System;
 
 namespace Framework.ECS
 {
+    /// <summary>
+    /// 双组件访问者。用结构体实现并配 <see cref="EntityQuery.VisitPairs{TDriver,TRequired,TVisitor}"/>，
+    /// 热路径不分配委托。
+    /// </summary>
+    /// <typeparam name="TDriver">驱动组件。</typeparam>
+    /// <typeparam name="TRequired">必须同时存在的组件。</typeparam>
+    public interface IComponentPairVisitor<TDriver, TRequired>
+        where TDriver : struct, IComponent
+        where TRequired : struct, IComponent
+    {
+        /// <summary>访问一对组件。</summary>
+        /// <param name="entityId">实体 ID。</param>
+        /// <param name="driver">驱动组件副本。</param>
+        /// <param name="required">附加组件副本。</param>
+        void Visit(uint entityId, TDriver driver, TRequired required);
+    }
+
     /// <summary>World 组件查询扩展：以驱动组件集合为迭代入口，只访问同时拥有所需组件的实体。</summary>
     public static class EntityQuery
     {
-        /// <summary>遍历同时拥有 <typeparamref name="TDriver"/> 与 <typeparamref name="TRequired"/> 的实体。</summary>
+        /// <summary>
+        /// 遍历同时拥有 <typeparamref name="TDriver"/> 与 <typeparamref name="TRequired"/> 的实体。
+        /// 捕获外部变量的 lambda 会分配委托；热路径改用 <see cref="VisitPairs{TDriver,TRequired,TVisitor}"/>
+        /// 或直接 foreach <see cref="ComponentStorage{T}"/>。
+        /// </summary>
         /// <typeparam name="TDriver">驱动组件类型（迭代入口）。</typeparam>
         /// <typeparam name="TRequired">必须同时存在的组件类型。</typeparam>
         /// <param name="world">ECS 世界。</param>
@@ -19,11 +40,38 @@ namespace Framework.ECS
             var driverStorage = world.GetStorage<TDriver>();
             var requiredStorage = world.GetStorage<TRequired>();
 
-            foreach (var pair in driverStorage.All)
+            foreach (var pair in driverStorage)
             {
                 if (requiredStorage.TryGet(pair.Key, out var required))
                 {
                     action(pair.Key, pair.Value, required);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 以结构体访问者遍历双组件实体，不分配委托。
+        /// </summary>
+        /// <typeparam name="TDriver">驱动组件类型。</typeparam>
+        /// <typeparam name="TRequired">必须同时存在的组件类型。</typeparam>
+        /// <typeparam name="TVisitor">访问者类型。</typeparam>
+        /// <param name="world">ECS 世界。</param>
+        /// <param name="visitor">访问者；按引用传递以便写回计数等字段。</param>
+        public static void VisitPairs<TDriver, TRequired, TVisitor>(
+            this World world,
+            ref TVisitor visitor)
+            where TDriver : struct, IComponent
+            where TRequired : struct, IComponent
+            where TVisitor : IComponentPairVisitor<TDriver, TRequired>
+        {
+            var driverStorage = world.GetStorage<TDriver>();
+            var requiredStorage = world.GetStorage<TRequired>();
+
+            foreach (var pair in driverStorage)
+            {
+                if (requiredStorage.TryGet(pair.Key, out var required))
+                {
+                    visitor.Visit(pair.Key, pair.Value, required);
                 }
             }
         }
@@ -45,7 +93,7 @@ namespace Framework.ECS
             var storage1 = world.GetStorage<T1>();
             var storage2 = world.GetStorage<T2>();
 
-            foreach (var pair in driverStorage.All)
+            foreach (var pair in driverStorage)
             {
                 if (storage1.TryGet(pair.Key, out var c1) &&
                     storage2.TryGet(pair.Key, out var c2))

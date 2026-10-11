@@ -38,8 +38,29 @@ namespace Framework.ECS
         /// <returns>实体存在该组件并成功移除时返回 <c>true</c>，否则返回 <c>false</c>。</returns>
         public bool Remove(uint entityId) => _components.Remove(entityId);
 
-        /// <summary>所有已存储的 (entityId, component) 键值对，可供系统遍历。</summary>
-        public IEnumerable<KeyValuePair<uint, T>> All => _components;
+        /// <summary>
+        /// 全部 (entityId, component) 对。返回值可直接 foreach，枚举器是结构体，不装箱。
+        /// 迭代顺序沿用当前存储实现，不保证跨运行时稳定；需要稳定顺序时先收集再排序。
+        /// </summary>
+        public PairEnumerable All => new PairEnumerable(_components);
+
+        /// <summary>按存储顺序枚举，供 foreach 使用，不装箱。</summary>
+        /// <returns>字典枚举器。</returns>
+        public Dictionary<uint, T>.Enumerator GetEnumerator() => _components.GetEnumerator();
+
+        /// <summary>不装箱的键值枚举包装。</summary>
+        public readonly struct PairEnumerable
+        {
+            readonly Dictionary<uint, T> _components;
+
+            /// <summary>包装已有字典。</summary>
+            /// <param name="components">组件字典；不可为 null。</param>
+            public PairEnumerable(Dictionary<uint, T> components) => _components = components;
+
+            /// <summary>返回结构体枚举器。</summary>
+            /// <returns>字典枚举器。</returns>
+            public Dictionary<uint, T>.Enumerator GetEnumerator() => _components.GetEnumerator();
+        }
 
         void IComponentStorage.Remove(uint entityId) => Remove(entityId);
 

@@ -34,7 +34,7 @@ ECS/
 | 能力 | 类型 |
 |------|------|
 | System Phase | `EcsSystemPhase.Simulate` / `Cleanup`；`ISystem.Update` / `World.Tick` 的 `deltaTime` 为 `FP` |
-| 组件查询 | `world.ForEach<TDriver, TRequired>(...)` |
+| 组件查询 | `foreach (var pair in world.GetStorage<T>())` 不装箱；`VisitPairs` 供结构体访问者。`ForEach(Action)` 仍可用，捕获变量的 lambda 会分配委托 |
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
 | 确定性物理 | `BattlePhysicsWorld`：Actor 动态圆、投射物运动学传感器；步进与逻辑 `FP` 步长一致 |
 | 空间索引 | `SpatialHashGrid`（定点格子）供 GAS 目标查询 |
