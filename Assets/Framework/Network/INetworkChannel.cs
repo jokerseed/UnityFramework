@@ -59,7 +59,7 @@ namespace Framework.Network
         /// <param name="payload">消息体；可为 null。</param>
         void Send(ushort messageId, byte[] payload);
 
-        /// <summary>注册消息处理器；同一消息号后注册覆盖先注册。</summary>
+        /// <summary>注册消息处理器；同一消息号后注册会覆盖先注册，并写一条警告。</summary>
         /// <param name="handler">处理器，不可为 null。</param>
         void RegisterHandler(INetworkPacketHandler handler);
 
@@ -67,6 +67,11 @@ namespace Framework.Network
         /// <param name="messageId">消息号。</param>
         /// <param name="handler">处理委托，不可为 null。</param>
         void RegisterHandler(ushort messageId, Action<INetworkChannel, NetworkPacket> handler);
+
+        /// <summary>注销指定消息号的处理器。</summary>
+        /// <param name="messageId">消息号。</param>
+        /// <returns>原先存在处理器时返回 true。</returns>
+        bool UnregisterHandler(ushort messageId);
 
         /// <summary>设置未匹配消息号时的默认处理。</summary>
         /// <param name="handler">默认处理；为 null 时清除。</param>

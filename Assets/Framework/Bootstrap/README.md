@@ -62,7 +62,7 @@ var manager = ResourceManager.Instance;
 | `Run(name)` | 启动该组初始化（协程） |
 | `RunAsync(name)` | `yield return` 等待该组完成 |
 | `GetGroup(name)` | 获取组句柄，查 `IsReady` / 状态事件 |
-| `ResetGroup(name)` | 关闭并清空该组，可重新配置 |
+| `ResetGroup(name)` | 关闭并清空该组，可重新配置。组仍在 `Running` 时抛异常 |
 
 ## 初始化模式
 
@@ -84,6 +84,8 @@ Run("a")              →  Running → Ready / Failed
 SetModules("b", ...)  →  Idle（独立组）
 Run("b")              →  Running → Ready / Failed
 ```
+
+初始化失败时会先逆序 `Shutdown` 已经成功的模块，再进入 `Failed`。某个模块的 `Shutdown` 抛异常不会挡住后面的模块。异步初始化里的异常由 `NestedCoroutine` 收上来。失败后再次 `Run` 会重新初始化，不会在已初始化列表里堆重复项。
 
 ## 相关模块
 

@@ -120,9 +120,16 @@ namespace Framework.Bootstrap
         /// </summary>
         /// <param name="groupName">要重置的组名。</param>
         /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
+        /// <exception cref="InvalidOperationException">该组仍在 <see cref="ModuleGroupState.Running"/>。</exception>
         public void ResetGroup(string groupName)
         {
             var group = GetGroup(groupName);
+            if (group.State == ModuleGroupState.Running)
+            {
+                throw new InvalidOperationException(
+                    $"Group '{groupName}' is running. Wait until it finishes before ResetGroup.");
+            }
+
             ShutdownGroup(group);
             group.Modules.Clear();
             group.Initialized.Clear();
@@ -131,40 +138,27 @@ namespace Framework.Bootstrap
 
         IEnumerator RunGroup(ModuleGroup group)
         {
+            var serial = ++group.RunSerial;
             group.SetState(ModuleGroupState.Running);
 
             Exception failure = null;
-            var routine = RunGroupInternal(group);
-            while (true)
+            var driven = NestedCoroutine.Drive(RunGroupInternal(group, serial), ex => failure = ex);
+            while (failure == null && driven.MoveNext())
             {
-                object current;
-                try
-                {
-                    if (!routine.MoveNext())
-                    {
-                        break;
-                    }
-
-                    current = routine.Current;
-                }
-                catch (Exception ex)
-                {
-                    failure = ex;
-                    break;
-                }
-
-                yield return current;
+                yield return driven.Current;
             }
 
             if (failure != null)
             {
                 GameLog.Exception(LogCategories.Bootstrap, failure);
+                group.RunSerial++;
+                ShutdownGroup(group);
                 group.SetState(ModuleGroupState.Failed, failure);
                 yield break;
             }
         }
 
-        IEnumerator RunGroupInternal(ModuleGroup group)
+        IEnumerator RunGroupInternal(ModuleGroup group, int serial)
         {
             if (group.Modules.Count == 0)
             {
@@ -187,13 +181,13 @@ namespace Framework.Bootstrap
                     GameLog.Info(
                         LogCategories.Bootstrap,
                         $"Group {LogStyle.Name(group.Name)} wave {LogStyle.Value($"{waveIndex + 1}/{waves.Count}")} {LogStyle.Muted("concurrent")} ({LogStyle.Value(wave.Count)} modules)");
-                    yield return InitializeWaveConcurrent(group, wave, progress, totalModules);
+                    yield return InitializeWaveConcurrent(group, wave, progress, totalModules, serial);
                 }
                 else
                 {
                     for (var i = 0; i < wave.Count; i++)
                     {
-                        yield return InitializeModuleSequential(group, wave[i], progress, totalModules);
+                        yield return InitializeModuleSequential(group, wave[i], progress, totalModules, serial);
                     }
                 }
             }
@@ -206,7 +200,8 @@ namespace Framework.Bootstrap
             ModuleGroup group,
             IGameModule module,
             InitProgress progress,
-            int totalModules)
+            int totalModules,
+            int serial)
         {
             progress.Value++;
             group.ReportProgress(progress.Value, totalModules);
@@ -223,14 +218,15 @@ namespace Framework.Bootstrap
                 yield return module.InitializeAsync();
             }
 
-            CompleteModule(group, module);
+            CompleteModule(group, module, serial);
         }
 
         IEnumerator InitializeWaveConcurrent(
             ModuleGroup group,
             IReadOnlyList<IGameModule> wave,
             InitProgress progress,
-            int totalModules)
+            int totalModules,
+            int serial)
         {
             var pendingAsync = 0;
             Exception failure = null;
@@ -249,7 +245,7 @@ namespace Framework.Bootstrap
                     try
                     {
                         module.Initialize();
-                        CompleteModule(group, module);
+                        CompleteModule(group, module, serial);
                     }
                     catch (Exception ex)
                     {
@@ -261,7 +257,7 @@ namespace Framework.Bootstrap
                 }
 
                 pendingAsync++;
-                StartCoroutine(RunAsyncModule(group, module, () => pendingAsync--, ex =>
+                StartCoroutine(RunAsyncModule(group, module, serial, () => pendingAsync--, ex =>
                 {
                     failure = ex;
                     pendingAsync--;
@@ -282,6 +278,7 @@ namespace Framework.Bootstrap
         IEnumerator RunAsyncModule(
             ModuleGroup group,
             IGameModule module,
+            int serial,
             Action onComplete,
             Action<Exception> onError)
         {
@@ -296,33 +293,39 @@ namespace Framework.Bootstrap
                 yield break;
             }
 
-            while (true)
+            Exception failure = null;
+            var driven = NestedCoroutine.Drive(routine, ex => failure = ex);
+            while (failure == null && driven.MoveNext())
             {
-                object current;
-                try
-                {
-                    if (!routine.MoveNext())
-                    {
-                        break;
-                    }
-
-                    current = routine.Current;
-                }
-                catch (Exception ex)
-                {
-                    onError?.Invoke(ex);
-                    yield break;
-                }
-
-                yield return current;
+                yield return driven.Current;
             }
 
-            CompleteModule(group, module);
+            if (failure != null)
+            {
+                onError?.Invoke(failure);
+                yield break;
+            }
+
+            CompleteModule(group, module, serial);
             onComplete?.Invoke();
         }
 
-        static void CompleteModule(ModuleGroup group, IGameModule module)
+        static void CompleteModule(ModuleGroup group, IGameModule module, int serial)
         {
+            if (group.RunSerial != serial || group.State != ModuleGroupState.Running)
+            {
+                try
+                {
+                    module.Shutdown();
+                }
+                catch (Exception ex)
+                {
+                    GameLog.Exception(LogCategories.Bootstrap, ex, $"Late shutdown failed: {module.Name}");
+                }
+
+                return;
+            }
+
             group.Initialized.Add(module);
         }
 
@@ -348,7 +351,15 @@ namespace Framework.Bootstrap
         {
             for (var i = group.Initialized.Count - 1; i >= 0; i--)
             {
-                group.Initialized[i].Shutdown();
+                var module = group.Initialized[i];
+                try
+                {
+                    module.Shutdown();
+                }
+                catch (Exception ex)
+                {
+                    GameLog.Exception(LogCategories.Bootstrap, ex, $"Shutdown failed: {module.Name}");
+                }
             }
 
             group.Initialized.Clear();

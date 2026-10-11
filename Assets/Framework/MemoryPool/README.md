@@ -16,6 +16,8 @@
 |------|------|
 | `IMemory` | 可池化对象契约，`Clear()` 归还前复位 |
 | `MemoryPool` | 静态 `Acquire` / `Release` / `Add` / `ClearAll` |
+
+进入 Play（含关闭 Domain Reload）时会 `ClearAll`。同一类型池的取还锁在另一条改动里，这一支只保证进入 Play 时把池清空。
 | `MemoryPoolManager` | 常驻单例，Inspector 配置严格检查 |
 | `MemoryPoolModule` | Bootstrap 模块：读取 Manager 开关，Shutdown 清空 |
 

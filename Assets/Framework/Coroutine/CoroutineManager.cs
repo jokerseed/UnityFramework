@@ -13,6 +13,7 @@ namespace Framework.Coroutine
     {
         GlobalCoroutineRunner _globalRunner;
         SceneCoroutineRunner _sceneRunner;
+        int _sceneRunnerHandle = -1;
         bool _listeningSceneUnload;
 
         /// <summary>确保全局 Runner 已创建。</summary>
@@ -42,6 +43,7 @@ namespace Framework.Coroutine
 
             var go = new GameObject("[Framework.SceneCoroutineRunner]");
             _sceneRunner = go.AddComponent<SceneCoroutineRunner>();
+            _sceneRunnerHandle = go.scene.handle;
         }
 
         void EnsureSceneUnloadHook()
@@ -57,18 +59,14 @@ namespace Framework.Coroutine
 
         void OnSceneUnloaded(Scene scene)
         {
-            if (_sceneRunner == null)
+            if (_sceneRunner == null || scene.handle != _sceneRunnerHandle)
             {
                 return;
             }
 
-            // 场景卸载会销毁场景内对象；清空引用即可
-            if (_sceneRunner != null)
-            {
-                _sceneRunner.HaltAll();
-            }
-
+            _sceneRunner.HaltAll();
             _sceneRunner = null;
+            _sceneRunnerHandle = -1;
             GameLog.Debug(LogCategories.Coroutine, $"Scene coroutines cleared on unload: {LogStyle.Name(scene.name)}");
         }
 
@@ -183,6 +181,7 @@ namespace Framework.Coroutine
             {
                 Destroy(_sceneRunner.gameObject);
                 _sceneRunner = null;
+                _sceneRunnerHandle = -1;
             }
         }
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Framework.Events
 {
@@ -18,6 +19,15 @@ namespace Framework.Events
             {
                 Channels[i].Clear();
             }
+        }
+
+        /// <summary>
+        /// 进入 Play 时清空静态通道。关闭 Domain Reload 后静态监听会留到下一次 Play。
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetOnSubsystemRegistration()
+        {
+            ClearAll();
         }
     }
 }

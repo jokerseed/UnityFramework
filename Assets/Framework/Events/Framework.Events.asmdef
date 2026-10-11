@@ -1,7 +1,9 @@
 {
     "name": "Framework.Events",
     "rootNamespace": "Framework.Events",
-    "references": [],
+    "references": [
+        "Framework.Logging"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

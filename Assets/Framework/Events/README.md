@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.Events` |
 | 命名空间 | `Framework.Events` |
-| 依赖 | 无（契约与实现同程序集） |
+| 依赖 | `Framework.Logging` |
 
 ## 核心类型
 
@@ -30,7 +30,7 @@
 | `GlobalEventBus` / `GameEvent` | 全局 UI / 流程事件 |
 | `ZeroGcEventBus` | 单场战斗表现总线（`GamePlayFramework.EventBus`） |
 
-分发时直接遍历监听列表（不 `AddRange` 复制），分发中增删延迟到本轮结束后应用。
+分发时直接遍历监听列表（不 `AddRange` 复制）。分发中的增删要等最外层 `Publish` 结束才应用；同一轮里刚退订的监听器不会再被调用。某个监听器抛异常时记一条日志并继续后面的监听器，通道不会卡在“正在分发”。进入 Play（含关闭 Domain Reload）时，`SubsystemRegistration` 会 `Clear` 全部静态通道。实例总线 `ZeroGcEventBus` 不在这次清理里，由持有者自己 `Clear`。
 
 ## 典型用法
 

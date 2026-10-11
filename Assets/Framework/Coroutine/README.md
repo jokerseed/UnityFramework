@@ -26,7 +26,7 @@
 | 方式 | API | 终止时机 |
 |------|-----|----------|
 | 全局 | `StartGlobal` | 手动 Stop / `StopAllGlobal` / 模块 Shutdown |
-| 场景 | `StartScene` | 场景卸载、手动 Stop / `StopAllScene` |
+| 场景 | `StartScene` | **宿主所在场景**卸载、手动 Stop / `StopAllScene`。其它叠加场景卸载不会清掉它 |
 | GameObject | `Start(go, …)` | GO 销毁、手动 Stop / `StopAll(go)` |
 
 ## 用法
