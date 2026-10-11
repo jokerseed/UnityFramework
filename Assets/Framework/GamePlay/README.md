@@ -119,7 +119,9 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、行为树节点游标和表现层 float。字符串按字符序哈希，不用 `string.GetHashCode`。
 
-EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。`LocalLockstepHost` 还不做预测回滚。GAS 用 `GasSnapshot` 往返；`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`，再同步位置并标记空间索引脏。Farseer 接触仍不在快照里。
+`LockstepHost` 等所有玩家的输入到齐再推进一步。`BattleLockstepSimulation` 把 `BattleSession` 交给它，检查点含随机数、ECS、`GasSnapshot` 和 `BattlePhysicsSnapshot`。`PredictRemote` 先填占位，正式输入不同就从最近的检查点重放。`LocalLockstepHost` 仍是单机意图帧，不走 `ICommunicator`。行为树游标不在这份检查点里。同一进程的两场物理世界共用 Farseer 静态 ID。
+
+EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像对拍、确定性扫描、快照往返，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。
 
 ## Tick 流程
 
