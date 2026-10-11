@@ -86,7 +86,9 @@ namespace Framework.FixedMath
         {
             get
             {
-                return (((this.x * this.x) + (this.y * this.y)) + (this.z * this.z) + (this.w * this.w));
+                return FP.OverflowAdd(
+                    FP.OverflowAdd(this.x * this.x, this.y * this.y),
+                    FP.OverflowAdd(this.z * this.z, this.w * this.w));
             }
         }
 
@@ -103,8 +105,20 @@ namespace Framework.FixedMath
             }
         }
 
+        /// <summary>把向量长度限制在 <paramref name="maxLength"/> 以内。更短的向量保持原样。</summary>
+        /// <param name="vector">原向量。</param>
+        /// <param name="maxLength">允许的最大长度；负数按 0。</param>
+        /// <returns>长度不超过上限的向量。</returns>
         public static TSVector4 ClampMagnitude(TSVector4 vector, FP maxLength)
         {
+            if (maxLength < FP.Zero) {
+                maxLength = FP.Zero;
+            }
+
+            if (vector.sqrMagnitude <= maxLength * maxLength) {
+                return vector;
+            }
+
             return Normalize(vector) * maxLength;
         }
 
