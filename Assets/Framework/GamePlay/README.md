@@ -116,7 +116,7 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、行为树节点游标和表现层 float。字符串按字符序哈希，不用 `string.GetHashCode`。
 
-EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。`LocalLockstepHost` 还不做预测回滚；GAS 快照会抛 `NotSupportedException`。
+EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。`LocalLockstepHost` 还不做预测回滚。GAS 用 `GasSnapshot` 往返；`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`，再同步位置并标记空间索引脏。Farseer 接触仍不在快照里。
 
 ## Tick 流程
 
