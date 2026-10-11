@@ -164,6 +164,10 @@ Assets/Bundles/BehaviourTrees/MonsterCommon.bt.json # Player / 热更
 
 战斗演示近战树：`MeleeChaser`；自定义叶子 TypeId 见 GamePlay `BattleAiTypeIds`（`Battle.IsAlive` 等），由 `BattleAiNodeRegistry.EnsureRegistered` 注册。
 
+## 第三方 Behavior Designer
+
+权威 AI 是本模块，不是 Behavior Designer。第三方编辑器代码留在 `Assets/Framework/Editor/Behavior Designer`，运行时在 `Assets/ThirdParty/Behavior Designer`。编辑器脚本单独程序集 `BehaviorDesigner.Editor`（仅 Editor），`Framework.Editor` 不再引用它。源码里的版本号是 `BehaviorDesignerUtility.Version` = `1.7.4`（Opsive Behavior Designer）。仓库里没有附带许可证文件；使用和再分发以购买时的 Unity Asset Store 条款为准。不要把这些编辑器脚本改成框架自己的行为树编辑器。
+
 ## 验证
 
 Editor 内 **Compile Test** 与 lint 面板；运行时固定种子 + 固定 `DeltaTime` 对拍 `LastStatus`。

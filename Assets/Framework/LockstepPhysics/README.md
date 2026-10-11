@@ -6,9 +6,10 @@
 
 | 项 | 值 |
 |----|---|
-| 程序集 | `Framework.LockstepPhysics` |
-| 命名空间 | `Framework.Lockstep.Physics3D` / `Framework.Lockstep.Physics2D` |
-| 依赖 | `Framework.FixedMath`、`Framework.Lockstep` |
+| 程序集 | `Framework.LockstepPhysics`（Farseer 2D 与 `Stubs`） |
+| 可选程序集 | `Framework.LockstepPhysics.Jitter`（仅 `Jitter/`，`autoReferenced` 为 false） |
+| 命名空间 | `Framework.Lockstep.Physics2D` / `Framework.Lockstep.Physics3D` |
+| 依赖 | 父程序集：`Framework.FixedMath`、`Framework.Lockstep`。Jitter 再引用父程序集，父程序集不引用 Jitter |
 
 ## 已迁移（基座 D）
 
@@ -26,16 +27,16 @@
 | **开箱管理器** | 需自行实现 `IPhysicsManager` / `IPhysicsManagerBase` 把 World 挂到锁步；`Stubs/ClientBridgeStubs.cs` 仅为编译占位 |
 | **Client 专有桥** | `PhysicsWorldManager` / `FrameWriterSystem` 等仅有空壳，完整场景桥见缺失项「Unity 包装」 |
 | **与现有 ECS 战斗** | 已接：`BattlePhysicsWorld` 用 Farseer 2D 做 Actor 挤开、位移、击退与弹道传感器；GAS 查询仍走 `SpatialHashGrid`。Jitter 3D / 场景碰撞体未接 |
-| **性能/裁剪** | 未做按需裁剪（整包迁入）。Jitter 与 Farseer 在同一个 `Framework.LockstepPhysics` 程序集里，引用 Farseer 的战斗模块仍会编译 3D |
+| **性能/裁剪** | Jitter 已拆到 `Framework.LockstepPhysics.Jitter`。`Framework.ECS` 只引用父程序集，战斗代码不编译 3D 类型。Unity 仍会单独编译 Jitter 程序集；玩家包是否裁掉取决于托管剥离。要用 3D，在自己的 asmdef 里显式引用 `Framework.LockstepPhysics.Jitter` |
 | **Client 专有补丁核对** | 已机械改命名空间；与主干逐文件 diff/对拍尚未做 |
 
-## Jitter 是否可拆成可选程序集
+## Jitter 可选程序集
 
-当前战斗只走 Farseer。`BattlePhysicsWorld` 不引用 `Framework.Lockstep.Physics3D` 的类型。仓库里也没有其他程序集的源码引用 Jitter 类型；`PhysicsManager` 占位在 `Stubs/`，和 Jitter 同程序集，供 Jitter 碰撞过滤编译通过。
+战斗只走 Farseer。`BattlePhysicsWorld`、`Framework.GamePlay`、`Assets/Scripts` 都不引用 `Framework.Lockstep.Physics3D`。`Framework.ECS` 的 asmdef 只引用 `Framework.LockstepPhysics`。
 
-因此 Jitter 对战斗模拟是死代码，但还不能靠“别的程序集没引用”把它从玩家包里裁掉。建议的拆法是在 `Jitter/` 下放独立 asmdef（例如 `Framework.LockstepPhysics.Jitter`），只引用 `Framework.FixedMath`、`Framework.Lockstep` 和仍包含 Farseer 与 `Stubs` 的 `Framework.LockstepPhysics`。父程序集不能反向引用 Jitter，否则循环。3D 项目再显式引用新程序集。
+`Jitter/` 下的 `Framework.LockstepPhysics.Jitter.asmdef` 引用 `Framework.FixedMath`、`Framework.Lockstep` 和父程序集（`Stubs/ClientBridgeStubs.cs` 里的 `PhysicsManager` 仍留在父程序集）。父程序集不引用 Jitter，避免循环。`autoReferenced` 为 false，预定义程序集不会自动带上 3D。
 
-这次没有落地拆分：Jitter 调用父程序集里的 `PhysicsManager`，且这里没有 Unity 编译环境可以确认拆开后没有漏类型。拆错会让 3D 物理整包编不过，而战斗本身并不因此变快或更确定。
+这次没有用 Unity 编译确认拆分。若 Jitter 源码实际用了父程序集里的 internal 类型，打开工程后 Jitter 程序集会报错，把对应类型改为 public 或把该文件留在父程序集即可。战斗程序集不应因此失败。
 
 ## 使用注意
 

@@ -39,7 +39,7 @@
 | `Framework.Coroutine` | 协程（Global / Scene / GameObject） | [Coroutine/README.md](Coroutine/README.md) |
 | `Framework.FixedMath` | 确定性定点数（锁步基座 A） | [FixedMath/README.md](FixedMath/README.md) |
 | `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） | [Lockstep/README.md](Lockstep/README.md) |
-| `Framework.LockstepPhysics` | 确定性 2D/3D 物理（基座 D） | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
+| `Framework.LockstepPhysics` | 确定性 Farseer 2D；Jitter 3D 在可选程序集 `Framework.LockstepPhysics.Jitter` | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree/README.md](BehaviourTree/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
 | `Framework.Network` | TCP 网络频道（`NetworkManager` / `INetworkChannel`） | [Network/README.md](Network/README.md) |
