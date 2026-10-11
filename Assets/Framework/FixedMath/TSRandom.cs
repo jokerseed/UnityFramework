@@ -42,7 +42,7 @@ namespace Framework.FixedMath {
         }
 
         private TSRandom() {
-            init_genrand((uint)DateTime.Now.Millisecond);
+            init_genrand((uint)DateTime.Now.Millisecond); // determinism-allow: 无种子构造不进战斗；战斗用 New(seed)
         }
 
         private TSRandom(int seed) {
@@ -194,7 +194,7 @@ namespace Framework.FixedMath {
         }
 
         public void Initialize() {
-            init_genrand((uint)DateTime.Now.Millisecond);
+            init_genrand((uint)DateTime.Now.Millisecond); // determinism-allow: 无种子重置不进战斗；战斗用 Initialize(int)
         }
 
         public void Initialize(int seed) {
