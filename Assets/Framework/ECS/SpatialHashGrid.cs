@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.ECS
 {
@@ -62,18 +61,25 @@ namespace Framework.ECS
 
         /// <summary>查询指定位置半径范围内的候选实体 ID 列表。</summary>
         /// <param name="position">查询中心世界坐标；仅使用 X/Z 轴。</param>
-        /// <param name="radius">查询半径（世界单位）；结果为格子级粗筛，可能包含实际超出半径的实体。</param>
+        /// <param name="radius">查询半径（世界单位）。覆盖该圆轴对齐包围盒所跨的全部格子，因此可能包含实际超出半径的实体。</param>
         /// <returns>当前帧内复用的候选实体 ID 只读列表；下次调用前有效。</returns>
         public IReadOnlyList<uint> QueryNearby(TSVector position, FP radius)
         {
             _queryScratch.Clear();
             _queryDedup.Clear();
-            var cellRadius = TSMath.Ceiling(radius / _cellSize).AsInt();
-            var center = Cell(position);
-
-            for (var x = center.x - cellRadius; x <= center.x + cellRadius; x++)
+            if (radius < FP.Zero)
             {
-                for (var z = center.y - cellRadius; z <= center.y + cellRadius; z++)
+                radius = FP.Zero;
+            }
+
+            var minX = TSMath.Floor((position.x - radius) / _cellSize).AsInt();
+            var maxX = TSMath.Floor((position.x + radius) / _cellSize).AsInt();
+            var minZ = TSMath.Floor((position.z - radius) / _cellSize).AsInt();
+            var maxZ = TSMath.Floor((position.z + radius) / _cellSize).AsInt();
+
+            for (var x = minX; x <= maxX; x++)
+            {
+                for (var z = minZ; z <= maxZ; z++)
                 {
                     var key = Pack(x, z);
                     if (!_cells.TryGetValue(key, out var set))
@@ -93,13 +99,6 @@ namespace Framework.ECS
 
             _queryScratch.Sort();
             return _queryScratch;
-        }
-
-        Vector2Int Cell(TSVector position)
-        {
-            return new Vector2Int(
-                TSMath.Floor(position.x / _cellSize).AsInt(),
-                TSMath.Floor(position.z / _cellSize).AsInt());
         }
 
         long Hash(TSVector position)

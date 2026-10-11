@@ -84,12 +84,12 @@ GamePlayFramework.Tick
   7. SyncDeath → Sync Positions
 ```
 
-纯移动帧只有步骤 5 的那一次全量重建。格子是宽相位；精确距离仍用查询当下的 `TransformComponent`。
+纯移动帧只有步骤 5 的那一次全量重建。`QueryNearby` 覆盖查询圆轴对齐包围盒所跨的格子，是保守超集，可能带上圆外的实体；精确距离仍用查询当下的 `TransformComponent`。
 
 ## 与 GAS 的协作
 
 - ECS 通过 `ActorLinkComponent.ActorId` 关联 GAS 的 `AbilitySystemComponent`
-- `ActorRegistry` 目标查询走 `SpatialHashGrid` broadphase + GAS Tag narrowphase
+- `ActorRegistry` 目标查询走 `SpatialHashGrid` 格子粗筛（圆的 AABB 所跨格子）+ GAS Tag 窄相位
 - 投射物命中由 Farseer 接触写入 `ApplyDamageCommand` / `ApplyAreaEffectCommand`
 - **不在 ECS 组件中存储生命值/攻击力**，避免双源数据
 

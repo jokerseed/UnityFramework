@@ -26,7 +26,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 标签匹配 | `GameplayTagMatcher.MatchesName` 用前缀比较，不拼接 `query + "."`。`HasTag` 仍是层级匹配，公开 API 不变 |
 | 冷却 | 可驱散的冷却 GE；`CooldownId` 共享组 |
 | 叠层 | `MaxStacks` + `AggregateBySource` 按来源 |
-| 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`） |
+| 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`）。结算为 0 时 `FinalDamage` 保持 0，不再回退成原始伤害 |
 | 驱散 | `DispelEffects(tagQuery, maxCount)` |
 | 资源属性 | Health / Mana / Shield 当前值不被 Modifier 全量重算覆盖 |
 | 空闲跳过 | 无 Active 技能且无持续效果时 `ASC.Tick` 立即返回 |
