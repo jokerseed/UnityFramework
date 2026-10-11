@@ -26,7 +26,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 标签匹配 | `GameplayTagMatcher.MatchesName` 用前缀比较，不拼接 `query + "."`。`HasTag` 仍是层级匹配，公开 API 不变 |
 | 冷却 | 可驱散的冷却 GE；`CooldownId` 共享组 |
 | 叠层 | `MaxStacks` + `AggregateBySource` 按来源 |
-| 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`） |
+| 伤害管线 | 免疫 → 护盾 → 护甲/魔抗 → 易伤 → 暴击（`ASC.Random.Next01()` 为 `FP`，禁止 `UnityEngine.Random`）。结算为 0 时 `FinalDamage` 保持 0，不再回退成原始伤害 |
 | 驱散 | `DispelEffects(tagQuery, maxCount)` |
 | 资源属性 | Health / Mana / Shield 当前值不被 Modifier 全量重算覆盖 |
 | 空闲跳过 | 无 Active 技能且无持续效果时 `ASC.Tick` 立即返回 |
@@ -35,7 +35,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 闪避 | `DashAbility`：自身 IFrame + 朝向冲刺 |
 | 霸体 / 倒地 | 眩晕不打断霸体；倒地无视霸体并禁手禁移 |
 | 定点仿真 | 冷却 / 范围 / 伤害 / 属性 / GE 时长与 Modifier 为 `FP`；`AbilityActivationContext` 位姿为 `TSVector`；表现事件仍发 float |
-| 快照 | `UnsupportedGasSnapshot` 明确抛出未实现。接入时要同时保存属性、标签、效果、冷却和技能，并在恢复后重算 Modifier |
+| 快照 | `GasSnapshot`。见下方「快照」 |
 
 ## 定点约定
 
@@ -47,6 +47,21 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 若已死亡则跳过
 ActiveAbility Task → Effects（Duration / Periodic，Source 为施法者 ASC）
 ```
+
+## 快照
+
+`GasSnapshot` 实现 `ISnapshotable`，按 ActorId 写入同一场战斗的全部 ASC：
+
+- 属性基础值与当前值，以及由活跃效果重算出来的修改器汇总（加 / 乘 / 覆盖）
+- 标签引用计数（恢复后刷新眩晕、死亡等缓存）
+- 活跃效果，含冷却 GE：句柄、剩余时间、周期计时、层数、SetByCaller、来源
+- 已授予技能的 Spec 句柄、等级、输入绑定和 `_nextSpecHandle`
+- 激活中的技能实例。`MeleeSweepAbility`、`ChanneledProjectileAbility`、`DashAbility` 会恢复任务进度；其它带未完成任务的技能必须重写 `SaveActiveTasks` / `RestoreActiveTasks`，否则保存时抛出
+- 护盾加成 `_appliedShieldBonus`。恢复后会重算修改器，避免只回写当前值、下一帧被效果 Tick 盖掉
+
+技能定义上的工厂委托不进字节流，留在 `GasSnapshot` 对象里。必须用同一次 `Save` 的实例 `Restore`。同一快照里一个技能 ID 只能对应一份定义。`DamageExecution`、`HealExecution`、`ApplyGameplayEffectExecution` 可以恢复；其它 Execution 在保存时抛出。
+
+效果句柄、Spec RuntimeId、技能实例 ID 的进程内静态计数会随快照回写。这是整场战斗的计数，不要拿半场 ASC 的快照去回绕它。恢复不会重放 Cue，也不会再次调用 `Activate`。
 
 ## 典型用法
 

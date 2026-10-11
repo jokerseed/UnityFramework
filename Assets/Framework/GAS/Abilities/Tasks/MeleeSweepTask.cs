@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
+using Framework.Core.Snapshot;
 using Framework.FixedMath;
 using Framework.GAS.Targeting;
 using UnityEngine;
@@ -130,6 +131,47 @@ namespace Framework.GAS.Abilities.Tasks
 
         /// <inheritdoc/>
         protected override void OnCancel() => Finish();
+
+        /// <summary>写入阶段、计时、连招标记和已命中目标。</summary>
+        /// <param name="writer">写入器。</param>
+        internal void WriteProgress(SnapshotWriter writer)
+        {
+            writer.WriteInt((int)_phase);
+            writer.WriteFp(_elapsed);
+            writer.WriteBool(_comboGranted);
+            writer.WriteBool(IsDone);
+            writer.WriteBool(IsCancelled);
+            _scratch.Clear();
+            foreach (var id in _hitOnce)
+            {
+                _scratch.Add(new ActorId(id));
+            }
+
+            _scratch.Sort(CompareActor);
+            writer.WriteInt(_scratch.Count);
+            for (var i = 0; i < _scratch.Count; i++)
+            {
+                writer.WriteUInt(_scratch[i].Value);
+            }
+        }
+
+        /// <summary>读回阶段、计时、连招标记和已命中目标。</summary>
+        /// <param name="reader">读取器。</param>
+        internal void ReadProgress(SnapshotReader reader)
+        {
+            _phase = (Phase)reader.ReadInt();
+            _elapsed = reader.ReadFp();
+            _comboGranted = reader.ReadBool();
+            RestoreFlags(reader.ReadBool(), reader.ReadBool());
+            _hitOnce.Clear();
+            var count = reader.ReadInt();
+            for (var i = 0; i < count; i++)
+            {
+                _hitOnce.Add(reader.ReadUInt());
+            }
+        }
+
+        static int CompareActor(ActorId left, ActorId right) => left.Value.CompareTo(right.Value);
 
         void EnterRecovery()
         {

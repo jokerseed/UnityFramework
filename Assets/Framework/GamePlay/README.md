@@ -72,14 +72,17 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 
 ## GamePlay.Data（配置装配层）
 
-命名空间 `Framework.GamePlay.Data`：读 `cfg.CfgTables`，装配到 GAS，**不含 Tick/模拟**。
+命名空间 `Framework.GamePlay.Data`。装配入口是 `IBattleAbilityCatalog` / `IBattleEffectCatalog`，接口上没有 Luban 类型。默认实现 `LubanAbilityCatalog` / `LubanEffectCatalog` 仍读 `cfg.CfgTables`，映射细节留在 `AbilityConfigFactory` / `EffectConfigFactory`。`RegisterActorAbilities` 与 `BattleConfigApplier.ApplyEffect` 保留 `CfgTables` 重载，内部转成上述目录。`GamePlayFramework.EffectCatalog` 为 null 时，命中结算仍直接查 `ConfigManager`，不在每次命中上分配目录。本层不含 Tick。
 
 | 类型 | 职责 |
 |------|------|
+| `IBattleAbilityCatalog` | `abilityId` + 队伍 → `GameplayAbilityDef` |
+| `IBattleEffectCatalog` | `effectId` → `GameplayEffectDef` |
+| `LubanAbilityCatalog` / `LubanEffectCatalog` | Luban 默认后端 |
 | `AbilityConfigFactory` | Luban 技能行 → `GameplayAbilityDef` |
 | `EffectConfigFactory` | Luban 效果行 → `GameplayEffectDef` |
 | `GamePlayConfigSetup` | `RegisterActorAbilities` 扩展方法 |
-| `BattleConfigApplier` | 对 ASC 应用 Luban 效果 |
+| `BattleConfigApplier` | 对 ASC 应用效果 |
 
 ## 行为指令（玩家 / AI 共用）
 
@@ -116,7 +119,9 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、行为树节点游标和表现层 float。字符串按字符序哈希，不用 `string.GetHashCode`。
 
-EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。`LocalLockstepHost` 还不做预测回滚；GAS 快照会抛 `NotSupportedException`。
+`LockstepHost` 等所有玩家的输入到齐再推进一步。`BattleLockstepSimulation` 把 `BattleSession` 交给它，检查点含随机数、ECS、`GasSnapshot` 和 `BattlePhysicsSnapshot`。`PredictRemote` 先填占位，正式输入不同就从最近的检查点重放。`LocalLockstepHost` 仍是单机意图帧，不走 `ICommunicator`。行为树游标不在这份检查点里。同一进程的两场物理世界共用 Farseer 静态 ID。
+
+EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像对拍、确定性扫描、快照往返，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。
 
 ## Tick 流程
 
@@ -124,11 +129,16 @@ EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests
 LocalLockstepHost.Tick(unscaledDeltaTime)
   fillFrame（玩家）→ CollectAiIntents（AI 只入帧）
   Enqueue → Dequeue → BattleIntentApplier
-  GamePlayFramework.Tick(fixedDt)
-    0. 仅当空间索引 StructuralDirty 时 RebuildActors（刷出 / 传送 / 复活）
-    1. SyncCuePose → 定身/眩晕/倒地清速度
-    2. 存活 ASC.Tick（查询读本步物理前的格子）
-    3. Flush Spawn → Farseer Step → SpatialIndex（每逻辑步必做的一次全量重建）→ 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
+  GamePlayFramework.Tick(fixedDt) 按 BattleTickPhase 执行，可用 AddTickStep 在顺序值之间插入
+    0. RebuildSpatialIndex：仅当空间索引 StructuralDirty 时 RebuildActors（刷出 / 传送 / 复活）
+    100. SyncCue：拍下本步 Actor 列表，同步 Cue
+    200. ApplyRootAndStun：定身/眩晕/倒地清速度
+    300. TickAbilities：存活 ASC.Tick（查询读本步物理前的格子）
+    400. FlushSpawn
+    500. TickEcs：Farseer Step → SpatialIndex（每逻辑步必做的一次全量重建）→ 投射物寿命
+    600. FlushOutcome
+    700. SyncDeath
+    800. SyncPositions
   afterFixedStep（刷波）→ checksum → 录像
 ```
 

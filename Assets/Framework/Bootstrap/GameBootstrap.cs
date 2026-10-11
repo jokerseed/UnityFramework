@@ -152,9 +152,15 @@ namespace Framework.Bootstrap
             {
                 GameLog.Exception(LogCategories.Bootstrap, failure);
                 group.RunSerial++;
-                ShutdownGroup(group);
+                try
+                {
+                    ShutdownGroup(group);
+                }
+                catch (Exception shutdownError)
+                {
+                    GameLog.Exception(LogCategories.Bootstrap, shutdownError);
+                }
                 group.SetState(ModuleGroupState.Failed, failure);
-                yield break;
             }
         }
 

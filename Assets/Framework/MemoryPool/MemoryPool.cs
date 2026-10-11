@@ -67,13 +67,7 @@ namespace Framework.MemoryPool
             }
 
             var type = memory.GetType();
-            var collection = GetOrCreate(type);
-            if (EnableStrictCheck && collection.UsingCount <= 0)
-            {
-                throw new InvalidOperationException($"Release mismatch for '{type.FullName}': no outstanding Acquire.");
-            }
-
-            collection.Release(memory);
+            GetOrCreate(type).Release(memory, EnableStrictCheck);
         }
 
         /// <summary>预热：向池中添加指定数量的新实例。</summary>

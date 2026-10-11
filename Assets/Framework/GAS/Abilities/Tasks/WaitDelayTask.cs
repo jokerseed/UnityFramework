@@ -1,4 +1,5 @@
 using System;
+using Framework.Core.Snapshot;
 using Framework.FixedMath;
 
 namespace Framework.GAS.Abilities.Tasks
@@ -37,5 +38,22 @@ namespace Framework.GAS.Abilities.Tasks
 
         /// <inheritdoc/>
         protected override void OnCancel() => Finish();
+
+        /// <summary>写入已经过的时间与完成标记。</summary>
+        /// <param name="writer">写入器。</param>
+        internal void WriteProgress(SnapshotWriter writer)
+        {
+            writer.WriteFp(_elapsed);
+            writer.WriteBool(IsDone);
+            writer.WriteBool(IsCancelled);
+        }
+
+        /// <summary>读回已经过的时间与完成标记，不重置回调。</summary>
+        /// <param name="reader">读取器。</param>
+        internal void ReadProgress(SnapshotReader reader)
+        {
+            _elapsed = reader.ReadFp();
+            RestoreFlags(reader.ReadBool(), reader.ReadBool());
+        }
     }
 }

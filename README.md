@@ -28,9 +28,9 @@ Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配�
 |----|------|
 | 定点数学（`Framework.FixedMath`） | ✅ 已迁移 |
 | 锁步调度类型（`DefaultLockstep` / `RollbackLockstep` / `StateTracker`） | ✅ 已迁移（底层） |
-| `LockstepHost` / 与 GamePlay 对接 | ⚠️ 已有 `LocalLockstepHost`（单机自循环）；网络 `ICommunicator` 未接 |
-| 战斗演示（Battle） | ⚠️ 本地固定步长 + 意图帧 + F8 对拍；尚未联机等输入 |
-| **预测回滚 / 状态快照** | ⚠️ 接口已有。`ISnapshotable` + ECS 世界 + `TSRandom` 可 Save/Restore；GAS、Farseer 接触、行为树未接入，预测回滚未接线 |
+| `LockstepHost` / 与 GamePlay 对接 | ✅ `LockstepHost` 等输入；`LoopbackHub` 供测试。真实网络未接。`LocalLockstepHost` 仍是单机意图帧 |
+| 战斗演示（Battle） | ⚠️ 本地固定步长 + 意图帧 + F8 对拍；尚未联机 |
+| **预测回滚 / 状态快照** | ✅ `LockstepHost` 按检查点回滚重放。检查点含 GAS、ECS、随机数和 Farseer 接触克隆。行为树游标未纳入。旧 `RollbackLockstep` 仍未接线 |
 | 本地录像对拍 Demo | ⚠️ 战斗内 F8 影子 Session 对拍（非独立示例工程） |
 
 说明：Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开回滚）。Framework 当前目标与之对齐；回滚快照在 Roadmap 中单独规划。
@@ -142,7 +142,7 @@ GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
 | `Framework.UI` | `UIManager` / `UIWindow` |
 | `Framework.FixedMath` | 确定性定点数（锁步基座 A） |
 | `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） |
-| `Framework.LockstepPhysics` | Jitter 3D + Farseer 2D（基座 D） |
+| `Framework.LockstepPhysics` | Farseer 2D（基座 D）；Jitter 3D 为可选程序集 `Framework.LockstepPhysics.Jitter` |
 | `Framework.BehaviourTree` | 帧同步行为树运行时 + 可视化编辑器 |
 | `Framework.Editor` | Luban / YooAsset Editor 工具 |
 
@@ -171,7 +171,7 @@ GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
 
 | 能力 | 干什么 | 与本框架关系 | 版本注意 |
 |------|--------|--------------|----------|
-| **BehaviourTree / BD** | 决策：打谁、放技能、切换状态 | ✅ **已用 / 主路径**；逻辑帧手动 Tick，锁步友好 | 2021.3 可用；BD 无定点，数值仍靠 FixedMath/GAS |
+| **BehaviourTree / BD** | 决策：打谁、放技能、切换状态 | ✅ **已用 / 主路径**是 `Framework.BehaviourTree`；BD 1.7.4 编辑器代码另放，许可见 BehaviourTree README | 2021.3 可用；BD 无定点，数值仍靠 FixedMath/GAS |
 | **NavMesh** | 传统寻路：走到目标、绕障 | ❌ 未接；3D 关卡移动时再评 | 各版本均有；**不替代**行为树决策 |
 | **ML-Agents** | 强化学习：在编辑器里**训练**智能体 | ❌ 未规划；成本高，商用不如 BT 常见 | 看具体包版本；与锁步确定性冲突大 |
 | **Sentis** | 运行时**推理**神经网络（ONNX 等） | ❌ 未规划；有现成模型再评 | 2021.3 / 2022.3 / Unity 6 均可；接替 Barracuda |
@@ -238,10 +238,10 @@ Framework/
 - [x] 行为树热更资源：`.bt.json` 导出 / YooAsset 加载 / 模板缓存 / `BattleAgent` 运行时替换
 - [x] 单机玩法打磨：控制/死亡/Tag 计数、冷却 GE、伤害管线、AOE/弹道变体、移动、BT 接线
 - [x] 单机 `LocalLockstepHost` + 意图帧队列 + 本地录像对拍（F8）
-- [ ] `LockstepHost` + `ILockstepSimulation` 门面
-- [ ] 本地 `NullCommunicator` + 联机等输入
-- [ ] GamePlay 固定逻辑帧 + FP 战斗对接
-- [ ] **预测回滚 / 状态快照**（已有 `ISnapshotable`、ECS 与随机数实现；GAS / Farseer 接触 / 行为树 / Lockstep 接线仍缺）
+- [x] `LockstepHost` + `ILockstepSimulation` + `LoopbackHub`（等输入；无真实套接字）
+- [ ] 联机网关（Photon / 自研传输）。测试只用内存环回
+- [x] GamePlay 固定逻辑帧 + FP 战斗对接（`BattleSession.Step`）
+- [x] **预测回滚**：`LockstepHost` 用 GAS / ECS / 随机数 / `BattlePhysicsSnapshot` 检查点重放。行为树游标和旧 `RollbackLockstep` 仍未接
 - [ ] **反作弊：帧 checksum 接线**（接 Host，暴露 `checksumOk` / 对拍告警）
 - [ ] **反作弊：可选 Obscured ↔ FP 适配**（边界转换；FixedMath 仍保持无依赖）
 - [ ] 根目录 LICENSE、CONTRIBUTING、CI 编译

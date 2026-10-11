@@ -77,12 +77,17 @@ namespace Framework.FixedMath {
 
         /**
          *  @brief Returns a integer between a min value [inclusive] and a max value [exclusive].
+         *  min==max 时直接返回该值，不消耗随机数。其它范围仍是 Next() % range，已有序列不变。
          **/
         public int Next(int minValue, int maxValue) {
             if (minValue > maxValue) {
                 int tmp = maxValue;
                 maxValue = minValue;
                 minValue = tmp;
+            }
+
+            if (minValue == maxValue) {
+                return minValue;
             }
 
             int range = maxValue - minValue;

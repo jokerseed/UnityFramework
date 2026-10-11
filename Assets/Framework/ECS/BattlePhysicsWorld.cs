@@ -239,7 +239,8 @@ namespace Framework.ECS
 
         /// <summary>
         /// 保存已有刚体的运动学状态：平面位置、线速度、角速度、朝向、类型和启用标记。
-        /// 不包含接触、关节和岛划分。Restore 要求这些实体的刚体已经存在。
+        /// 不包含接触、关节和岛划分。互相推挤的刚体要用 <see cref="SaveFull"/>。
+        /// Restore 要求这些实体的刚体已经存在。
         /// </summary>
         /// <param name="writer">写入器。</param>
         public void SaveKinematics(SnapshotWriter writer)
@@ -301,6 +302,40 @@ namespace Framework.ECS
             }
         }
 
+        /// <summary>
+        /// 克隆整个 Farseer 世界：刚体求解状态、接触流形与冲量、宽相、岛和 TOI。
+        /// 克隆持有当时的 Fixture 引用，恢复时这些刚体实例必须还在，不能销毁后重建。
+        /// 快照之后新加的刚体会在恢复时从世界里移除。快照时有、恢复前已被删掉的刚体不会被重新创建。
+        /// 关节不在克隆里。会回写 Farseer 的刚体/夹具静态 ID 计数，应按整场物理世界使用。
+        /// </summary>
+        /// <param name="snapshot">调用方持有的快照；不可为 null。重复保存会覆盖上一次内容。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> 为 null。</exception>
+        public void SaveFull(BattlePhysicsSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            snapshot.Clone.Clone(_world, false);
+        }
+
+        /// <summary>
+        /// 用 <see cref="SaveFull"/> 的克隆覆盖当前 Farseer 世界，并丢掉字典里已经不在世界中的刚体。
+        /// </summary>
+        /// <param name="snapshot">同一次保存得到的快照；不可为 null。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> 为 null。</exception>
+        public void RestoreFull(BattlePhysicsSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            snapshot.Clone.Restore(_world);
+            PruneMissingBodies();
+        }
+
         /// <summary>清空全部刚体。</summary>
         public void Clear()
         {
@@ -348,6 +383,42 @@ namespace Framework.ECS
             var projectile = a.IsProjectile ? a : b;
             var actor = a.IsProjectile ? b : a;
             return projectile.Owner != actor.ActorId && projectile.TeamId != actor.TeamId;
+        }
+
+        void PruneMissingBodies()
+        {
+            _bodyScratch.Clear();
+            foreach (var pair in _bodies)
+            {
+                if (!ContainsBody(pair.Value))
+                {
+                    _bodyScratch.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _bodyScratch.Count; i++)
+            {
+                _bodies.Remove(_bodyScratch[i]);
+            }
+        }
+
+        bool ContainsBody(PhysicsBody body)
+        {
+            if (body == null)
+            {
+                return false;
+            }
+
+            var list = _world.BodyList;
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (ReferenceEquals(list[i], body))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         static TSVector2 ToPlane(TSVector position) => new TSVector2(position.x, position.z);

@@ -31,8 +31,8 @@ namespace Framework.FixedMath
     {
 
         private static FP ZeroEpsilonSq = TSMath.Epsilon;
-        public static TSVector InternalZero;
-        internal static TSVector Arbitrary;
+        public static readonly TSVector InternalZero;
+        internal static readonly TSVector Arbitrary;
 
         /// <summary>The X component of the vector.</summary>
         public FP x;
@@ -115,7 +115,7 @@ namespace Framework.FixedMath
     
         public FP sqrMagnitude {
             get { 
-                return (((this.x * this.x) + (this.y * this.y)) + (this.z * this.z));
+                return FP.OverflowAdd(FP.OverflowAdd(this.x * this.x, this.y * this.y), this.z * this.z);
             }
         }
 
@@ -125,12 +125,24 @@ namespace Framework.FixedMath
         /// <returns>Returns the length of the vector.</returns>
         public FP magnitude {
             get {
-                FP num = ((this.x * this.x) + (this.y * this.y)) + (this.z * this.z);
-                return FP.Sqrt(num);
+                return FP.Sqrt(sqrMagnitude);
             }
         }
 
+        /// <summary>把向量长度限制在 <paramref name="maxLength"/> 以内。更短的向量保持原样，零向量仍是零。</summary>
+        /// <param name="vector">原向量。</param>
+        /// <param name="maxLength">允许的最大长度；负数按 0。</param>
+        /// <returns>长度不超过上限的向量。</returns>
         public static TSVector ClampMagnitude(TSVector vector, FP maxLength) {
+            if (maxLength < FP.Zero) {
+                maxLength = FP.Zero;
+            }
+
+            FP sqr = vector.sqrMagnitude;
+            if (sqr <= maxLength * maxLength) {
+                return vector;
+            }
+
             return Normalize(vector) * maxLength;
         }
 
@@ -318,7 +330,10 @@ namespace Framework.FixedMath
         }
 		
 		public static FP Distance(TSVector v1, TSVector v2) {
-			return FP.Sqrt ((v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y) + (v1.z - v2.z) * (v1.z - v2.z));
+            FP dx = v1.x - v2.x;
+            FP dy = v1.y - v2.y;
+            FP dz = v1.z - v2.z;
+			return FP.Sqrt(FP.OverflowAdd(FP.OverflowAdd(dx * dx, dy * dy), dz * dz));
 		}
 
         /// <summary>
@@ -671,7 +686,7 @@ namespace Framework.FixedMath
         /// </summary>
         public void Normalize()
         {
-            FP num2 = ((this.x * this.x) + (this.y * this.y)) + (this.z * this.z);
+            FP num2 = this.sqrMagnitude;
             FP num = FP.One / FP.Sqrt(num2);
             this.x *= num;
             this.y *= num;
@@ -685,7 +700,7 @@ namespace Framework.FixedMath
         /// <param name="result">A normalized vector.</param>
         public static void Normalize(ref TSVector value, out TSVector result)
         {
-            FP num2 = ((value.x * value.x) + (value.y * value.y)) + (value.z * value.z);
+            FP num2 = value.sqrMagnitude;
             FP num = FP.One / FP.Sqrt(num2);
             result.x = value.x * num;
             result.y = value.y * num;
