@@ -82,6 +82,31 @@ namespace Framework.Tests
         }
 
         [Test]
+        public void ScannerRejectsSimEventSubscription()
+        {
+            var violations = new List<string>();
+            SimDeterminismScanner.CollectViolations(
+                "Assets/Framework/GAS/Fake.cs",
+                "GameEvent.Listen<DamageDealtEvent>(OnDamage);",
+                violations);
+            Assert.Greater(violations.Count, 0);
+
+            violations.Clear();
+            SimDeterminismScanner.CollectViolations(
+                "Assets/Framework/GamePlay/Fake.cs",
+                "bus.Subscribe<DamageDealtEvent>(OnDamage);",
+                violations);
+            Assert.Greater(violations.Count, 0);
+
+            violations.Clear();
+            SimDeterminismScanner.CollectViolations(
+                "Assets/Framework/GAS/Fake.cs",
+                "public IDisposable Subscribe<T>(Action<T> handler) where T : struct => EmptySubscription.Instance;",
+                violations);
+            Assert.AreEqual(0, violations.Count);
+        }
+
+        [Test]
         public void ScannerAcceptsCurrentSimSources()
         {
             var violations = SimDeterminismScanner.Scan();

@@ -92,6 +92,7 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 |----|------|--------|--------|
 | 行为意图 | `BattleIntentCommand` | 玩家编码 / AI `SubmitIntent` | `BattleIntentApplier` → `SetActorVelocity` / `TryActivateAbility` |
 | 模拟结算 | `BattleCommandBuffer` | GAS / ECS 碰撞 | `BattleCommandProcessor`（Spawn / Damage / Heal 等） |
+| 表现 | `Framework.GAS.Events` 的 struct | GAS `Publish` 到本场 `EventBus` | 业务表现层 `Subscribe`；模拟层不订阅 |
 
 约定：
 

@@ -12,6 +12,8 @@ namespace Framework.Editor.Determinism
     /// 错误级：<c>UnityEngine.Random</c>、<c>System.Random</c>、<c>Time.*</c>、<c>DateTime.Now</c>、<c>Guid.NewGuid</c>，
     /// 以及 ECS 里新出现的 <c>float</c>（<c>ITickable.Tick(float)</c> 桥除外）。
     /// GAS / GamePlay 的 float 留在配置装配和表现边界，扫描器只记录、不阻断。
+    /// 模拟目录里出现 <c>GameEvent</c>、<c>GlobalEventBus</c>、<c>.Subscribe</c> 或 <c>.Listen&lt;</c> 也算错误：
+    /// 模拟只发布命令和表现事件，不订阅总线。实现 <c>IEventBus.Subscribe</c> 的方法声明不匹配（前面没有点号）。
     /// 行尾写 <c>determinism-allow</c> 可跳过该行。
     /// </summary>
     public static class SimDeterminismScanner
@@ -29,6 +31,10 @@ namespace Framework.Editor.Determinism
             RegexOptions.Compiled);
 
         static readonly Regex FloatToken = new Regex(@"\bfloat\b", RegexOptions.Compiled);
+
+        static readonly Regex SimSubscribesToBus = new Regex(
+            @"\bGameEvent\b|\bGlobalEventBus\b|\.Subscribe\s*[<(]|\.Listen\s*<",
+            RegexOptions.Compiled);
 
         /// <summary>扫描 Assets 下的战斗逻辑目录。</summary>
         /// <param name="assetsPath"><c>Application.dataPath</c>；为空时用当前编辑器路径。</param>
@@ -89,6 +95,12 @@ namespace Framework.Editor.Determinism
                 if (Forbidden.IsMatch(code))
                 {
                     violations.Add(relativePath + ":" + (i + 1) + " " + code.Trim());
+                    continue;
+                }
+
+                if (SimSubscribesToBus.IsMatch(code))
+                {
+                    violations.Add(relativePath + ":" + (i + 1) + " sim must not subscribe: " + code.Trim());
                     continue;
                 }
 

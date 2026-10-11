@@ -4,6 +4,8 @@ using UnityEngine;
 
 namespace Framework.GAS.Events
 {
+    // 本命名空间的 struct 是表现载荷：模拟 Publish 到本场战斗 IEventBus，自己不 Subscribe。
+    // GameplayEventData 由 AbilitySystemComponent.HandleGameplayEvent 同步投递，不经事件总线。
     /// <summary>技能成功激活（表现/日志）。</summary>
     public struct AbilityActivatedEvent
     {

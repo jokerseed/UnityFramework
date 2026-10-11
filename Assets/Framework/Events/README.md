@@ -27,8 +27,10 @@
 
 | 实现 | 场景 |
 |------|------|
-| `GlobalEventBus` / `GameEvent` | 全局 UI / 流程事件 |
-| `ZeroGcEventBus` | 单场战斗表现总线（`GamePlayFramework.EventBus`） |
+| `GlobalEventBus` / `GameEvent` | 进程级 UI、流程、网络。不进入战斗结算 |
+| `ZeroGcEventBus` | 单场战斗表现总线（`GamePlayFramework.EventBus`）。模拟只 `Publish` |
+
+战斗模拟（ECS / GAS / GamePlay）不订阅任何总线。规则走 `BattleCommandBuffer`；表现 struct 定义在 `Framework.GAS.Events`，只发到本场 `ZeroGcEventBus`。`GameplayEventData` 由 `AbilitySystemComponent.HandleGameplayEvent` 同步交给技能和 Task，不经过本模块。`SimDeterminismScanner` 会拒绝模拟目录里的 `GameEvent`、`GlobalEventBus`、`.Subscribe` 和 `.Listen<`。
 
 分发时直接遍历监听列表（不 `AddRange` 复制），分发中增删延迟到本轮结束后应用。
 
@@ -36,23 +38,19 @@
 
 ### 全局事件
 
+全局总线只发流程 / UI 自己的 struct。下面的 `SomeFlowEvent` 是示意，换成业务自己的事件类型。不要在这里监听 `DamageDealtEvent`：伤害、死亡、Cue 只在本场战斗总线上。
+
 ```csharp
 using Framework.Events;
-using Framework.GAS.Events;
 
 void OnEnable()
 {
-    GameEvent.Listen<DamageDealtEvent>(OnDamage);
+    GameEvent.Listen<SomeFlowEvent>(OnFlow);
 }
 
 void OnDisable()
 {
-    GameEvent.RemoveListener<DamageDealtEvent>(OnDamage);
-}
-
-static void OnDamage(DamageDealtEvent evt)
-{
-    // UI / VFX
+    GameEvent.RemoveListener<SomeFlowEvent>(OnFlow);
 }
 ```
 
@@ -69,9 +67,8 @@ framework.EventBus.Unsubscribe<GameplayCueEvent>(handler);
 ### 发送
 
 ```csharp
-GameEvent.Send(new DamageDealtEvent { /* ... */ });
-// 或
-framework.EventBus.Publish(evt);
+GameEvent.Send(new SomeFlowEvent());
+framework.EventBus.Publish(new DamageDealtEvent { /* 只发到本场总线 */ });
 ```
 
 ## 设计说明
@@ -84,5 +81,5 @@ framework.EventBus.Publish(evt);
 ## 被谁使用
 
 - `Framework.Core` — `BattleContext.Presentation`
-- `Framework.GAS` / `Framework.GamePlay` — 发布与订阅表现事件
-- 业务层可通过 `GameEvent` 做全局 UI/流程事件
+- `Framework.GAS` / `Framework.GamePlay` — 只向本场总线 `Publish` 表现事件，不 `Subscribe`
+- 业务表现层订阅 `GamePlayFramework.EventBus`；全局 UI / 流程走 `GameEvent`

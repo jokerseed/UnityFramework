@@ -132,6 +132,8 @@ asc.ApplyEffect(instantDef, sourceId, bus);
 
 Duration / Infinite GE 的 `CueTagsOnApply` 发 Add，移除时 `CueTagsOnRemove` 发 Remove（Demo 配同一 Tag 才能成对销毁）。Instant GE 与技能 Cast 发 Execute。表现表 `tbcue`（`CfgTbCue`）由业务层 `BattleCuePresenter` 订阅 `GameplayCueEvent` 播放，GAS 不引用资源。
 
+`Framework.GAS.Events` 里的 struct（伤害、死亡、属性、Tag、Cue）只发给调用方传入的 `IEventBus`，也就是本场 `ZeroGcEventBus`。GAS 不订阅这些事件，也不调用 `GameEvent` / `GlobalEventBus`。`GameplayEventData` 是另一条路径：`HandleGameplayEvent` 在调用栈上直接唤醒被动技能和 `WaitGameplayEventTask`，不进总线，因此顺序不依赖监听注册先后。
+
 ```csharp
 asc.CueManager = new EventBusGameplayCueManager(bus);
 framework.EventBus.Subscribe<GameplayCueEvent>(presenter.Handle);
