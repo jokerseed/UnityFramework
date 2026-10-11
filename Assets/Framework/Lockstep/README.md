@@ -3,7 +3,7 @@
 帧同步基座（自 Client TrueSync 迁移）：固定逻辑帧调度、输入对齐抽象、回滚/校验相关**底层类型**。  
 确定性数学见 `Framework.FixedMath`；确定性物理引擎见 `Framework.LockstepPhysics`。
 
-> **⚠️ 回滚快照未实现：** 虽已迁移 `RollbackLockstep`、`StateTracker`、`IWorldClone` 等类型，但 Framework 内**尚未接线**到 GamePlay/GAS/ECS/BehaviourTree。当前 Battle 走 `LocalLockstepHost`（单机意图帧队列 + unscaled 固定步长），**不是**本程序集的 `AbstractLockstep`。Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开预测回滚）。
+> **战斗回滚不在这个类上。** `RollbackLockstep` / `StateTracker` 仍未接到 GAS、ECS 和行为树。暂停现在只在 `RUNNING` 时推进；校验和一旦不一致就锁存，不会被后一条消息改回成功。构造时如果传入了物理管理器，会调用 `ChecksumExtractor.Init`。等输入和整场战斗回滚在另一条草稿（`LockstepHost` + `BattleLockstepSimulation`）里，不在本分支重复实现。当前 Battle 演示仍走 `LocalLockstepHost`。
 
 ## 程序集
 
@@ -21,7 +21,7 @@
 | **C 输入/通讯抽象** | `ICommunicator`、`OnEventReceived`、`SyncedData`、`InputDataBase`、输入回调委托 | `TrueSyncDll` |
 | 回滚辅助 | `StateTracker`、资源池、`IWorld` / `IWorldClone` | `TrueSyncDll` |
 
-> 上表「回滚辅助」仅为 **TrueSync 底层类型**；Framework 内无 Host 接线，**不能**用于还原 GAS/ECS/行为树状态。
+> 上表「回滚辅助」仅为 **TrueSync 底层类型**。`RollbackLockstep` 里的 `StateTracker` 调用仍是注释，**不能**靠它还原 GAS/ECS/行为树。整场回滚用快照接口，不在本分支。
 
 | 校验/录像类型 | `ChecksumExtractor`、`ReplayRecord*`、`ReplayMode` | `TrueSyncDll` |
 | 物理契约 | `IPhysicsManagerBase`、`IPhysicsManager`、`IBody` / `IBody2D` / `IBody3D`、`ICollider` | `TrueSyncDll` + Physics 根接口 |
