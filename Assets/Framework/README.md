@@ -5,11 +5,23 @@
 | 原则 | 实现 |
 |------|------|
 | 单一数据源 | GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` |
-| 热路径命令化 | 模拟走 `BattleCommandBuffer`；玩家/AI 行为走 `BattleIntentCommand`（Move/Cast）；表现走 `IEventBus` |
+| 热路径命令化 | 模拟走 `BattleCommandBuffer`；玩家/AI 行为走 `BattleIntentCommand`（Move/Cast）；表现只 Publish 到本场 `IEventBus` |
 | 配置驱动 | Luban 导表 → `GamePlay.Data` 装配到 GAS |
 | 资源管线 | YooAsset 打包；运行时加载/释放统一走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
 | 示例文档化 | 演示与验证用例写在各模块 README，不单独维护 Samples/Tests 程序集 |
+
+## 事件边界
+
+模拟层（`Framework.ECS` / `Framework.GAS` / `Framework.GamePlay`）只写两类输出：`BattleCommandBuffer`，以及 `Framework.GAS.Events` 里的表现 struct（Publish 到本场 `ZeroGcEventBus`）。这些程序集不调用 `Subscribe`、`GameEvent` 或 `GlobalEventBus`。`SimDeterminismScanner` 会把这类调用标成错误。
+
+| 通道 | 角色 |
+|------|------|
+| `GlobalEventBus` / `GameEvent` | 进程级 UI、流程、网络。不承载战斗结算，模拟不订阅 |
+| `ZeroGcEventBus` | 一场战斗的表现总线（`GamePlayFramework.EventBus`）。模拟只 Publish；订阅在业务表现层 |
+| `GameplayEventData` | `AbilitySystemComponent.HandleGameplayEvent` 同步投递给技能和 Task。不是总线，监听顺序由调用方决定 |
+
+表现订阅的先后不影响校验和。把规则挂到总线上会让监听顺序进入模拟。
 
 ## 帧同步与回滚（能力边界）
 

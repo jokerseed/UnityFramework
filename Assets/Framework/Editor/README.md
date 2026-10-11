@@ -17,7 +17,7 @@
 |------|-----|------|
 | **Tools → Luban → Generate Client Config** | `LubanGenMenu` | 执行 `Config/Luban/gen_client.bat` 打表 |
 | **Tools → YooAsset → Generate Collector** | `YooAssetCollectorGenerator` | 生成 `BundleCollectorSetting.asset` |
-| **Tools → Determinism → Scan Battle Sim** | `SimDeterminismScanner` | 扫描 ECS/GAS/FixedMath/GamePlay，标出 Random、Time、DateTime.Now 与 ECS 中的 float |
+| **Tools → Determinism → Scan Battle Sim** | `SimDeterminismScanner` | 扫描 ECS/GAS/FixedMath/GamePlay，标出 Random、Time、DateTime.Now、ECS 中的 float，以及模拟层订阅 `GameEvent` / `GlobalEventBus` / `.Subscribe` |
 
 ## Luban 打表
 
