@@ -35,11 +35,16 @@ Assets/Scripts
     ├── BattleViewBinder.cs        View 同步与插值
     ├── BattlePresentation.cs      事件表现与 HitStop
     ├── BattleCuePresenter.cs      Cue -> 简易可视化
+    ├── MinimalBattleSample.cs     无视图最小战斗（近战 + 弹道，固定种子）
     ├── BattleMonsterView.cs       杂兵对象池 View
     └── Flow/
         ├── BattleFlow.cs          战斗流程 / Session 持有
         └── BattleFlowState.cs     战斗流程状态
 ```
+
+## 最小战斗样本
+
+`Game.MinimalBattleSample` 不走 Launch / Luban / 角色视图。新建空场景，把脚本挂到任意物体，Play。它调用 `Framework.GamePlay.MinimalBattle.Run`（种子 42，48 步，队伍 0 弹道、队伍 1 近战），把末帧校验和与双方生命写到 `GameLog`。同一逻辑由 EditMode `MinimalBattleTests` 跑两遍比对。没有随仓库提交场景文件。
 
 ## 整体运行链路
 
