@@ -67,6 +67,16 @@ var roll = rng.Next(0, 100);
 transform.position = FPConversions.ToVector3(pos);
 ```
 
+## 三角函数查找表（约 3MB × 3）
+
+`Fix64SinLut.cs`、`Fix64TanLut.cs`、`Fix64AcosLut.cs` 各约 3.0MB、25741 行，内容是 `long[]` 字面量。运行时直接使用这些静态数组，没有加载步骤。
+
+不在这次改成“启动时生成”或“从 TextAsset / 二进制加载”：
+
+- `Fix64` 里留下的生成函数用 `System.Math` 的 double 去写文件。double 三角函数不是这些字面量的稳定来源，换机器或换运行时可能和现表差 1 个 raw，定点 Sin/Tan/Acos 会整体漂移。
+- 改成资源加载会让 `Framework.FixedMath` 依赖资源系统或文件路径。表没进包、加载顺序错了，第一次三角函数就会读到空表。
+- 正确的迁移是：把**现有数组的原始 long 按固定小端序**倒成二进制，启动时填回同一个 `long[]`，并用测试逐项比对旧字面量。在那个测试存在之前不要换路径。
+
 ## 第三方说明
 
 见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

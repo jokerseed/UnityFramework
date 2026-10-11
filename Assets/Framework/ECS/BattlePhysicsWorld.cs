@@ -6,7 +6,6 @@ using Framework.ECS.Components;
 using Framework.FixedMath;
 using Framework.Lockstep;
 using Framework.Lockstep.Physics2D;
-using Framework.Lockstep.Physics3D;
 using PhysicsBody = Framework.Lockstep.Physics2D.Body;
 using PhysicsWorld = Framework.Lockstep.Physics2D.World;
 
