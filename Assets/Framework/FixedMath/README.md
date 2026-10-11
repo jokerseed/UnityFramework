@@ -38,6 +38,7 @@
    - 无参构造内部用 `DateTime.Now`，**非确定性**，禁止用于同步逻辑
 4. **大数值战斗结算不要用 FP**（Q31.32 整数大约 ±2³¹）  
    - Client 已用 `SafeMath`+`long` 处理伤害/HP；物理（坐标/速度）才用 FP
+   - 向量模长在分量绝对值大约超过 46340 时，平方和会超出 `long`。`TSVector` / `TSVector2` / `TSVector4` 的平方和以及四元数 `Normalize` 改用 `OverflowAdd`：不溢出时与原来的 `+` 逐位相同；溢出时饱和，不再变成负数后让 `Sqrt` 抛异常
 5. **`operator +` / `operator -` / `operator *` 默认不饱和**  
    - 溢出按 `long` 回绕；需要饱和时显式调用 `OverflowAdd` / `OverflowSub` / `OverflowMul`（命名沿用 Client，语义是「带溢出处理」）
 6. **禁止再引入第二套定点库**（FixedMathSharp 等），否则无法与 Client 对拍
@@ -50,6 +51,8 @@
 | 去掉 Obscured 转换 | **刻意**无反作弊依赖；数值路径不变。若业务要内存混淆，在进出 `FP` 边界自行适配（见根 README [反作弊](../../../README.md#反作弊)） |
 | 去掉 `TSMatrix4x4.TransformToMatrix(TSTransform)` | 依赖未迁移的 Unity 组件 |
 | `operator +` 暂存 | 主干曾用 `private static FP result`（多线程危险）；已改为局部变量，**单线程结果与主干一致** |
+| 除零 / 开方 / 反余弦 | 除数 0：正→`MaxValue`，负→`MinValue`，`0/0`→0。`% 0` 返回 0。`Sqrt` 负数返回 0。`Acos` 先夹到 [-1, 1]。这些只改变原先会抛异常或返回 ±90 的输入；正常商、非负开方、[-1, 1] 内的反余弦逐位不变 |
+| `Slerp` / `ClampMagnitude` / `Next(min,max)` | `Sin(halfTheta)==0` 时 `Slerp` 改走 `Lerp`。`ClampMagnitude` 不再把短向量拉长。`Next` 在上下界相等时返回该值且不推进随机序列；其它范围仍是 `Next() % range` |
 
 ## 典型用法
 

@@ -233,7 +233,9 @@ namespace Framework.FixedMath {
 
         public static void DistanceSquared(ref TSVector2 value1, ref TSVector2 value2, out FP result)
         {
-            result = (value1.x - value2.x)*(value1.x - value2.x) + (value1.y - value2.y)*(value1.y - value2.y);
+            FP dx = value1.x - value2.x;
+            FP dy = value1.y - value2.y;
+            result = FP.OverflowAdd(dx * dx, dy * dy);
         }
 
         /// <summary>
@@ -323,7 +325,22 @@ namespace Framework.FixedMath {
             }
         }
 
+        /// <summary>把向量长度限制在 <paramref name="maxLength"/> 以内。更短的向量保持原样。</summary>
+        /// <param name="vector">原向量。</param>
+        /// <param name="maxLength">允许的最大长度；负数按 0。</param>
+        /// <returns>长度不超过上限的向量。</returns>
         public static TSVector2 ClampMagnitude(TSVector2 vector, FP maxLength) {
+            if (maxLength < FP.Zero) {
+                maxLength = FP.Zero;
+            }
+
+            FP dx = vector.x;
+            FP dy = vector.y;
+            FP sqr = FP.OverflowAdd(dx * dx, dy * dy);
+            if (sqr <= maxLength * maxLength) {
+                return vector;
+            }
+
             return Normalize(vector) * maxLength;
         }
 
