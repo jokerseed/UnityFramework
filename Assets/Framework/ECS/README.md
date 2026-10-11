@@ -22,6 +22,7 @@ ECS/
 ├── BattlePhysicsWorld.cs        Farseer 2D 包装（XZ 圆体、无重力）
 ├── SpatialHashGrid.cs           空间哈希（HashSet 去重）
 ├── SpatialIndexService.cs       Actor 空间索引重建
+├── Snapshot/                    ISnapshotable：实体与内置组件；物理仅运动学扩展点
 ├── Components/
 │   └── BattleComponents.cs      Transform、Velocity、Projectile 等
 └── Systems/
@@ -39,6 +40,7 @@ ECS/
 | 共享单例 | `World.RegisterSingleton` / `GetSingleton<T>` |
 | 确定性物理 | `BattlePhysicsWorld`：Actor 动态圆、投射物运动学传感器；步进与逻辑 `FP` 步长一致 |
 | 空间索引 | `SpatialHashGrid`（定点格子）供 GAS 目标查询；`QueryNearby` 结果按实体 ID 升序 |
+| 快照 | `World.Save/Restore` 写入 `SnapshotBuffer`。不含 Farseer 接触；运动学另见 `BattlePhysicsWorld.SaveKinematics`（刚体须已存在） |
 
 未接：Jitter 3D 刚体、关节、地面/墙壁静态几何。当前 Demo 是 XZ 平面割草，只用 Farseer 2D。
 

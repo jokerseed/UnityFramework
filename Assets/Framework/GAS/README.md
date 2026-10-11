@@ -35,6 +35,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | 闪避 | `DashAbility`：自身 IFrame + 朝向冲刺 |
 | 霸体 / 倒地 | 眩晕不打断霸体；倒地无视霸体并禁手禁移 |
 | 定点仿真 | 冷却 / 范围 / 伤害 / 属性 / GE 时长与 Modifier 为 `FP`；`AbilityActivationContext` 位姿为 `TSVector`；表现事件仍发 float |
+| 快照 | `UnsupportedGasSnapshot` 明确抛出未实现。接入时要同时保存属性、标签、效果、冷却和技能，并在恢复后重算 Modifier |
 
 ## 定点约定
 

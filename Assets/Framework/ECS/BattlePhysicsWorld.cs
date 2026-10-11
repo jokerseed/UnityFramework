@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.Core.Snapshot;
 using Framework.ECS.Components;
 using Framework.FixedMath;
 using Framework.Lockstep;
@@ -22,6 +24,7 @@ namespace Framework.ECS
 
         readonly PhysicsWorld _world;
         readonly Dictionary<uint, PhysicsBody> _bodies = new Dictionary<uint, PhysicsBody>(64);
+        readonly List<uint> _bodyScratch = new List<uint>(64);
 
         /// <summary>底层 Farseer 世界。</summary>
         public PhysicsWorld Native => _world;
@@ -232,6 +235,70 @@ namespace Framework.ECS
             if (body != null && !body.IsDisposed)
             {
                 _world.RemoveBody(body);
+            }
+        }
+
+        /// <summary>
+        /// 保存已有刚体的运动学状态：平面位置、线速度、角速度、朝向、类型和启用标记。
+        /// 不包含接触、关节和岛划分。Restore 要求这些实体的刚体已经存在。
+        /// </summary>
+        /// <param name="writer">写入器。</param>
+        public void SaveKinematics(SnapshotWriter writer)
+        {
+            CopyBodyEntityIds(_bodyScratch);
+            writer.WriteInt(1);
+            writer.WriteInt(_bodyScratch.Count);
+            for (var i = 0; i < _bodyScratch.Count; i++)
+            {
+                var entityId = _bodyScratch[i];
+                var body = _bodies[entityId];
+                writer.WriteUInt(entityId);
+                writer.WriteFp(body.Position.x);
+                writer.WriteFp(body.Position.y);
+                writer.WriteFp(body.LinearVelocity.x);
+                writer.WriteFp(body.LinearVelocity.y);
+                writer.WriteFp(body.AngularVelocity);
+                writer.WriteFp(body.Rotation);
+                writer.WriteInt((int)body.BodyType);
+                writer.WriteBool(body.Enabled && !body.TSDisabled);
+            }
+        }
+
+        /// <summary>
+        /// 把运动学状态写回已存在的刚体，不重建接触。
+        /// 缺少对应刚体时抛出异常，避免静默留下旧速度。
+        /// </summary>
+        /// <param name="reader">读取器。</param>
+        /// <exception cref="InvalidOperationException">版本不匹配或刚体不存在。</exception>
+        public void RestoreKinematics(SnapshotReader reader)
+        {
+            var version = reader.ReadInt();
+            if (version != 1)
+            {
+                throw new InvalidOperationException("Unsupported physics kinematic snapshot version " + version);
+            }
+
+            var count = reader.ReadInt();
+            for (var i = 0; i < count; i++)
+            {
+                var entityId = reader.ReadUInt();
+                var position = new TSVector2(reader.ReadFp(), reader.ReadFp());
+                var velocity = new TSVector2(reader.ReadFp(), reader.ReadFp());
+                var angular = reader.ReadFp();
+                var rotation = reader.ReadFp();
+                var bodyType = (BodyType)reader.ReadInt();
+                var enabled = reader.ReadBool();
+                if (!_bodies.TryGetValue(entityId, out var body))
+                {
+                    throw new InvalidOperationException("Missing physics body for entity " + entityId);
+                }
+
+                body.BodyType = bodyType;
+                body.SetTransformIgnoreContacts(ref position, rotation);
+                body.LinearVelocity = velocity;
+                body.AngularVelocity = angular;
+                body.Enabled = enabled;
+                body.TSDisabled = !enabled;
             }
         }
 

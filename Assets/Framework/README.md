@@ -17,7 +17,7 @@
 |----|------|
 | 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
 | 战斗 Demo 锁步权威 Tick | 已接 `LocalLockstepHost`（意图帧 + checksum + F8 对拍） |
-| **预测回滚 / 状态快照** | **未实现** |
+| **预测回滚 / 状态快照** | **接口已有，未接线**。`Framework.Core.Snapshot.ISnapshotable`；ECS `World` 与 `DeterministicRandomSnapshot` 可往返；`UnsupportedGasSnapshot`、`BattlePhysicsWorld.SaveKinematics`（不含接触）是扩展点。预测回滚仍未做 |
 | **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
 
 详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。

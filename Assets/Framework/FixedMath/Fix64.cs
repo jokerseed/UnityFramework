@@ -1036,6 +1036,11 @@ namespace Framework.FixedMath {
         /// </summary>
         public long RawValue { get { return _serializedValue; } }
 
+        /// <summary>用 Q31.32 原始整数构造定点值，不经过 float。</summary>
+        /// <param name="rawValue">原始整数，与 <see cref="RawValue"/> 对应。</param>
+        /// <returns>定点值。</returns>
+        public static FP FromRaw(long rawValue) => new FP(rawValue);
+
         /// <summary>
         /// This is the constructor from raw value; it can only be used interally.
         /// </summary>
