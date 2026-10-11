@@ -20,6 +20,8 @@
 | `ObjectPoolManager` | 创建/销毁命名池，`Update` 自动释放 |
 | `ObjectPoolModule` | Bootstrap 模块 |
 
+`ObjectPoolManager.Update` 使用 `Time.deltaTime`（受 `timeScale` 影响）。过期判断用 `DateTime.UtcNow`，这是墙钟，不能拿去驱动战斗模拟。
+
 ## 推荐用法（外部零参数）
 
 prefab 地址、容量、过期时间全部写在子类里；业务侧**不传参**：
