@@ -50,13 +50,31 @@ namespace Framework.GAS.Abilities
             GameplayAbilitySpec spec,
             in AbilityActivationContext context,
             AbilityActivationInfo activationInfo)
+            : this(spec, context, activationInfo, s_nextInstanceId++)
         {
-            InstanceId = s_nextInstanceId++;
+        }
+
+        /// <summary>用已保存的实例 ID 重建，不推进静态计数。</summary>
+        internal ActiveAbilityInstance(
+            GameplayAbilitySpec spec,
+            in AbilityActivationContext context,
+            AbilityActivationInfo activationInfo,
+            int instanceId)
+        {
+            InstanceId = instanceId;
             Spec = spec;
             Context = context;
             ActivationInfo = activationInfo ?? new AbilityActivationInfo();
             State = ActiveAbilityState.Pending;
         }
+
+        /// <summary>下一个将分配的实例 ID。</summary>
+        /// <returns>静态计数。</returns>
+        internal static int PeekNextInstanceId() => s_nextInstanceId;
+
+        /// <summary>把下一个实例 ID 设为快照中的值。</summary>
+        /// <param name="value">下一个实例 ID。</param>
+        internal static void SetNextInstanceId(int value) => s_nextInstanceId = value;
 
         internal void AddTask(Tasks.AbilityTask task) => _tasks.Add(task);
 

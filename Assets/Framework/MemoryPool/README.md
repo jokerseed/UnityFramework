@@ -15,7 +15,7 @@
 | 类型 | 职责 |
 |------|------|
 | `IMemory` | 可池化对象契约，`Clear()` 归还前复位 |
-| `MemoryPool` | 静态 `Acquire` / `Release` / `Add` / `ClearAll` |
+| `MemoryPool` | 静态 `Acquire` / `Release` / `Add` / `ClearAll`。每个类型池的队列和计数有自己的锁，主线程与网络 IO 线程可以同时取还 |
 | `MemoryPoolManager` | 常驻单例，Inspector 配置严格检查 |
 | `MemoryPoolModule` | Bootstrap 模块：读取 Manager 开关，Shutdown 清空 |
 
@@ -37,6 +37,8 @@ var buf = MemoryPool.Acquire<TempBuffer>();
 MemoryPool.Release(buf);
 buf = null; // Release 后禁止再访问
 ```
+
+`Clear` 在该类型池的锁内调用，不要在 `Clear` 里再对同一个类型 `Acquire` / `Release`。
 
 ## Bootstrap
 

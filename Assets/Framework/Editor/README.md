@@ -9,7 +9,7 @@
 | 程序集 | `Framework.Editor` |
 | 命名空间 | `Framework.Editor` |
 | 平台 | Editor only |
-| 依赖 | `YooAsset.Editor` |
+| 依赖 | `Framework.Logging`、`YooAsset.Editor`。Behavior Designer 编辑器已拆到同目录下的 `BehaviorDesigner.Editor`，本程序集不再引用它 |
 
 ## 菜单一览
 
@@ -56,6 +56,10 @@ Editor/
     ├── YooAssetCollectorGenerator.cs
     └── AddressByPreImportPath.cs
 ```
+
+## Behavior Designer 编辑器
+
+`Behavior Designer/` 是 Opsive Behavior Designer 1.7.4 的第三方编辑器代码，原样保留。程序集 `BehaviorDesigner.Editor` 只在 Editor 平台编译，并引用运行时 `BehaviorDesigner`（`Assets/ThirdParty/Behavior Designer`）。`Framework.Editor` 不再引用它。仓库没有这份插件的许可证文件，条款以购买时的 Asset Store 许可为准。框架自己的行为树编辑器在 `Framework.BehaviourTree.Editor`，两者不要混用。
 
 ## 注意事项
 

@@ -122,6 +122,14 @@ namespace Framework.GAS.Effects
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
 
+        /// <summary>下一个将分配的 RuntimeId。</summary>
+        /// <returns>静态计数。</returns>
+        internal static int PeekNextRuntimeId() => s_nextHandle;
+
+        /// <summary>把下一个 RuntimeId 设为快照中的值。</summary>
+        /// <param name="value">下一个 RuntimeId。</param>
+        internal static void SetNextRuntimeId(int value) => s_nextHandle = value;
+
         /// <summary>从 Def 构造运行时 Spec（兼容旧构造函数）。</summary>
         public GameplayEffectSpec(
             string effectId,
@@ -146,8 +154,17 @@ namespace Framework.GAS.Effects
 
         /// <summary>从 Def 构造运行时 Spec。</summary>
         public GameplayEffectSpec(GameplayEffectDef def, IReadOnlyDictionary<string, FP> setByCaller = null)
+            : this(def, setByCaller, s_nextHandle++)
         {
-            RuntimeId = s_nextHandle++;
+        }
+
+        /// <summary>用显式 RuntimeId 构造 Spec，不推进静态计数。快照恢复使用。</summary>
+        /// <param name="def">效果定义。</param>
+        /// <param name="setByCaller">SetByCaller；可为 null。</param>
+        /// <param name="runtimeId">已保存的 RuntimeId。</param>
+        internal GameplayEffectSpec(GameplayEffectDef def, IReadOnlyDictionary<string, FP> setByCaller, int runtimeId)
+        {
+            RuntimeId = runtimeId;
             EffectId = def.EffectId;
             DurationPolicy = def.DurationPolicy;
             Duration = def.Duration;
@@ -199,13 +216,33 @@ namespace Framework.GAS.Effects
 
         /// <summary>创建活跃效果。</summary>
         public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source)
+            : this(spec, source, s_nextHandle++)
         {
-            Handle = new GameplayEffectHandle(s_nextHandle++);
+        }
+
+        /// <summary>用显式句柄创建活跃效果，不推进静态计数。快照恢复使用。</summary>
+        /// <param name="spec">效果 Spec。</param>
+        /// <param name="source">来源 Actor。</param>
+        /// <param name="handleValue">已保存的句柄。</param>
+        internal ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source, int handleValue)
+        {
+            Handle = new GameplayEffectHandle(handleValue);
             Spec = spec;
             Source = source;
             RemainingTime = spec.Duration;
             PeriodTimer = spec.Period;
         }
+
+        /// <summary>快照里来源 ASC 引用是否存在。恢复后由外部重新绑定。</summary>
+        internal bool SnapshotHadSourceAsc { get; set; }
+
+        /// <summary>下一个将分配的效果句柄。</summary>
+        /// <returns>静态计数。</returns>
+        internal static int PeekNextHandle() => s_nextHandle;
+
+        /// <summary>把下一个效果句柄设为快照中的值。</summary>
+        /// <param name="value">下一个句柄。</param>
+        internal static void SetNextHandle(int value) => s_nextHandle = value;
 
         /// <summary>是否已过期。</summary>
         public bool IsExpired =>

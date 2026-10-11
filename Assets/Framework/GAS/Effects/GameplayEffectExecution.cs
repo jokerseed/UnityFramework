@@ -64,11 +64,29 @@ namespace Framework.GAS.Effects
             float attackScale = 1f,
             string setByCallerKey = "Damage",
             BattleDamageType damageType = BattleDamageType.Physical)
+            : this((FP)attackScale, setByCallerKey, damageType)
+        {
+        }
+
+        /// <summary>用已保存的定点系数构造，避免经 float 再转一次。</summary>
+        /// <param name="attackScale">攻击力系数。</param>
+        /// <param name="setByCallerKey">SetByCaller 键。</param>
+        /// <param name="damageType">伤害类型。</param>
+        internal DamageExecution(FP attackScale, string setByCallerKey, BattleDamageType damageType)
         {
             _attackScale = attackScale;
             _setByCallerKey = setByCallerKey;
             _damageType = damageType;
         }
+
+        /// <summary>快照用的攻击力系数。</summary>
+        internal FP AttackScale => _attackScale;
+
+        /// <summary>快照用的 SetByCaller 键。</summary>
+        internal string SnapshotSetByCallerKey => _setByCallerKey;
+
+        /// <summary>快照用的伤害类型。</summary>
+        internal BattleDamageType SnapshotDamageType => _damageType;
 
         /// <inheritdoc/>
         public override void Execute(in ExecutionContext context)
@@ -105,6 +123,9 @@ namespace Framework.GAS.Effects
         /// <param name="magnitude">治疗幅度。</param>
         public HealExecution(ModifierMagnitude magnitude) => _magnitude = magnitude;
 
+        /// <summary>快照用的治疗幅度。</summary>
+        internal ModifierMagnitude SnapshotMagnitude => _magnitude;
+
         /// <inheritdoc/>
         public override void Execute(in ExecutionContext context)
         {
@@ -133,6 +154,9 @@ namespace Framework.GAS.Effects
         /// <summary>构造施加 GE Execution。</summary>
         /// <param name="effectDef">要施加的效果定义。</param>
         public ApplyGameplayEffectExecution(GameplayEffectDef effectDef) => _effectDef = effectDef;
+
+        /// <summary>快照用的嵌套效果定义。</summary>
+        internal GameplayEffectDef SnapshotEffectDef => _effectDef;
 
         /// <inheritdoc/>
         public override void Execute(in ExecutionContext context)

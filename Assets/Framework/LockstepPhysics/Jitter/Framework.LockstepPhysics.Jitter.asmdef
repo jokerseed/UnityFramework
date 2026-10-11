@@ -1,0 +1,18 @@
+{
+    "name": "Framework.LockstepPhysics.Jitter",
+    "rootNamespace": "Framework.Lockstep.Physics3D",
+    "references": [
+        "Framework.FixedMath",
+        "Framework.Lockstep",
+        "Framework.LockstepPhysics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
