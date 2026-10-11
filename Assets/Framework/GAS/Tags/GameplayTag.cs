@@ -233,6 +233,26 @@ namespace Framework.GAS.Tags
             NotifyMutated();
         }
 
+        /// <summary>用快照中的计数整体替换当前容器，并通知一次变更。</summary>
+        /// <param name="counts">标签名与计数；计数小于等于 0 的项会被忽略。</param>
+        internal void ReplaceCounts(List<KeyValuePair<string, int>> counts)
+        {
+            _counts.Clear();
+            if (counts != null)
+            {
+                for (var i = 0; i < counts.Count; i++)
+                {
+                    var pair = counts[i];
+                    if (pair.Value > 0 && !string.IsNullOrEmpty(pair.Key))
+                    {
+                        _counts[pair.Key] = pair.Value;
+                    }
+                }
+            }
+
+            NotifyMutated();
+        }
+
         void NotifyMutated() => _mutationListener?.Invoke();
     }
 }

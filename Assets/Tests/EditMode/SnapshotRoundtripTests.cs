@@ -1,16 +1,24 @@
+using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Snapshot;
 using Framework.ECS;
 using Framework.ECS.Components;
 using Framework.FixedMath;
+using Framework.GamePlay;
+using Framework.GAS;
+using Framework.GAS.Abilities;
+using Framework.GAS.Abilities.Builtin;
+using Framework.GAS.Effects;
 using Framework.GAS.Snapshot;
+using Framework.GAS.Tags;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Framework.Tests
 {
     /// <summary>
     /// 快照前进再恢复，第二次前进应得到相同指纹。
-    /// 只覆盖 ECS 组件和确定性随机；GAS 与 Farseer 接触不在这条路径里。
+    /// ECS、随机数和 GAS 都走这条路径。Farseer 接触仍不在这里。
     /// </summary>
     public sealed class SnapshotRoundtripTests
     {
@@ -108,11 +116,127 @@ namespace Framework.Tests
         }
 
         [Test]
-        public void GasSnapshotIsExplicitlyUnsupported()
+        public void GasSnapshotAdvanceRestoreMatchesChecksum()
         {
-            var gas = new UnsupportedGasSnapshot();
-            var buffer = new SnapshotBuffer();
-            Assert.Throws<System.NotSupportedException>(() => gas.Save(buffer.BeginWrite()));
+            const int warmup = 4;
+            const int steps = 20;
+            using (var director = new BattleDirector())
+            {
+                var session = director.CreateSession(11);
+                var framework = session.Framework;
+                var hero = session.AllocateActorId();
+                var enemy = session.AllocateActorId();
+                framework.CreateActor(hero, Vector3.zero, 200f, 0);
+                framework.CreateActor(enemy, new Vector3(0f, 0f, 1.2f), 80f, 1);
+                Assert.IsTrue(framework.TryGetActor(hero, out var heroAsc));
+                Assert.IsTrue(framework.TryGetActor(enemy, out var enemyAsc));
+
+                var sweep = new MeleeSweepAbility(
+                    "sweep",
+                    5f,
+                    12f,
+                    2f,
+                    60f,
+                    framework.QueryEnemiesInCone,
+                    0.2f,
+                    0.2f,
+                    0.3f);
+                var specHandle = heroAsc.GiveAbility(new GameplayAbilityDef(sweep));
+                var buff = new GameplayEffectDef(
+                    "Buff.Strike",
+                    EffectDurationPolicy.Duration,
+                    (FP)0.5f,
+                    new[]
+                    {
+                        new EffectModifier(BattleConstants.Attack, EffectModifierOperation.Add, 5f),
+                        new EffectModifier(BattleConstants.Shield, EffectModifierOperation.Add, 4f)
+                    },
+                    new[] { new GameplayTag("Buff.Strike") },
+                    EffectStackingPolicy.StackCount,
+                    maxStacks: 3);
+                Assert.IsTrue(heroAsc.ApplyEffect(buff, hero, framework.EventBus, null, heroAsc));
+                Assert.IsTrue(heroAsc.ApplyEffect(buff, hero, framework.EventBus, null, heroAsc));
+                heroAsc.StartCooldown("fireball", (FP)2, framework.EventBus);
+                var activated = heroAsc.TryActivateAbility(
+                    specHandle,
+                    new AbilityActivationContext(TSVector.zero, TSVector.forward, enemy, (FP)2),
+                    framework.Context,
+                    out _);
+                Assert.IsTrue(activated.Success, activated.FailureReason.ToString());
+                session.Step(warmup);
+
+                var components = CollectAsc(framework);
+                var gas = new GasSnapshot(components, framework.Context);
+                var randomSnapshot = new DeterministicRandomSnapshot(framework.Random);
+                var buffer = new SnapshotBuffer();
+                var writer = buffer.BeginWrite();
+                randomSnapshot.Save(writer);
+                framework.EcsWorld.Save(writer);
+                framework.EcsWorld.GetSingleton<BattlePhysicsWorld>().SaveKinematics(writer);
+                gas.Save(writer);
+
+                var atSnapshot = BattleFrameChecksum.Compute(framework);
+                var attack = heroAsc.Attributes.GetCurrentValue(BattleConstants.Attack).RawValue;
+                var shield = heroAsc.Attributes.GetCurrentValue(BattleConstants.Shield).RawValue;
+                var effectHandle = heroAsc.GetActiveEffect(0).Handle.Value;
+                var stacks = heroAsc.GetActiveEffect(0).StackCount;
+                var enemyHealth = enemyAsc.Attributes.GetCurrentValue(BattleConstants.Health).RawValue;
+                Assert.AreEqual(specHandle.Value, heroAsc.ActiveInstances[0].Spec.Handle.Value);
+                Assert.Greater(heroAsc.ActiveEffectCount, 1);
+
+                var forward = new long[steps];
+                for (var i = 0; i < steps; i++)
+                {
+                    session.Step(1);
+                    forward[i] = BattleFrameChecksum.Compute(framework);
+                }
+
+                Assert.AreNotEqual(atSnapshot, forward[steps - 1]);
+                Assert.Less(enemyAsc.Attributes.GetCurrentValue(BattleConstants.Health).RawValue, enemyHealth);
+
+                var reader = buffer.BeginRead();
+                randomSnapshot.Restore(reader);
+                framework.EcsWorld.Restore(reader);
+                framework.EcsWorld.GetSingleton<BattlePhysicsWorld>().RestoreKinematics(reader);
+                gas.Restore(reader);
+                Assert.AreEqual(0, reader.Remaining);
+                framework.Commands.ClearAll();
+                framework.Registry.RebindEntitiesAfterSnapshot();
+                framework.Registry.SyncPositionsFromEcs();
+                framework.EcsWorld.GetSingleton<SpatialHashGrid>().MarkStructuralDirty();
+
+                Assert.AreEqual(atSnapshot, BattleFrameChecksum.Compute(framework));
+                Assert.AreEqual(attack, heroAsc.Attributes.GetCurrentValue(BattleConstants.Attack).RawValue);
+                Assert.AreEqual(shield, heroAsc.Attributes.GetCurrentValue(BattleConstants.Shield).RawValue);
+                Assert.AreEqual(effectHandle, heroAsc.GetActiveEffect(0).Handle.Value);
+                Assert.AreEqual(stacks, heroAsc.GetActiveEffect(0).StackCount);
+                Assert.AreEqual(1, heroAsc.ActiveInstances.Count);
+                Assert.AreEqual(specHandle.Value, heroAsc.ActiveInstances[0].Spec.Handle.Value);
+                Assert.AreEqual((int)ActiveAbilityState.Active, (int)heroAsc.ActiveInstances[0].State);
+
+                for (var i = 0; i < steps; i++)
+                {
+                    session.Step(1);
+                    Assert.AreEqual(forward[i], BattleFrameChecksum.Compute(framework), "step " + i);
+                }
+
+                var next = heroAsc.GiveAbility(new GameplayAbilityDef(new DashAbility("dash", 1f, 1f, 0.2f, null)));
+                Assert.AreEqual(specHandle.Value + 1, next.Value);
+            }
+        }
+
+        static List<AbilitySystemComponent> CollectAsc(GamePlayFramework framework)
+        {
+            var ids = new List<ActorId>();
+            framework.Registry.CopySortedActorIds(ids);
+            var list = new List<AbilitySystemComponent>(ids.Count);
+            for (var i = 0; i < ids.Count; i++)
+            {
+                Assert.IsTrue(framework.TryGetActor(ids[i], out var asc));
+                list.Add(asc);
+            }
+
+            return list;
         }
 
         static void Advance(World world, TSRandom random)

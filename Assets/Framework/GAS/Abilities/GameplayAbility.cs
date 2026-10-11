@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.Core.Snapshot;
 using Framework.FixedMath;
 using Framework.GAS.Tags;
 namespace Framework.GAS.Abilities
@@ -134,6 +136,69 @@ namespace Framework.GAS.Abilities
         /// <param name="owner">持有该技能的 ASC。</param>
         /// <param name="instance">激活实例；Cancel 时 State 为 Cancelled。</param>
         public virtual void End(AbilitySystemComponent owner, ActiveAbilityInstance instance) { }
+
+        /// <summary>
+        /// 把进行中的 AbilityTask 写入快照。没有任务时写入 0。
+        /// 默认实现遇到未完成任务会抛出，避免恢复后丢判定窗口。
+        /// </summary>
+        /// <param name="instance">激活实例；不可为 null。</param>
+        /// <param name="writer">写入器。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="instance"/> 为 null。</exception>
+        /// <exception cref="NotSupportedException">存在未完成、且本技能不知道如何保存的任务。</exception>
+        public virtual void SaveActiveTasks(ActiveAbilityInstance instance, SnapshotWriter writer)
+        {
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+
+            var tasks = instance.Tasks;
+            for (var i = 0; i < tasks.Count; i++)
+            {
+                var task = tasks[i];
+                if (!task.IsDone && !task.IsCancelled)
+                {
+                    throw new NotSupportedException(
+                        "Ability " + AbilityId + " cannot snapshot in-flight task " + task.GetType().Name
+                        + ". Override SaveActiveTasks and RestoreActiveTasks.");
+                }
+            }
+
+            writer.WriteInt(0);
+        }
+
+        /// <summary>
+        /// 按 <see cref="SaveActiveTasks"/> 的字节恢复任务，不重新调用 <see cref="Activate"/>。
+        /// </summary>
+        /// <param name="owner">持有该技能的 ASC。</param>
+        /// <param name="instance">已重建、尚未挂任务的激活实例。</param>
+        /// <param name="battle">战斗上下文；有任务时不可为 null。</param>
+        /// <param name="reader">读取器。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="owner"/> 或 <paramref name="instance"/> 为 null。</exception>
+        /// <exception cref="NotSupportedException">字节中有任务，但本技能没有恢复实现。</exception>
+        public virtual void RestoreActiveTasks(
+            AbilitySystemComponent owner,
+            ActiveAbilityInstance instance,
+            BattleContext battle,
+            SnapshotReader reader)
+        {
+            if (owner == null)
+            {
+                throw new ArgumentNullException(nameof(owner));
+            }
+
+            if (instance == null)
+            {
+                throw new ArgumentNullException(nameof(instance));
+            }
+
+            var count = reader.ReadInt();
+            if (count != 0)
+            {
+                throw new NotSupportedException(
+                    "Ability " + AbilityId + " snapshot contains " + count + " tasks but has no restore implementation.");
+            }
+        }
     }
 
     /// <summary>技能激活上下文，描述激活瞬间的空间信息与目标。</summary>
@@ -177,6 +242,27 @@ namespace Framework.GAS.Abilities
 
             PrimaryTarget = primaryTarget;
             Range = range;
+        }
+
+        /// <summary>
+        /// 按快照原样恢复上下文，不再次归一化方向，避免定点归一化改变原始值。
+        /// </summary>
+        /// <param name="origin">已保存的起点。</param>
+        /// <param name="direction">已保存的方向。</param>
+        /// <param name="primaryTarget">主目标。</param>
+        /// <param name="range">范围。</param>
+        /// <param name="preserveDirection">区分重载；为 true 时保留 <paramref name="direction"/>。</param>
+        internal AbilityActivationContext(
+            TSVector origin,
+            TSVector direction,
+            ActorId primaryTarget,
+            FP range,
+            bool preserveDirection)
+        {
+            Origin = origin;
+            Direction = direction;
+            PrimaryTarget = primaryTarget;
+            Range = preserveDirection ? range : range;
         }
     }
 }
