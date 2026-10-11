@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Snapshot;
 using Framework.ECS;
@@ -105,6 +106,73 @@ namespace Framework.Tests
             physics.SaveKinematics(again.BeginWrite());
             Assert.AreEqual(saved.Length, again.Length);
             physics.Clear();
+        }
+
+        [Test]
+        public void FullPhysicsSnapshotMatchesLaterSteps()
+        {
+            var physics = new BattlePhysicsWorld();
+            physics.AddActorBody(1, new ActorId(1), 0, TSVector.zero, FP.Half);
+            physics.AddActorBody(2, new ActorId(2), 1, new TSVector((FP)0.2f, FP.Zero, FP.Zero), FP.Half);
+            physics.SetLinearVelocity(1, new TSVector((FP)2, FP.Zero, FP.Zero));
+            physics.SetLinearVelocity(2, new TSVector((FP)(-2), FP.Zero, FP.Zero));
+
+            var step = (FP)1 / 30;
+            for (var i = 0; i < 8; i++)
+            {
+                physics.Step(step);
+            }
+
+            var snapshot = new BattlePhysicsSnapshot();
+            physics.SaveFull(snapshot);
+            var touch = new List<uint>(4);
+            var atSnapshot = HashPhysics(physics, touch);
+
+            const int steps = 12;
+            var forward = new long[steps];
+            for (var i = 0; i < steps; i++)
+            {
+                physics.Step(step);
+                forward[i] = HashPhysics(physics, touch);
+            }
+
+            Assert.AreNotEqual(atSnapshot, forward[steps - 1]);
+            physics.RestoreFull(snapshot);
+            Assert.AreEqual(atSnapshot, HashPhysics(physics, touch));
+            for (var i = 0; i < steps; i++)
+            {
+                physics.Step(step);
+                Assert.AreEqual(forward[i], HashPhysics(physics, touch), "step " + i);
+            }
+
+            physics.Clear();
+        }
+
+        static long HashPhysics(BattlePhysicsWorld physics, List<uint> touch)
+        {
+            unchecked
+            {
+                long hash = 17;
+                hash = HashBody(hash, physics, 1, touch);
+                hash = HashBody(hash, physics, 2, touch);
+                return hash;
+            }
+        }
+
+        static long HashBody(long hash, BattlePhysicsWorld physics, uint entityId, List<uint> touch)
+        {
+            var transform = default(TransformComponent);
+            physics.TryWriteTransform(entityId, ref transform);
+            hash = (hash * 31) + transform.Position.x.RawValue;
+            hash = (hash * 31) + transform.Position.z.RawValue;
+            physics.CollectTouchingEntityIds(entityId, touch);
+            hash = (hash * 31) + touch.Count;
+            for (var i = 0; i < touch.Count; i++)
+            {
+                hash = (hash * 31) + touch[i];
+            }
+
+            return hash;
         }
 
         [Test]

@@ -30,7 +30,7 @@ Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配�
 | 锁步调度类型（`DefaultLockstep` / `RollbackLockstep` / `StateTracker`） | ✅ 已迁移（底层） |
 | `LockstepHost` / 与 GamePlay 对接 | ⚠️ 已有 `LocalLockstepHost`（单机自循环）；网络 `ICommunicator` 未接 |
 | 战斗演示（Battle） | ⚠️ 本地固定步长 + 意图帧 + F8 对拍；尚未联机等输入 |
-| **预测回滚 / 状态快照** | ⚠️ 接口已有。`ISnapshotable` + ECS 世界 + `TSRandom` 可 Save/Restore；GAS、Farseer 接触、行为树未接入，预测回滚未接线 |
+| **预测回滚 / 状态快照** | ⚠️ `ISnapshotable` + ECS 世界 + `TSRandom` 可 Save/Restore。Farseer 接触可用 `BattlePhysicsSnapshot` 内存克隆。GAS、行为树未接入，预测回滚未接线 |
 | 本地录像对拍 Demo | ⚠️ 战斗内 F8 影子 Session 对拍（非独立示例工程） |
 
 说明：Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开回滚）。Framework 当前目标与之对齐；回滚快照在 Roadmap 中单独规划。
@@ -241,7 +241,7 @@ Framework/
 - [ ] `LockstepHost` + `ILockstepSimulation` 门面
 - [ ] 本地 `NullCommunicator` + 联机等输入
 - [ ] GamePlay 固定逻辑帧 + FP 战斗对接
-- [ ] **预测回滚 / 状态快照**（已有 `ISnapshotable`、ECS 与随机数实现；GAS / Farseer 接触 / 行为树 / Lockstep 接线仍缺）
+- [ ] **预测回滚 / 状态快照**（已有 `ISnapshotable`、ECS、随机数，以及 `BattlePhysicsSnapshot` 接触克隆；GAS / 行为树 / Lockstep 接线仍缺）
 - [ ] **反作弊：帧 checksum 接线**（接 Host，暴露 `checksumOk` / 对拍告警）
 - [ ] **反作弊：可选 Obscured ↔ FP 适配**（边界转换；FixedMath 仍保持无依赖）
 - [ ] 根目录 LICENSE、CONTRIBUTING、CI 编译
