@@ -77,6 +77,8 @@ transform.position = FPConversions.ToVector3(pos);
 - 改成资源加载会让 `Framework.FixedMath` 依赖资源系统或文件路径。表没进包、加载顺序错了，第一次三角函数就会读到空表。
 - 正确的迁移是：把**现有数组的原始 long 按固定小端序**倒成二进制，启动时填回同一个 `long[]`，并用测试逐项比对旧字面量。在那个测试存在之前不要换路径。
 
+这三个 `.cs` 文件本次保持原样，一个字面量都没改。没有 Unity 就跑不了“每个 long 与旧表相同”的比对，用 double 再生成一遍也不能当作证明。
+
 ## 第三方说明
 
 见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

@@ -142,7 +142,7 @@ GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
 | `Framework.UI` | `UIManager` / `UIWindow` |
 | `Framework.FixedMath` | 确定性定点数（锁步基座 A） |
 | `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） |
-| `Framework.LockstepPhysics` | Jitter 3D + Farseer 2D（基座 D） |
+| `Framework.LockstepPhysics` | Farseer 2D（基座 D）；Jitter 3D 为可选程序集 `Framework.LockstepPhysics.Jitter` |
 | `Framework.BehaviourTree` | 帧同步行为树运行时 + 可视化编辑器 |
 | `Framework.Editor` | Luban / YooAsset Editor 工具 |
 
@@ -171,7 +171,7 @@ GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
 
 | 能力 | 干什么 | 与本框架关系 | 版本注意 |
 |------|--------|--------------|----------|
-| **BehaviourTree / BD** | 决策：打谁、放技能、切换状态 | ✅ **已用 / 主路径**；逻辑帧手动 Tick，锁步友好 | 2021.3 可用；BD 无定点，数值仍靠 FixedMath/GAS |
+| **BehaviourTree / BD** | 决策：打谁、放技能、切换状态 | ✅ **已用 / 主路径**是 `Framework.BehaviourTree`；BD 1.7.4 编辑器代码另放，许可见 BehaviourTree README | 2021.3 可用；BD 无定点，数值仍靠 FixedMath/GAS |
 | **NavMesh** | 传统寻路：走到目标、绕障 | ❌ 未接；3D 关卡移动时再评 | 各版本均有；**不替代**行为树决策 |
 | **ML-Agents** | 强化学习：在编辑器里**训练**智能体 | ❌ 未规划；成本高，商用不如 BT 常见 | 看具体包版本；与锁步确定性冲突大 |
 | **Sentis** | 运行时**推理**神经网络（ONNX 等） | ❌ 未规划；有现成模型再评 | 2021.3 / 2022.3 / Unity 6 均可；接替 Barracuda |
