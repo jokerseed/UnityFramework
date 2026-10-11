@@ -68,15 +68,20 @@ ECS/
 
 ```
 GamePlayFramework.Tick
-  1. SpatialIndexService.RebuildActors   ← 供 GAS 目标查询（上一逻辑步结束后的 Transform）
+  1. 若 SpatialHashGrid.StructuralDirty：RebuildActors
+       （步间 Create / Remove / SetPosition / 复活；死亡不单独置脏，窄相位用 Tag 剔除）
   2. SyncCuePose → 定身/眩晕清速度
   3. 存活 ASC.Tick（无 Active 技能/效果则跳过）
+       ← GAS 目标查询读的是「本步物理之前」的格子
   4. Flush Spawn（创建 ECS 实体 + Farseer 刚体）
   5. World.Tick (Simulate Phase)
-       PhysicsSimulation → SpatialIndex → ProjectileLifetime
+       PhysicsSimulation → SpatialIndex（每个逻辑步唯一一次必做全量重建）→ ProjectileLifetime
   6. Flush Damage / Heal / GE / Area / Displace
+       ← 范围结算读的是「本步物理之后」的格子
   7. SyncDeath → Sync Positions
 ```
+
+纯移动帧只有步骤 5 的那一次全量重建。格子是宽相位；精确距离仍用查询当下的 `TransformComponent`。
 
 ## 与 GAS 的协作
 

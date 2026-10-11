@@ -112,6 +112,7 @@ namespace Framework.GamePlay
                 BattleConstants.DefaultActorCollisionRadius);
 
             _actors[actorId] = actor;
+            MarkSpatialDirty();
             return actor;
         }
 
@@ -157,6 +158,10 @@ namespace Framework.GamePlay
 
             _world.AddComponent(entity, new CombatStateComponent { IsAlive = isAlive });
             _world.GetSingleton<BattlePhysicsWorld>()?.SetEnabled(entity.Id, isAlive);
+            if (isAlive)
+            {
+                MarkSpatialDirty();
+            }
         }
 
         /// <summary>写入 Actor 世界坐标（同时更新 ECS、<see cref="BattleActor.SimPosition"/> 与表现缓存）。</summary>
@@ -179,6 +184,7 @@ namespace Framework.GamePlay
             actor.SimPosition = position;
             actor.Position = FPConversions.ToVector3(position);
             _world.GetSingleton<BattlePhysicsWorld>()?.SetPosition(entity.Id, position);
+            MarkSpatialDirty();
         }
 
         /// <summary>尝试读取 Actor 仿真坐标。</summary>
@@ -582,6 +588,9 @@ namespace Framework.GamePlay
             }
 
             _actors.Remove(actorId);
+            MarkSpatialDirty();
         }
+
+        void MarkSpatialDirty() => _world.GetSingleton<SpatialHashGrid>()?.MarkStructuralDirty();
     }
 }

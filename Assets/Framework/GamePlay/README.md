@@ -120,10 +120,10 @@ LocalLockstepHost.Tick(unscaledDeltaTime)
   fillFrame（玩家）→ CollectAiIntents（AI 只入帧）
   Enqueue → Dequeue → BattleIntentApplier
   GamePlayFramework.Tick(fixedDt)
-    0. RebuildActors
+    0. 仅当空间索引 StructuralDirty 时 RebuildActors（刷出 / 传送 / 复活）
     1. SyncCuePose → 定身/眩晕/倒地清速度
-    2. 存活 ASC.Tick
-    3. Flush Spawn → Farseer Step → SpatialIndex → 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
+    2. 存活 ASC.Tick（查询读本步物理前的格子）
+    3. Flush Spawn → Farseer Step → SpatialIndex（每逻辑步必做的一次全量重建）→ 投射物寿命 → Flush 结算 → SyncDeath → Sync Positions
   afterFixedStep（刷波）→ checksum → 录像
 ```
 

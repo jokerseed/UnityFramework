@@ -19,7 +19,9 @@ namespace Framework.GamePlay
 {
     /// <summary>
     /// 玩法运行时主入口：编排 GAS 规则与 ECS 模拟。
-    /// Tick 顺序：RebuildActors → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → Flush 结算 → SyncDeath → SyncPositions。
+    /// Tick 顺序：按需补建空间索引 → SyncCue → 定身清速度 → 存活 ASC.Tick → Flush Spawn → Farseer 步进 → 物理后重建索引 → Flush 结算 → SyncDeath → SyncPositions。
+    /// 空间索引契约：每个逻辑步在物理之后全量重建一次。GAS 的 ASC.Tick 读到的是上一物理步结束后的格子；
+    /// 若步间发生创建、移除、传送或复活，则在本步 ASC.Tick 之前再重建一次。范围结算读物理之后的格子。
     /// AI 意图由 <see cref="CollectAiIntents"/> 在 Host 逻辑步写入帧，不在 Tick 内直接 Apply。
     /// </summary>
     public sealed class GamePlayFramework : ITickable, IDisposable
@@ -388,7 +390,7 @@ namespace Framework.GamePlay
         public void Tick(FP deltaTime)
         {
             var grid = _world.GetSingleton<SpatialHashGrid>();
-            if (grid != null)
+            if (grid != null && grid.StructuralDirty)
             {
                 SpatialIndexService.RebuildActors(_world, grid);
             }

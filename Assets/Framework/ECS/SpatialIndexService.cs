@@ -22,6 +22,7 @@ namespace Framework.ECS
 
                     grid.Insert(entityId, transform.Position);
                 });
+            grid.ClearStructuralDirty();
         }
     }
 }

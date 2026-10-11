@@ -91,7 +91,7 @@ Launch.Awake
 ## Tick 顺序
 
 ```
-GAS Tick → Flush Spawn → Farseer Step / ECS → Flush Damage/Heal/GE/Displace → SyncDeath → Sync Positions
+按需补建空间索引 → GAS Tick → Flush Spawn → Farseer Step → 物理后重建索引 → Flush Damage/Heal/GE/Displace → SyncDeath → Sync Positions
 ```
 
 ## Luban 配置表
