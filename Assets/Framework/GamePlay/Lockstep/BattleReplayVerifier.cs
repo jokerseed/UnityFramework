@@ -93,8 +93,8 @@ namespace Framework.GamePlay
             for (var i = 0; i < frames.Count; i++)
             {
                 var recorded = frames[i];
-                session.Tick(
-                    tape.FixedDeltaTime.AsFloat(),
+                session.Step(
+                    1,
                     _ => BattleIntentApplier.ApplyAll(session.Framework, recorded.Commands),
                     afterFixedStep);
 

@@ -17,7 +17,7 @@ namespace Framework.GamePlay
     {
         uint _nextActorId = 1;
         bool _disposed;
-        float _tickAccumulator;
+        FP _tickAccumulator;
 
         /// <summary>会话唯一标识，由 <see cref="BattleDirector"/> 分配。</summary>
         public int SessionId { get; }
@@ -40,9 +40,12 @@ namespace Framework.GamePlay
         /// <summary>逻辑固定步长（秒，定点）。</summary>
         public FP FixedDeltaTime { get; set; } = (FP)(1) / 30;
 
-        /// <summary>当前渲染帧的逻辑插值系数，范围 [0, 1]。</summary>
+        /// <summary>
+        /// 当前渲染帧的逻辑插值系数，范围 [0, 1]。
+        /// 累加器本身是 <see cref="FP"/>；这里只为表现插值转成 float。
+        /// </summary>
         public float InterpolationAlpha => FixedDeltaTime > FP.Zero
-            ? Mathf.Clamp01(_tickAccumulator / FixedDeltaTime.AsFloat())
+            ? Mathf.Clamp01((_tickAccumulator / FixedDeltaTime).AsFloat())
             : 0f;
 
         /// <summary>本场战斗随机种子。</summary>
@@ -84,7 +87,11 @@ namespace Framework.GamePlay
             }
         }
 
-        /// <summary>按固定步长推进战斗逻辑，并在每个逻辑步前后执行回调。</summary>
+        /// <summary>
+        /// 按渲染帧时间追赶逻辑步。传入的 float 只在入口转成 <see cref="FP"/>，
+        /// 累加、比较和扣减都在定点上完成，避免 float 累加漂移导致步数不一致。
+        /// 录像重放请用 <see cref="Step"/>，不要用 <c>FixedDeltaTime.AsFloat()</c> 反推一步。
+        /// </summary>
         /// <param name="deltaTime">本次渲染帧累计的时间增量（秒）。</param>
         /// <param name="beforeFixedStep">每个逻辑步执行前的回调；参数为固定步长。</param>
         /// <param name="afterFixedStep">每个逻辑步执行后的回调；参数为固定步长。</param>
@@ -99,24 +106,50 @@ namespace Framework.GamePlay
                 return 0;
             }
 
-            if (FixedDeltaTime <= FP.Zero)
+            EnsureFixedStep();
+            var incoming = deltaTime > 0f ? (FP)deltaTime : FP.Zero;
+            var maxAccum = FixedDeltaTime * 4;
+            _tickAccumulator += incoming;
+            if (_tickAccumulator > maxAccum)
             {
-                throw new InvalidOperationException("BattleSession.FixedDeltaTime must be greater than zero.");
+                _tickAccumulator = maxAccum;
             }
 
-            var stepSeconds = FixedDeltaTime.AsFloat();
-            _tickAccumulator = Mathf.Min(_tickAccumulator + Mathf.Max(0f, deltaTime), stepSeconds * 4f);
             var stepped = 0;
-            while (_tickAccumulator >= stepSeconds)
+            while (_tickAccumulator >= FixedDeltaTime)
             {
-                beforeFixedStep?.Invoke(FixedDeltaTime);
-                Framework.Tick(FixedDeltaTime);
-                afterFixedStep?.Invoke(FixedDeltaTime);
-                _tickAccumulator -= stepSeconds;
+                RunOneStep(beforeFixedStep, afterFixedStep);
+                _tickAccumulator -= FixedDeltaTime;
                 stepped++;
             }
 
             return stepped;
+        }
+
+        /// <summary>
+        /// 推进恰好 <paramref name="stepCount"/> 个逻辑步，不经过 float 累加器。
+        /// </summary>
+        /// <param name="stepCount">逻辑步数；小于等于 0 时不推进。</param>
+        /// <param name="beforeFixedStep">每个逻辑步执行前的回调；参数为固定步长。</param>
+        /// <param name="afterFixedStep">每个逻辑步执行后的回调；参数为固定步长。</param>
+        /// <returns>实际推进的逻辑步数。</returns>
+        public int Step(
+            int stepCount,
+            Action<FP> beforeFixedStep = null,
+            Action<FP> afterFixedStep = null)
+        {
+            if (_disposed || !IsRunning || stepCount <= 0)
+            {
+                return 0;
+            }
+
+            EnsureFixedStep();
+            for (var i = 0; i < stepCount; i++)
+            {
+                RunOneStep(beforeFixedStep, afterFixedStep);
+            }
+
+            return stepCount;
         }
 
         /// <summary>释放会话：销毁 Framework、释放 ResourceScope。</summary>
@@ -129,10 +162,25 @@ namespace Framework.GamePlay
 
             _disposed = true;
             IsRunning = false;
-            _tickAccumulator = 0f;
+            _tickAccumulator = FP.Zero;
             Framework.Dispose();
             Scope.Dispose();
             GameLog.Info(LogCategories.GamePlay, $"Session {LogStyle.Value(SessionId.ToString())} disposed");
+        }
+
+        void EnsureFixedStep()
+        {
+            if (FixedDeltaTime <= FP.Zero)
+            {
+                throw new InvalidOperationException("BattleSession.FixedDeltaTime must be greater than zero.");
+            }
+        }
+
+        void RunOneStep(Action<FP> beforeFixedStep, Action<FP> afterFixedStep)
+        {
+            beforeFixedStep?.Invoke(FixedDeltaTime);
+            Framework.Tick(FixedDeltaTime);
+            afterFixedStep?.Invoke(FixedDeltaTime);
         }
 
         void ThrowIfDisposed()
