@@ -58,9 +58,9 @@ namespace Framework.ECS
         /// <param name="writer">写入器。</param>
         public void Save(SnapshotWriter writer)
         {
+            EnsureCustomComponentsAreRegistered();
             writer.WriteInt(SnapshotMagic);
             writer.WriteInt(SnapshotVersion);
-            EnsureCustomComponentsAreRegistered();
             writer.WriteUInt(_nextEntityId);
             writer.WriteInt(_freeEntityIds.Count);
             for (var freeIndex = 0; freeIndex < _freeEntityIds.Count; freeIndex++)
@@ -121,10 +121,21 @@ namespace Framework.ECS
 
             var nextEntityId = reader.ReadUInt();
             var freeCount = reader.ReadInt();
+            if (freeCount < 0)
+            {
+                throw new InvalidOperationException("ECS snapshot free-id count is negative.");
+            }
+
             _freeEntityIds.Clear();
             for (var freeIndex = 0; freeIndex < freeCount; freeIndex++)
             {
-                _freeEntityIds.Add(reader.ReadUInt());
+                var freeId = reader.ReadUInt();
+                if (freeId == 0 || freeId >= nextEntityId || _freeEntityIds.Contains(freeId))
+                {
+                    throw new InvalidOperationException("ECS snapshot free-id " + freeId + " is invalid.");
+                }
+
+                _freeEntityIds.Add(freeId);
             }
 
             var entityCount = reader.ReadInt();

@@ -176,7 +176,7 @@ namespace Framework.ECS.Systems
                         continue;
                     }
 
-                    if (projectile.HitEntityIds != null && projectile.HitEntityIds.Contains(otherId))
+                    if (projectile.HitEntityIds != null && projectile.HitEntityIds.Contains(link.ActorId.Value))
                     {
                         continue;
                     }
@@ -235,7 +235,7 @@ namespace Framework.ECS.Systems
                     projectile.HitEntityIds = new List<uint>(4);
                 }
 
-                projectile.HitEntityIds.Add(hitEntity);
+                projectile.HitEntityIds.Add(actors.TryGet(hitEntity, out var hitActor) ? hitActor.ActorId.Value : hitEntity);
                 if (projectile.PierceRemaining > 0)
                 {
                     projectile.PierceRemaining--;

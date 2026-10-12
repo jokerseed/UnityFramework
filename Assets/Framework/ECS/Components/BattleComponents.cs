@@ -54,7 +54,7 @@ namespace Framework.ECS.Components
         /// <summary>剩余可穿透次数；0 表示下一次命中后销毁。</summary>
         public int PierceRemaining;
 
-        /// <summary>已经命中过的实体。穿透弹不会对同一个实体每步再结算一次。</summary>
+        /// <summary>已经命中过的 ActorId。穿透弹不会因为实体 ID 被回收而跳过新单位。</summary>
         public List<uint> HitEntityIds;
 
         /// <summary>命中后施加的效果 ID；空则不施加。</summary>
