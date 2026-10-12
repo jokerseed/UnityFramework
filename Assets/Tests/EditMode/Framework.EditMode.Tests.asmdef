@@ -18,6 +18,7 @@
         "Framework.Bootstrap",
         "Framework.MemoryPool",
         "Framework.Network",
+        "Generated.Luban",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using BtTree = Framework.BehaviourTree.BehaviourTree;
 using Framework.BehaviourTree;
 using Framework.Bootstrap;
 using Framework.Core;
@@ -12,6 +13,7 @@ using Framework.GAS;
 using Framework.GAS.Combat;
 using Framework.GAS.Tags;
 using Framework.MemoryPool;
+using MemPool = Framework.MemoryPool.MemoryPool;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -122,7 +124,7 @@ namespace Framework.Tests
             });
             var selector = new BtSelector();
             selector.AddChild(new BtCooldown(action, FP.One));
-            var tree = new BehaviourTree(selector);
+            var tree = new BtTree(selector);
             var context = new BtContext(new BtBlackboard());
             context.DeltaTime = (FP)1 / 2;
 
@@ -199,9 +201,9 @@ namespace Framework.Tests
         [Test]
         public void MemoryPoolSurvivesConcurrentAcquireAndRelease()
         {
-            var previous = MemoryPool.EnableStrictCheck;
-            MemoryPool.EnableStrictCheck = false;
-            MemoryPool.ClearAll();
+            var previous = MemPool.EnableStrictCheck;
+            MemPool.EnableStrictCheck = false;
+            MemPool.ClearAll();
             var errors = 0;
             var gate = new object();
             var threads = new Thread[4];
@@ -213,9 +215,9 @@ namespace Framework.Tests
                     {
                         for (var i = 0; i < 400; i++)
                         {
-                            var item = MemoryPool.Acquire<PoolProbe>();
+                            var item = MemPool.Acquire<PoolProbe>();
                             item.Value = i;
-                            MemoryPool.Release(item);
+                            MemPool.Release(item);
                         }
                     }
                     catch (Exception)
@@ -239,7 +241,7 @@ namespace Framework.Tests
             }
 
             Assert.AreEqual(0, errors);
-            var infos = MemoryPool.GetAllInfos();
+            var infos = MemPool.GetAllInfos();
             for (var i = 0; i < infos.Length; i++)
             {
                 if (infos[i].Type == typeof(PoolProbe))
@@ -248,8 +250,8 @@ namespace Framework.Tests
                 }
             }
 
-            MemoryPool.ClearAll();
-            MemoryPool.EnableStrictCheck = previous;
+            MemPool.ClearAll();
+            MemPool.EnableStrictCheck = previous;
         }
 
         static AbilitySystemComponent CombatTarget()

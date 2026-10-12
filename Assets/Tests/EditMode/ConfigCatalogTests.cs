@@ -32,6 +32,7 @@ namespace Framework.Tests
                     EffectId = "Test.Buff"
                 });
                 Assert.Throws<InvalidOperationException>(() => framework.Tick((FP)1 / 30));
+                Assert.AreEqual(0, framework.Commands.ApplyEffect.Count);
                 framework.Commands.ClearAll();
                 Assert.AreEqual(0, asc.ActiveEffectCount);
 
@@ -60,6 +61,7 @@ namespace Framework.Tests
                     EffectId = "Missing.Effect"
                 });
                 Assert.Throws<InvalidOperationException>(() => framework.Tick((FP)1 / 30));
+                Assert.AreEqual(0, framework.Commands.ApplyEffect.Count);
                 framework.Commands.ClearAll();
                 Assert.AreEqual(1, asc.ActiveEffectCount);
 
@@ -102,7 +104,7 @@ namespace Framework.Tests
                 Assert.Throws<KeyNotFoundException>(() =>
                     BattleConfigApplier.ApplyEffect(asc, "Missing.Effect", actorId, catalog, framework.Context));
                 Assert.Throws<ArgumentNullException>(() =>
-                    BattleConfigApplier.ApplyEffect(asc, "Test.Direct", actorId, null, framework.Context));
+                    BattleConfigApplier.ApplyEffect(asc, "Test.Direct", actorId, (IBattleEffectCatalog)null, framework.Context));
             }
         }
 
