@@ -142,12 +142,19 @@ namespace Framework.Core.Snapshot
         }
     }
 
-    /// <summary>小端读取。</summary>
+    /// <summary>
+    /// 小端读取。按值传递仍共享读取位置，嵌套方法读完后外层会从下一个字节继续。
+    /// </summary>
     public struct SnapshotReader
     {
         readonly byte[] _bytes;
         readonly int _length;
-        int _offset;
+        readonly Cursor _cursor;
+
+        sealed class Cursor
+        {
+            public int Offset;
+        }
 
         /// <summary>绑定一段已有字节。</summary>
         /// <param name="bytes">字节数组。</param>
@@ -156,11 +163,11 @@ namespace Framework.Core.Snapshot
         {
             _bytes = bytes ?? throw new ArgumentNullException(nameof(bytes));
             _length = length;
-            _offset = 0;
+            _cursor = new Cursor();
         }
 
         /// <summary>尚未读取的字节数。</summary>
-        public int Remaining => _length - _offset;
+        public int Remaining => _length - _cursor.Offset;
 
         /// <summary>读取 32 位整数。</summary>
         /// <returns>值。</returns>
@@ -171,17 +178,18 @@ namespace Framework.Core.Snapshot
         /// <exception cref="InvalidOperationException">缓冲被截断。</exception>
         public uint ReadUInt()
         {
-            if (_offset + 4 > _length)
+            if (_cursor.Offset + 4 > _length)
             {
                 throw new InvalidOperationException("Snapshot truncated.");
             }
 
             var bytes = _bytes;
-            var value = (uint)bytes[_offset]
-                        | ((uint)bytes[_offset + 1] << 8)
-                        | ((uint)bytes[_offset + 2] << 16)
-                        | ((uint)bytes[_offset + 3] << 24);
-            _offset += 4;
+            var offset = _cursor.Offset;
+            var value = (uint)bytes[offset]
+                        | ((uint)bytes[offset + 1] << 8)
+                        | ((uint)bytes[offset + 2] << 16)
+                        | ((uint)bytes[offset + 3] << 24);
+            _cursor.Offset = offset + 4;
             return value;
         }
 
@@ -199,13 +207,13 @@ namespace Framework.Core.Snapshot
         /// <exception cref="InvalidOperationException">缓冲被截断。</exception>
         public bool ReadBool()
         {
-            if (_offset >= _length)
+            if (_cursor.Offset >= _length)
             {
                 throw new InvalidOperationException("Snapshot truncated.");
             }
 
-            var value = _bytes[_offset] != 0;
-            _offset++;
+            var value = _bytes[_cursor.Offset] != 0;
+            _cursor.Offset++;
             return value;
         }
 
@@ -229,13 +237,13 @@ namespace Framework.Core.Snapshot
                 return string.Empty;
             }
 
-            if (_offset + count > _length)
+            if (_cursor.Offset + count > _length)
             {
                 throw new InvalidOperationException("Snapshot truncated.");
             }
 
-            var value = Encoding.UTF8.GetString(_bytes, _offset, count);
-            _offset += count;
+            var value = Encoding.UTF8.GetString(_bytes, _cursor.Offset, count);
+            _cursor.Offset += count;
             return value;
         }
     }
