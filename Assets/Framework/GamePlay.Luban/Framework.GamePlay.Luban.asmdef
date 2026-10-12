@@ -9,7 +9,8 @@
         "Framework.FixedMath",
         "Framework.GamePlay",
         "Framework.GAS",
-        "Generated.Luban"
+        "Generated.Luban",
+        "Luban.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
