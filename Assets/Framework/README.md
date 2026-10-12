@@ -42,7 +42,7 @@
 | 步长 | `BattleSession.FixedDeltaTime`（`FP`） | 构造参数 `float deltaTime` |
 | 校验 | `BattleFrameChecksum` | `ChecksumExtractor`（物理体 MD5） |
 | 录像 | `BattleReplayTape`（内存） | `ReplayRecord` |
-| 回滚 | `LockstepHost` + `BattleLockstepSimulation` 按检查点回滚（GAS、ECS、随机数、物理克隆）。`LocalLockstepHost` 仍是单机意图帧，不等输入 | `RollbackLockstep` 只克隆物理世界，GAS/ECS/行为树不还原 |
+| 回滚 | `LockstepHost` + `BattleLockstepSimulation` 按检查点回滚（GAS、ECS、随机数、物理克隆、已绑定 Agent 的行为树）。`LocalLockstepHost` 仍是单机意图帧，不等输入 | `RollbackLockstep` 只克隆物理世界，GAS/ECS/行为树不还原 |
 
 战斗结果以 `BattleFrameChecksum` 为准。`AbstractLockstep` 不驱动当前 Battle；它只在 `RUNNING` 时推进，校验和第一次不一致会锁存。联网回滚走 `LockstepHost`，不要把 `RollbackLockstep` 当成已经接上的战斗回滚。
 

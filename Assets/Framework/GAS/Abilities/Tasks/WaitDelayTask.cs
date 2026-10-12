@@ -39,6 +39,18 @@ namespace Framework.GAS.Abilities.Tasks
         /// <inheritdoc/>
         protected override void OnCancel() => Finish();
 
+        /// <inheritdoc />
+        public override int ProgressHash()
+        {
+            unchecked
+            {
+                var hash = base.ProgressHash();
+                hash = (hash * 16777619) ^ _elapsed.RawValue.GetHashCode();
+                hash = (hash * 16777619) ^ _duration.RawValue.GetHashCode();
+                return hash;
+            }
+        }
+
         /// <summary>写入已经过的时间与完成标记。</summary>
         /// <param name="writer">写入器。</param>
         internal void WriteProgress(SnapshotWriter writer)

@@ -132,6 +132,32 @@ namespace Framework.GAS.Abilities.Tasks
         /// <inheritdoc/>
         protected override void OnCancel() => Finish();
 
+        /// <inheritdoc />
+        public override int ProgressHash()
+        {
+            unchecked
+            {
+                var hash = base.ProgressHash();
+                hash = (hash * 16777619) ^ (int)_phase;
+                hash = (hash * 16777619) ^ _elapsed.RawValue.GetHashCode();
+                hash = (hash * 16777619) ^ (_comboGranted ? 1 : 0);
+                _scratch.Clear();
+                foreach (var id in _hitOnce)
+                {
+                    _scratch.Add(new ActorId(id));
+                }
+
+                _scratch.Sort(CompareActor);
+                hash = (hash * 16777619) ^ _scratch.Count;
+                for (var i = 0; i < _scratch.Count; i++)
+                {
+                    hash = (hash * 16777619) ^ (int)_scratch[i].Value;
+                }
+
+                return hash;
+            }
+        }
+
         /// <summary>写入阶段、计时、连招标记和已命中目标。</summary>
         /// <param name="writer">写入器。</param>
         internal void WriteProgress(SnapshotWriter writer)

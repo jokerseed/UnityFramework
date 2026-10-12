@@ -18,7 +18,7 @@ Gameplay Ability System 层，战斗规则的权威数据源。对标 UE GAS **�
 | GameplayEffect | `GameplayEffectDef` / `GameplayEffectSpec` / `GameplayEffectHandle` / Remove / Periodic |
 | Modifier | `ModifierMagnitude`（Constant / AttributeBased / SetByCaller）/ `Override` |
 | Execution | `DamageExecution` / `HealExecution` / `ApplyGameplayEffectExecution` |
-| AbilityTask | `WaitDelayTask` / `ApplyGameplayEffectToTargetTask` / `WaitGameplayEventTask` |
+| AbilityTask | `WaitDelayTask` / `ApplyGameplayEffectToTargetTask` / `WaitGameplayEventTask`。`ProgressHash` 供帧校验，默认只含完成/取消；等待和近战扫击会带上计时 |
 | Targeting | `GameplayTargetData` / `TargetDataFilter`（GamePlay 空间查询） |
 | GameplayEvent | `GameplayEventData` / `HandleGameplayEvent` |
 | Cue | `IGameplayCueManager` / `EventBusGameplayCueManager`（Execute / Add / Remove） |
