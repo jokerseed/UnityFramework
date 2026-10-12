@@ -20,6 +20,7 @@ namespace Framework.ECS
         };
 
         uint _nextEntityId = 1;
+        readonly List<uint> _freeEntityIds = new List<uint>();
         readonly List<ISystem> _systems = new List<ISystem>();
         readonly Dictionary<uint, Entity> _entities = new Dictionary<uint, Entity>();
         readonly Dictionary<Type, IComponentStorage> _storages = new Dictionary<Type, IComponentStorage>();
@@ -64,12 +65,24 @@ namespace Framework.ECS
             return _singletons.TryGetValue(typeof(T), out var instance) ? (T)instance : null;
         }
 
-        /// <summary>创建新实体并返回其引用，实体 ID 自增且不复用。</summary>
+        /// <summary>创建新实体。优先复用已销毁的 ID，避免稀疏数组按历史最大 ID 一直涨。</summary>
         /// <returns>新建的 <see cref="Entity"/> 实例，初始状态为存活。</returns>
         public Entity CreateEntity()
         {
-            var entity = new Entity(_nextEntityId++);
-            _entities[entity.Id] = entity;
+            uint id;
+            if (_freeEntityIds.Count > 0)
+            {
+                var last = _freeEntityIds.Count - 1;
+                id = _freeEntityIds[last];
+                _freeEntityIds.RemoveAt(last);
+            }
+            else
+            {
+                id = _nextEntityId++;
+            }
+
+            var entity = new Entity(id);
+            _entities[id] = entity;
             return entity;
         }
 
@@ -98,6 +111,7 @@ namespace Framework.ECS
             GetSingleton<BattlePhysicsWorld>()?.RemoveBody(entityId);
             entity.IsAlive = false;
             _entities.Remove(entityId);
+            _freeEntityIds.Add(entityId);
 
             foreach (var storage in _storages.Values)
             {

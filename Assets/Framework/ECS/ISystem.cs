@@ -19,6 +19,9 @@ namespace Framework.ECS
     /// <summary>组件存储的非泛型接口，供 <see cref="World"/> 统一管理各类型存储。</summary>
     public interface IComponentStorage
     {
+        /// <summary>当前存放的组件数量。</summary>
+        int Count { get; }
+
         /// <summary>移除指定实体的组件数据。</summary>
         /// <param name="entityId">要移除组件的实体 ID。</param>
         void Remove(uint entityId);

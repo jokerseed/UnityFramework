@@ -1,3 +1,4 @@
+using System;
 using Framework.Core.Snapshot;
 
 namespace Framework.ECS
@@ -11,6 +12,9 @@ namespace Framework.ECS
     {
         /// <summary>稳定的块类型号，须 &gt;= 100。</summary>
         int TypeId { get; }
+
+        /// <summary>该扩展负责保存的组件类型。Save 时若还有未登记的非内置组件，会抛错。</summary>
+        Type ComponentType { get; }
 
         /// <summary>追加该扩展的状态。调用时类型号已经由 World 写过。</summary>
         /// <param name="world">ECS 世界。</param>
