@@ -173,7 +173,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     WakeBodies();
                     _enableLimit = value;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
         }
@@ -190,7 +190,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     WakeBodies();
                     _lowerAngle = value;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
         }
@@ -207,7 +207,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     WakeBodies();
                     _upperAngle = value;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
         }
@@ -224,7 +224,7 @@ namespace Framework.Lockstep.Physics2D
                 WakeBodies();
                 _upperAngle = upper;
                 _lowerAngle = lower;
-                _impulse.z = 0.0f;
+                _impulse.z = (FP)(0.0f);
             }
         }
 
@@ -337,7 +337,7 @@ namespace Framework.Lockstep.Physics2D
             FP mA = _invMassA, mB = _invMassB;
             FP iA = _invIA, iB = _invIB;
 
-            bool fixedRotation = (iA + iB == 0.0f);
+            bool fixedRotation = (iA + iB == (FP)(0.0f));
 
             _mass.ex.x = mA + mB + _rA.y * _rA.y * iA + _rB.y * _rB.y * iB;
             _mass.ey.x = -_rA.y * _rA.x * iA - _rB.y * _rB.x * iB;
@@ -350,20 +350,20 @@ namespace Framework.Lockstep.Physics2D
             _mass.ez.z = iA + iB;
 
             _motorMass = iA + iB;
-            if (_motorMass > 0.0f)
+            if (_motorMass > (FP)(0.0f))
             {
-                _motorMass = 1.0f / _motorMass;
+                _motorMass = (FP)(1.0f) / _motorMass;
             }
 
             if (_enableMotor == false || fixedRotation)
             {
-                _motorImpulse = 0.0f;
+                _motorImpulse = (FP)(0.0f);
             }
 
             if (_enableLimit && fixedRotation == false)
             {
                 FP jointAngle = aB - aA - ReferenceAngle;
-                if (FP.Abs(_upperAngle - _lowerAngle) < 2.0f * Settings.AngularSlop)
+                if (FP.Abs(_upperAngle - _lowerAngle) < (FP)(2.0f) * Settings.AngularSlop)
                 {
                     _limitState = LimitState.Equal;
                 }
@@ -371,7 +371,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (_limitState != LimitState.AtLower)
                     {
-                        _impulse.z = 0.0f;
+                        _impulse.z = (FP)(0.0f);
                     }
                     _limitState = LimitState.AtLower;
                 }
@@ -379,14 +379,14 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (_limitState != LimitState.AtUpper)
                     {
-                        _impulse.z = 0.0f;
+                        _impulse.z = (FP)(0.0f);
                     }
                     _limitState = LimitState.AtUpper;
                 }
                 else
                 {
                     _limitState = LimitState.Inactive;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
             else
@@ -411,7 +411,7 @@ namespace Framework.Lockstep.Physics2D
             else
             {
                 _impulse = TSVector.zero;
-                _motorImpulse = 0.0f;
+                _motorImpulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -430,7 +430,7 @@ namespace Framework.Lockstep.Physics2D
             FP mA = _invMassA, mB = _invMassB;
             FP iA = _invIA, iB = _invIB;
 
-            bool fixedRotation = (iA + iB == 0.0f);
+            bool fixedRotation = (iA + iB == (FP)(0.0f));
 
             // Solve motor constraint.
             if (_enableMotor && _limitState != LimitState.Equal && fixedRotation == false)
@@ -462,7 +462,7 @@ namespace Framework.Lockstep.Physics2D
                 else if (_limitState == LimitState.AtLower)
                 {
                     FP newImpulse = _impulse.z + impulse.z;
-                    if (newImpulse < 0.0f)
+                    if (newImpulse < (FP)(0.0f))
                     {
                         TSVector2 rhs = -Cdot1 + _impulse.z * new TSVector2(_mass.ez.x, _mass.ez.y);
                         TSVector2 reduced = _mass.Solve22(rhs);
@@ -471,7 +471,7 @@ namespace Framework.Lockstep.Physics2D
                         impulse.z = -_impulse.z;
                         _impulse.x += reduced.x;
                         _impulse.y += reduced.y;
-                        _impulse.z = 0.0f;
+                        _impulse.z = (FP)(0.0f);
                     }
                     else
                     {
@@ -481,7 +481,7 @@ namespace Framework.Lockstep.Physics2D
                 else if (_limitState == LimitState.AtUpper)
                 {
                     FP newImpulse = _impulse.z + impulse.z;
-                    if (newImpulse > 0.0f)
+                    if (newImpulse > (FP)(0.0f))
                     {
                         TSVector2 rhs = -Cdot1 + _impulse.z * new TSVector2(_mass.ez.x, _mass.ez.y);
                         TSVector2 reduced = _mass.Solve22(rhs);
@@ -490,7 +490,7 @@ namespace Framework.Lockstep.Physics2D
                         impulse.z = -_impulse.z;
                         _impulse.x += reduced.x;
                         _impulse.y += reduced.y;
-                        _impulse.z = 0.0f;
+                        _impulse.z = (FP)(0.0f);
                     }
                     else
                     {
@@ -537,16 +537,16 @@ namespace Framework.Lockstep.Physics2D
 
             Rot qA = new Rot(aA), qB = new Rot(aB);
 
-            FP angularError = 0.0f;
+            FP angularError = (FP)(0.0f);
             FP positionError;
 
-            bool fixedRotation = (_invIA + _invIB == 0.0f);
+            bool fixedRotation = (_invIA + _invIB == (FP)(0.0f));
 
             // Solve angular limit constraint.
             if (_enableLimit && _limitState != LimitState.Inactive && fixedRotation == false)
             {
                 FP angle = aB - aA - ReferenceAngle;
-                FP limitImpulse = 0.0f;
+                FP limitImpulse = (FP)(0.0f);
 
                 if (_limitState == LimitState.Equal)
                 {
@@ -561,7 +561,7 @@ namespace Framework.Lockstep.Physics2D
                     angularError = -C;
 
                     // Prevent large angular corrections and allow some slop.
-                    C = MathUtils.Clamp(C + Settings.AngularSlop, -Settings.MaxAngularCorrection, 0.0f);
+                    C = MathUtils.Clamp((FP)(C + Settings.AngularSlop), (FP)(-Settings.MaxAngularCorrection), (FP)(0.0f));
                     limitImpulse = -_motorMass * C;
                 }
                 else if (_limitState == LimitState.AtUpper)
@@ -570,7 +570,7 @@ namespace Framework.Lockstep.Physics2D
                     angularError = C;
 
                     // Prevent large angular corrections and allow some slop.
-                    C = MathUtils.Clamp(C - Settings.AngularSlop, 0.0f, Settings.MaxAngularCorrection);
+                    C = MathUtils.Clamp((FP)(C - Settings.AngularSlop), (FP)(0.0f), (FP)(Settings.MaxAngularCorrection));
                     limitImpulse = -_motorMass * C;
                 }
 

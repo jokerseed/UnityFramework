@@ -274,7 +274,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     WakeBodies();
                     _lowerTranslation = value;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
         }
@@ -292,7 +292,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     WakeBodies();
                     _upperTranslation = value;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
         }
@@ -309,7 +309,7 @@ namespace Framework.Lockstep.Physics2D
                 WakeBodies();
                 _upperTranslation = upper;
                 _lowerTranslation = lower;
-                _impulse.z = 0.0f;
+                _impulse.z = (FP)(0.0f);
             }
         }
 
@@ -443,9 +443,9 @@ namespace Framework.Lockstep.Physics2D
                 _a2 = MathUtils.Cross(rB, _axis);
 
                 _motorMass = mA + mB + iA * _a1 * _a1 + iB * _a2 * _a2;
-                if (_motorMass > 0.0f)
+                if (_motorMass > (FP)(0.0f))
                 {
-                    _motorMass = 1.0f / _motorMass;
+                    _motorMass = (FP)(1.0f) / _motorMass;
                 }
             }
 
@@ -460,10 +460,10 @@ namespace Framework.Lockstep.Physics2D
                 FP k12 = iA * _s1 + iB * _s2;
                 FP k13 = iA * _s1 * _a1 + iB * _s2 * _a2;
                 FP k22 = iA + iB;
-                if (k22 == 0.0f)
+                if (k22 == (FP)(0.0f))
                 {
                     // For bodies with fixed rotation.
-                    k22 = 1.0f;
+                    k22 = (FP)(1.0f);
                 }
                 FP k23 = iA * _a1 + iB * _a2;
                 FP k33 = mA + mB + iA * _a1 * _a1 + iB * _a2 * _a2;
@@ -477,7 +477,7 @@ namespace Framework.Lockstep.Physics2D
             if (_enableLimit)
             {
                 FP jointTranslation = TSVector2.Dot(_axis, d);
-                if (FP.Abs(_upperTranslation - _lowerTranslation) < 2.0f * Settings.LinearSlop)
+                if (FP.Abs(_upperTranslation - _lowerTranslation) < (FP)(2.0f) * Settings.LinearSlop)
                 {
                     _limitState = LimitState.Equal;
                 }
@@ -486,7 +486,7 @@ namespace Framework.Lockstep.Physics2D
                     if (_limitState != LimitState.AtLower)
                     {
                         _limitState = LimitState.AtLower;
-                        _impulse.z = 0.0f;
+                        _impulse.z = (FP)(0.0f);
                     }
                 }
                 else if (jointTranslation >= _upperTranslation)
@@ -494,24 +494,24 @@ namespace Framework.Lockstep.Physics2D
                     if (_limitState != LimitState.AtUpper)
                     {
                         _limitState = LimitState.AtUpper;
-                        _impulse.z = 0.0f;
+                        _impulse.z = (FP)(0.0f);
                     }
                 }
                 else
                 {
                     _limitState = LimitState.Inactive;
-                    _impulse.z = 0.0f;
+                    _impulse.z = (FP)(0.0f);
                 }
             }
             else
             {
                 _limitState = LimitState.Inactive;
-                _impulse.z = 0.0f;
+                _impulse.z = (FP)(0.0f);
             }
 
             if (_enableMotor == false)
             {
-                MotorImpulse = 0.0f;
+                MotorImpulse = (FP)(0.0f);
             }
 
             if (Settings.EnableWarmstarting)
@@ -533,7 +533,7 @@ namespace Framework.Lockstep.Physics2D
             else
             {
                 _impulse = TSVector.zero;
-                MotorImpulse = 0.0f;
+                MotorImpulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -590,11 +590,11 @@ namespace Framework.Lockstep.Physics2D
 
                 if (_limitState == LimitState.AtLower)
                 {
-                    _impulse.z = Framework.FixedMath.TSMath.Max(_impulse.z, 0.0f);
+                    _impulse.z = Framework.FixedMath.TSMath.Max(_impulse.z, (FP)(0.0f));
                 }
                 else if (_limitState == LimitState.AtUpper)
                 {
-                    _impulse.z = Framework.FixedMath.TSMath.Min(_impulse.z, 0.0f);
+                    _impulse.z = Framework.FixedMath.TSMath.Min(_impulse.z, (FP)(0.0f));
                 }
 
                 // f2(1:2) = invK(1:2,1:2) * (-Cdot(1:2) - K(1:2,3) * (f2(3) - f1(3))) + f1(1:2)
@@ -673,11 +673,11 @@ namespace Framework.Lockstep.Physics2D
             FP angularError = FP.Abs(C1.y);
 
             bool active = false;
-            FP C2 = 0.0f;
+            FP C2 = (FP)(0.0f);
             if (_enableLimit)
             {
                 FP translation = TSVector2.Dot(axis, d);
-                if (FP.Abs(_upperTranslation - _lowerTranslation) < 2.0f * Settings.LinearSlop)
+                if (FP.Abs(_upperTranslation - _lowerTranslation) < (FP)(2.0f) * Settings.LinearSlop)
                 {
                     // Prevent large angular corrections
                     C2 = MathUtils.Clamp(translation, -Settings.MaxLinearCorrection, Settings.MaxLinearCorrection);
@@ -687,14 +687,14 @@ namespace Framework.Lockstep.Physics2D
                 else if (translation <= _lowerTranslation)
                 {
                     // Prevent large linear corrections and allow some slop.
-                    C2 = MathUtils.Clamp(translation - _lowerTranslation + Settings.LinearSlop, -Settings.MaxLinearCorrection, 0.0f);
+                    C2 = MathUtils.Clamp((FP)(translation - _lowerTranslation + Settings.LinearSlop), (FP)(-Settings.MaxLinearCorrection), (FP)(0.0f));
                     linearError = Framework.FixedMath.TSMath.Max(linearError, _lowerTranslation - translation);
                     active = true;
                 }
                 else if (translation >= _upperTranslation)
                 {
                     // Prevent large linear corrections and allow some slop.
-                    C2 = MathUtils.Clamp(translation - _upperTranslation - Settings.LinearSlop, 0.0f, Settings.MaxLinearCorrection);
+                    C2 = MathUtils.Clamp((FP)(translation - _upperTranslation - Settings.LinearSlop), (FP)(0.0f), (FP)(Settings.MaxLinearCorrection));
                     linearError = Framework.FixedMath.TSMath.Max(linearError, translation - _upperTranslation);
                     active = true;
                 }
@@ -706,10 +706,10 @@ namespace Framework.Lockstep.Physics2D
                 FP k12 = iA * s1 + iB * s2;
                 FP k13 = iA * s1 * a1 + iB * s2 * a2;
                 FP k22 = iA + iB;
-                if (k22 == 0.0f)
+                if (k22 == (FP)(0.0f))
                 {
                     // For fixed rotation
-                    k22 = 1.0f;
+                    k22 = (FP)(1.0f);
                 }
                 FP k23 = iA * a1 + iB * a2;
                 FP k33 = mA + mB + iA * a1 * a1 + iB * a2 * a2;
@@ -731,9 +731,9 @@ namespace Framework.Lockstep.Physics2D
                 FP k11 = mA + mB + iA * s1 * s1 + iB * s2 * s2;
                 FP k12 = iA * s1 + iB * s2;
                 FP k22 = iA + iB;
-                if (k22 == 0.0f)
+                if (k22 == (FP)(0.0f))
                 {
-                    k22 = 1.0f;
+                    k22 = (FP)(1.0f);
                 }
 
                 Mat22 K = new Mat22();
@@ -744,7 +744,7 @@ namespace Framework.Lockstep.Physics2D
                 impulse = new TSVector();
                 impulse.x = impulse1.x;
                 impulse.y = impulse1.y;
-                impulse.z = 0.0f;
+                impulse.z = (FP)(0.0f);
             }
 
             TSVector2 P = impulse.x * perp + impulse.z * axis;

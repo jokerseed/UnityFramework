@@ -36,9 +36,9 @@ namespace Framework.GamePlay
         {
             _slots = slots;
             _heroId = heroId;
-            _baseHealth = baseHealth;
+            _baseHealth = (FP)(baseHealth);
             _abilityId = abilityId;
-            _waveDelay = waveDelay > 0f ? waveDelay : (FP)2;
+            _waveDelay = waveDelay > 0f ? (FP)(waveDelay) : (FP)2;
         }
 
         /// <summary>若本波全灭则计时，到点后把槽位复活到英雄周围。</summary>

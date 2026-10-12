@@ -157,8 +157,8 @@ namespace Framework.Lockstep.Physics2D
 
             //FPE optimization: Consolidated the calculate centroid and mass code to a single method.
             TSVector2 center = TSVector2.zero;
-            FP area = 0.0f;
-            FP I = 0.0f;
+            FP area = (FP)(0.0f);
+            FP I = (FP)(0.0f);
 
             // pRef is the reference point for forming triangles.
             // It's location doesn't change the result (except for rounding error).
@@ -169,9 +169,9 @@ namespace Framework.Lockstep.Physics2D
             {
                 s += Vertices[i];
             }
-            s *= 1.0f / Vertices.Count;
+            s *= (FP)(1.0f / Vertices.Count);
 
-            FP k_inv3 = 1.0f / 3.0f;
+            FP k_inv3 = (FP)(1.0f / 3.0f);
 
             for (int i = 0; i < Vertices.Count; ++i)
             {
@@ -181,7 +181,7 @@ namespace Framework.Lockstep.Physics2D
 
                 FP D = MathUtils.Cross(e1, e2);
 
-                FP triangleArea = 0.5f * D;
+                FP triangleArea = (FP)(0.5f) * D;
                 area += triangleArea;
 
                 // Area weighted centroid
@@ -193,7 +193,7 @@ namespace Framework.Lockstep.Physics2D
                 FP intx2 = ex1 * ex1 + ex2 * ex1 + ex2 * ex2;
                 FP inty2 = ey1 * ey1 + ey2 * ey1 + ey2 * ey2;
 
-                I += (0.25f * k_inv3 * D) * (intx2 + inty2);
+                I += ((FP)(0.25f) * k_inv3 * D) * (intx2 + inty2);
             }
 
             //The area is too small for the engine to handle.
@@ -206,7 +206,7 @@ namespace Framework.Lockstep.Physics2D
             MassData.Mass = _density * area;
 
             // Center of mass
-            center *= 1.0f / area;
+            center *= (FP)(1.0f) / area;
             MassData.Centroid = center + s;
 
             // Inertia tensor relative to the local origin (point s).
@@ -223,7 +223,7 @@ namespace Framework.Lockstep.Physics2D
             for (int i = 0; i < Vertices.Count; ++i)
             {
                 FP dot = TSVector2.Dot(Normals[i], pLocal - Vertices[i]);
-                if (dot > 0.0f)
+                if (dot > (FP)(0.0f))
                 {
                     return false;
                 }
@@ -241,7 +241,7 @@ namespace Framework.Lockstep.Physics2D
             TSVector2 p2 = MathUtils.MulT(transform.q, input.Point2 - transform.p);
             TSVector2 d = p2 - p1;
 
-            FP lower = 0.0f, upper = input.MaxFraction;
+            FP lower = (FP)(0.0f), upper = input.MaxFraction;
 
             int index = -1;
 
@@ -253,9 +253,9 @@ namespace Framework.Lockstep.Physics2D
                 FP numerator = TSVector2.Dot(Normals[i], Vertices[i] - p1);
                 FP denominator = TSVector2.Dot(Normals[i], d);
 
-                if (denominator == 0.0f)
+                if (denominator == (FP)(0.0f))
                 {
-                    if (numerator < 0.0f)
+                    if (numerator < (FP)(0.0f))
                     {
                         return false;
                     }
@@ -266,14 +266,14 @@ namespace Framework.Lockstep.Physics2D
                     // lower < numerator / denominator, where denominator < 0
                     // Since denominator < 0, we have to flip the inequality:
                     // lower < numerator / denominator <==> denominator * lower > numerator.
-                    if (denominator < 0.0f && numerator < lower * denominator)
+                    if (denominator < (FP)(0.0f) && numerator < lower * denominator)
                     {
                         // Increase lower.
                         // The segment enters this half-space.
                         lower = numerator / denominator;
                         index = i;
                     }
-                    else if (denominator > 0.0f && numerator < upper * denominator)
+                    else if (denominator > (FP)(0.0f) && numerator < upper * denominator)
                     {
                         // Decrease upper.
                         // The segment exits this half-space.
@@ -404,7 +404,7 @@ namespace Framework.Lockstep.Physics2D
             TSVector2 center = new TSVector2(0, 0);
             TSVector2 p2 = Vertices[intoIndex2];
 
-            FP k_inv3 = 1.0f / 3.0f;
+            FP k_inv3 = (FP)(1.0f / 3.0f);
 
             //An awkward loop from intoIndex2+1 to outIndex2
             i = intoIndex2;
@@ -423,7 +423,7 @@ namespace Framework.Lockstep.Physics2D
 
                     FP D = MathUtils.Cross(e1, e2);
 
-                    FP triangleArea = 0.5f * D;
+                    FP triangleArea = (FP)(0.5f) * D;
 
                     area += triangleArea;
 
@@ -435,7 +435,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             //Normalize and transform centroid
-            center *= 1.0f / area;
+            center *= (FP)(1.0f) / area;
 
             sc = MathUtils.Mul(ref xf, center);
 

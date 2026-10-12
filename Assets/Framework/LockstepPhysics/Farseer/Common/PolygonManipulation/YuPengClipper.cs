@@ -24,7 +24,7 @@ namespace Framework.Lockstep.Physics2D
 
   public static class YuPengClipper
   {
-    private static readonly FP ClipperEpsilonSquared = 1.192092896e-07f;
+    private static readonly FP ClipperEpsilonSquared = (FP)(1.192092896e-07f);
 
     public static List<Vertices> Union(Vertices polygon1, Vertices polygon2, out PolyClipError error)
     {
@@ -108,7 +108,7 @@ namespace Framework.Lockstep.Physics2D
 
       // Reverse the polygon translation from the beginning
       // and remove collinear points from output
-      translate *= -1f;
+      translate *= (FP)(-1f);
       for (int i = 0; i < result.Count; ++i)
       {
         result[i].Translate(ref translate);
@@ -151,7 +151,7 @@ namespace Framework.Lockstep.Physics2D
             FP alpha;
             // Insert intersection point into first polygon
             alpha = GetAlpha(a, b, intersectionPoint);
-            if (alpha > 0f && alpha < 1f)
+            if (alpha > (FP)(0f) && alpha < (FP)(1f))
             {
               int index = slicedPoly1.IndexOf(a) + 1;
               while (index < slicedPoly1.Count &&
@@ -163,7 +163,7 @@ namespace Framework.Lockstep.Physics2D
             }
             // Insert intersection point into second polygon
             alpha = GetAlpha(c, d, intersectionPoint);
-            if (alpha > 0f && alpha < 1f)
+            if (alpha > (FP)(0f) && alpha < (FP)(1f))
             {
               int index = slicedPoly2.IndexOf(c) + 1;
               while (index < slicedPoly2.Count &&
@@ -231,11 +231,11 @@ namespace Framework.Lockstep.Physics2D
         FP edgeCharacter = 0;
         if (poly2Simplicies.Contains(poly1Simplicies[i]))
         {
-          edgeCharacter = 1f;
+          edgeCharacter = (FP)(1f);
         }
         else if (poly2Simplicies.Contains(-poly1Simplicies[i]) && clipType == PolyClipType.Union)
         {
-          edgeCharacter = 1f;
+          edgeCharacter = (FP)(1f);
         }
         else
         {
@@ -250,14 +250,14 @@ namespace Framework.Lockstep.Physics2D
         }
         if (clipType == PolyClipType.Intersect)
         {
-          if (edgeCharacter == 1f)
+          if (edgeCharacter == (FP)(1f))
           {
             resultSimplices.Add(poly1Simplicies[i]);
           }
         }
         else
         {
-          if (edgeCharacter == 0f)
+          if (edgeCharacter == (FP)(0f))
           {
             resultSimplices.Add(poly1Simplicies[i]);
           }
@@ -265,17 +265,17 @@ namespace Framework.Lockstep.Physics2D
       }
       for (int i = 0; i < poly2Simplicies.Count; ++i)
       {
-        FP edgeCharacter = 0f;
+        FP edgeCharacter = (FP)(0f);
         if (!resultSimplices.Contains(poly2Simplicies[i]) &&
             !resultSimplices.Contains(-poly2Simplicies[i]))
         {
           if (poly1Simplicies.Contains(-poly2Simplicies[i]) && clipType == PolyClipType.Union)
           {
-            edgeCharacter = 1f;
+            edgeCharacter = (FP)(1f);
           }
           else
           {
-            edgeCharacter = 0f;
+            edgeCharacter = (FP)(0f);
             for (int j = 0; j < poly1Simplicies.Count; ++j)
             {
               if (!poly1Simplicies.Contains(poly2Simplicies[i]) && !poly1Simplicies.Contains(-poly2Simplicies[i]))
@@ -286,14 +286,14 @@ namespace Framework.Lockstep.Physics2D
             }
             if (clipType == PolyClipType.Intersect || clipType == PolyClipType.Difference)
             {
-              if (edgeCharacter == 1f)
+              if (edgeCharacter == (FP)(1f))
               {
                 resultSimplices.Add(-poly2Simplicies[i]);
               }
             }
             else
             {
-              if (edgeCharacter == 0f)
+              if (edgeCharacter == (FP)(0f))
               {
                 resultSimplices.Add(poly2Simplicies[i]);
               }
@@ -380,7 +380,7 @@ namespace Framework.Lockstep.Physics2D
     /// <remarks>Used by method <c>CalculateEdgeCharacter()</c>.</remarks>
     private static FP CalculateBeta(TSVector2 point, Edge e, FP coefficient)
     {
-      FP result = 0f;
+      FP result = (FP)(0f);
       if (PointInSimplex(point, e))
       {
         result = coefficient;
@@ -388,7 +388,7 @@ namespace Framework.Lockstep.Physics2D
       if (PointOnLineSegment(TSVector2.zero, e.EdgeStart, point) ||
           PointOnLineSegment(TSVector2.zero, e.EdgeEnd, point))
       {
-        result = .5f * coefficient;
+        result = (FP)(.5f) * coefficient;
       }
       return result;
     }
@@ -409,17 +409,17 @@ namespace Framework.Lockstep.Physics2D
     private static FP CalculateSimplexCoefficient(TSVector2 a, TSVector2 b, TSVector2 c)
     {
       FP isLeft = MathUtils.Area(ref a, ref b, ref c);
-      if (isLeft < 0f)
+      if (isLeft < (FP)(0f))
       {
-        return -1f;
+        return (FP)(-1f);
       }
 
-      if (isLeft > 0f)
+      if (isLeft > (FP)(0f))
       {
-        return 1f;
+        return (FP)(1f);
       }
 
-      return 0f;
+      return (FP)(0f);
     }
 
     /// <summary>
@@ -445,9 +445,9 @@ namespace Framework.Lockstep.Physics2D
     private static bool PointOnLineSegment(TSVector2 start, TSVector2 end, TSVector2 point)
     {
       TSVector2 segment = end - start;
-      return MathUtils.Area(ref start, ref end, ref point) == 0f &&
-             TSVector2.Dot(point - start, segment) >= 0f &&
-             TSVector2.Dot(point - end, segment) <= 0f;
+      return MathUtils.Area(ref start, ref end, ref point) == (FP)(0f) &&
+             TSVector2.Dot(point - start, segment) >= (FP)(0f) &&
+             TSVector2.Dot(point - end, segment) <= (FP)(0f);
     }
 
     private static bool VectorEqual(TSVector2 vec1, TSVector2 vec2)
@@ -471,7 +471,7 @@ namespace Framework.Lockstep.Physics2D
 
       public TSVector2 GetCenter()
       {
-        return (EdgeStart + EdgeEnd) / 2f;
+        return (EdgeStart + EdgeEnd) / (FP)(2f);
       }
 
       public static Edge operator -(Edge e)

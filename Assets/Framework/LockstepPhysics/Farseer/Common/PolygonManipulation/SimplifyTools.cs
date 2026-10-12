@@ -78,7 +78,7 @@ namespace Framework.Lockstep.Physics2D
             TSVector2 a = vertices[i];
             TSVector2 b = vertices[j];
 
-            FP maxDistance = -1.0;
+            FP maxDistance = (FP)(-1.0);
             int maxIndex = i;
             for (int k = i + 1; k < j; k++)
             {
@@ -136,7 +136,7 @@ namespace Framework.Lockstep.Physics2D
                 FP norm0 = FP.Sqrt(dx0 * dx0 + dy0 * dy0);
                 FP norm1 = FP.Sqrt(dx1 * dx1 + dy1 * dy1);
 
-                if (!(norm0 > 0.0f && norm1 > 0.0f) && newNVertices > 3)
+                if (!(norm0 > (FP)(0.0f) && norm1 > (FP)(0.0f)) && newNVertices > 3)
                 {
                     //Merge identical points
                     mergeMe[i] = true;

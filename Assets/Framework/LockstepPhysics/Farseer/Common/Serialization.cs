@@ -509,7 +509,7 @@ namespace Framework.Lockstep.Physics2D
                             throw new Exception();
 
                         ShapeType type = (ShapeType)Enum.Parse(typeof(ShapeType), element.Attributes[0].Value, true);
-                        FP density = (float.Parse(element.Attributes[1].Value));
+                        FP density = ((FP)(float.Parse(element.Attributes[1].Value)));
 
                         switch (type)
                         {
@@ -523,7 +523,7 @@ namespace Framework.Lockstep.Physics2D
                                         switch (sn.Name.ToLower())
                                         {
                                             case "radius":
-                                                shape.Radius = float.Parse(sn.Value);
+                                                shape.Radius = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "position":
                                                 shape.Position = ReadVector(sn);
@@ -680,13 +680,13 @@ namespace Framework.Lockstep.Physics2D
 
                                     break;
                                 case "friction":
-                                    fixture.Friction = float.Parse(sn.Value);
+                                    fixture.Friction = (FP)(float.Parse(sn.Value));
                                     break;
                                 case "issensor":
                                     fixture.IsSensor = bool.Parse(sn.Value);
                                     break;
                                 case "restitution":
-                                    fixture.Restitution = float.Parse(sn.Value);
+                                    fixture.Restitution = (FP)(float.Parse(sn.Value));
                                     break;
                                 case "userdata":
                                     fixture.UserData = ReadSimpleType(sn, null, false);
@@ -726,14 +726,14 @@ namespace Framework.Lockstep.Physics2D
                                 case "angle":
                                     {
                                         TSVector2 position = body.Position;
-                                        body.SetTransformIgnoreContacts(ref position, float.Parse(sn.Value));
+                                        body.SetTransformIgnoreContacts(ref position, (FP)(float.Parse(sn.Value)));
                                     }
                                     break;
                                 case "angulardamping":
-                                    body.AngularDamping = float.Parse(sn.Value);
+                                    body.AngularDamping = (FP)(float.Parse(sn.Value));
                                     break;
                                 case "angularvelocity":
-                                    body.AngularVelocity = float.Parse(sn.Value);
+                                    body.AngularVelocity = (FP)(float.Parse(sn.Value));
                                     break;
                                 case "awake":
                                     body.Awake = bool.Parse(sn.Value);
@@ -745,7 +745,7 @@ namespace Framework.Lockstep.Physics2D
                                     body.FixedRotation = bool.Parse(sn.Value);
                                     break;
                                 case "lineardamping":
-                                    body.LinearDamping = float.Parse(sn.Value);
+                                    body.LinearDamping = (FP)(float.Parse(sn.Value));
                                     break;
                                 case "linearvelocity":
                                     body.LinearVelocity = ReadVector(sn);
@@ -888,13 +888,13 @@ namespace Framework.Lockstep.Physics2D
                                         switch (sn.Name.ToLower())
                                         {
                                             case "dampingratio":
-                                                ((DistanceJoint)joint).DampingRatio = float.Parse(sn.Value);
+                                                ((DistanceJoint)joint).DampingRatio = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "frequencyhz":
-                                                ((DistanceJoint)joint).Frequency = float.Parse(sn.Value);
+                                                ((DistanceJoint)joint).Frequency = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "length":
-                                                ((DistanceJoint)joint).Length = float.Parse(sn.Value);
+                                                ((DistanceJoint)joint).Length = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "localanchora":
                                                 ((DistanceJoint)joint).LocalAnchorA = ReadVector(sn);
@@ -916,10 +916,10 @@ namespace Framework.Lockstep.Physics2D
                                                 ((FrictionJoint)joint).LocalAnchorB = ReadVector(sn);
                                                 break;
                                             case "maxforce":
-                                                ((FrictionJoint)joint).MaxForce = float.Parse(sn.Value);
+                                                ((FrictionJoint)joint).MaxForce = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "maxtorque":
-                                                ((FrictionJoint)joint).MaxTorque = float.Parse(sn.Value);
+                                                ((FrictionJoint)joint).MaxTorque = (FP)(float.Parse(sn.Value));
                                                 break;
                                         }
                                     }
@@ -938,16 +938,16 @@ namespace Framework.Lockstep.Physics2D
                                                 ((WheelJoint)joint).LocalAnchorB = ReadVector(sn);
                                                 break;
                                             case "motorspeed":
-                                                ((WheelJoint)joint).MotorSpeed = float.Parse(sn.Value);
+                                                ((WheelJoint)joint).MotorSpeed = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "dampingratio":
-                                                ((WheelJoint)joint).DampingRatio = float.Parse(sn.Value);
+                                                ((WheelJoint)joint).DampingRatio = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "maxmotortorque":
-                                                ((WheelJoint)joint).MaxMotorTorque = float.Parse(sn.Value);
+                                                ((WheelJoint)joint).MaxMotorTorque = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "frequencyhz":
-                                                ((WheelJoint)joint).Frequency = float.Parse(sn.Value);
+                                                ((WheelJoint)joint).Frequency = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "axis":
                                                 ((WheelJoint)joint).Axis = ReadVector(sn);
@@ -975,19 +975,19 @@ namespace Framework.Lockstep.Physics2D
                                                 ((PrismaticJoint)joint).Axis = ReadVector(sn);
                                                 break;
                                             case "maxmotorforce":
-                                                ((PrismaticJoint)joint).MaxMotorForce = float.Parse(sn.Value);
+                                                ((PrismaticJoint)joint).MaxMotorForce = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "motorspeed":
-                                                ((PrismaticJoint)joint).MotorSpeed = float.Parse(sn.Value);
+                                                ((PrismaticJoint)joint).MotorSpeed = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "lowertranslation":
-                                                ((PrismaticJoint)joint).LowerLimit = float.Parse(sn.Value);
+                                                ((PrismaticJoint)joint).LowerLimit = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "uppertranslation":
-                                                ((PrismaticJoint)joint).UpperLimit = float.Parse(sn.Value);
+                                                ((PrismaticJoint)joint).UpperLimit = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "referenceangle":
-                                                ((PrismaticJoint)joint).ReferenceAngle = float.Parse(sn.Value);
+                                                ((PrismaticJoint)joint).ReferenceAngle = (FP)(float.Parse(sn.Value));
                                                 break;
                                         }
                                     }
@@ -1003,10 +1003,10 @@ namespace Framework.Lockstep.Physics2D
                                                 ((PulleyJoint)joint).WorldAnchorB = ReadVector(sn);
                                                 break;
                                             case "lengtha":
-                                                ((PulleyJoint)joint).LengthA = float.Parse(sn.Value);
+                                                ((PulleyJoint)joint).LengthA = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "lengthb":
-                                                ((PulleyJoint)joint).LengthB = float.Parse(sn.Value);
+                                                ((PulleyJoint)joint).LengthB = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "localanchora":
                                                 ((PulleyJoint)joint).LocalAnchorA = ReadVector(sn);
@@ -1015,10 +1015,10 @@ namespace Framework.Lockstep.Physics2D
                                                 ((PulleyJoint)joint).LocalAnchorB = ReadVector(sn);
                                                 break;
                                             case "ratio":
-                                                ((PulleyJoint)joint).Ratio = float.Parse(sn.Value);
+                                                ((PulleyJoint)joint).Ratio = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "constant":
-                                                ((PulleyJoint)joint).Constant = float.Parse(sn.Value);
+                                                ((PulleyJoint)joint).Constant = (FP)(float.Parse(sn.Value));
                                                 break;
                                         }
                                     }
@@ -1040,19 +1040,19 @@ namespace Framework.Lockstep.Physics2D
                                                 ((RevoluteJoint)joint).LocalAnchorB = ReadVector(sn);
                                                 break;
                                             case "maxmotortorque":
-                                                ((RevoluteJoint)joint).MaxMotorTorque = float.Parse(sn.Value);
+                                                ((RevoluteJoint)joint).MaxMotorTorque = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "motorspeed":
-                                                ((RevoluteJoint)joint).MotorSpeed = float.Parse(sn.Value);
+                                                ((RevoluteJoint)joint).MotorSpeed = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "lowerangle":
-                                                ((RevoluteJoint)joint).LowerLimit = float.Parse(sn.Value);
+                                                ((RevoluteJoint)joint).LowerLimit = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "upperangle":
-                                                ((RevoluteJoint)joint).UpperLimit = float.Parse(sn.Value);
+                                                ((RevoluteJoint)joint).UpperLimit = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "referenceangle":
-                                                ((RevoluteJoint)joint).ReferenceAngle = float.Parse(sn.Value);
+                                                ((RevoluteJoint)joint).ReferenceAngle = (FP)(float.Parse(sn.Value));
                                                 break;
                                         }
                                     }
@@ -1081,7 +1081,7 @@ namespace Framework.Lockstep.Physics2D
                                                 ((RopeJoint)joint).LocalAnchorB = ReadVector(sn);
                                                 break;
                                             case "maxlength":
-                                                ((RopeJoint)joint).MaxLength = float.Parse(sn.Value);
+                                                ((RopeJoint)joint).MaxLength = (FP)(float.Parse(sn.Value));
                                                 break;
                                         }
                                     }
@@ -1093,16 +1093,16 @@ namespace Framework.Lockstep.Physics2D
                                         switch (sn.Name.ToLower())
                                         {
                                             case "biasfactor":
-                                                ((AngleJoint)joint).BiasFactor = float.Parse(sn.Value);
+                                                ((AngleJoint)joint).BiasFactor = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "maximpulse":
-                                                ((AngleJoint)joint).MaxImpulse = float.Parse(sn.Value);
+                                                ((AngleJoint)joint).MaxImpulse = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "softness":
-                                                ((AngleJoint)joint).Softness = float.Parse(sn.Value);
+                                                ((AngleJoint)joint).Softness = (FP)(float.Parse(sn.Value));
                                                 break;
                                             case "targetangle":
-                                                ((AngleJoint)joint).TargetAngle = float.Parse(sn.Value);
+                                                ((AngleJoint)joint).TargetAngle = (FP)(float.Parse(sn.Value));
                                                 break;
                                         }
                                     }
@@ -1111,19 +1111,19 @@ namespace Framework.Lockstep.Physics2D
                                     switch (sn.Name.ToLower())
                                     {
                                         case "angularoffset":
-                                            ((MotorJoint)joint).AngularOffset = float.Parse(sn.Value);
+                                            ((MotorJoint)joint).AngularOffset = (FP)(float.Parse(sn.Value));
                                             break;
                                         case "linearoffset":
                                             ((MotorJoint)joint).LinearOffset = ReadVector(sn);
                                             break;
                                         case "maxforce":
-                                            ((MotorJoint)joint).MaxForce = float.Parse(sn.Value);
+                                            ((MotorJoint)joint).MaxForce = (FP)(float.Parse(sn.Value));
                                             break;
                                         case "maxtorque":
-                                            ((MotorJoint)joint).MaxTorque = float.Parse(sn.Value);
+                                            ((MotorJoint)joint).MaxTorque = (FP)(float.Parse(sn.Value));
                                             break;
                                         case "correctionfactor":
-                                            ((MotorJoint)joint).CorrectionFactor = float.Parse(sn.Value);
+                                            ((MotorJoint)joint).CorrectionFactor = (FP)(float.Parse(sn.Value));
                                             break;
                                     }
                                     break;
@@ -1139,7 +1139,7 @@ namespace Framework.Lockstep.Physics2D
         private static TSVector2 ReadVector(XMLFragmentElement node)
         {
             string[] values = node.Value.Split(' ');
-            return new TSVector2(float.Parse(values[0]), float.Parse(values[1]));
+            return new TSVector2((FP)(float.Parse(values[0])), (FP)(float.Parse(values[1])));
         }
 
         private static object ReadSimpleType(XMLFragmentElement node, Type type, bool outer)

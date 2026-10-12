@@ -543,7 +543,7 @@ namespace Framework.Lockstep.Physics3D {
                         _cachedPB = _simplexPointsQ[0];
                         _cachedV = _cachedPA - _cachedPB;
                         _cachedBC.Reset();
-                        _cachedBC.SetBarycentricCoordinates(1f, FP.Zero, FP.Zero, FP.Zero);
+                        _cachedBC.SetBarycentricCoordinates((FP)(1f), FP.Zero, FP.Zero, FP.Zero);
                         _cachedValidClosest = _cachedBC.IsValid;
                         break;
                     case 2:

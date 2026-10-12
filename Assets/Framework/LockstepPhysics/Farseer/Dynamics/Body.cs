@@ -120,7 +120,7 @@ namespace Framework.Lockstep.Physics2D
             _world = world;
 
             UserData = userdata;
-            GravityScale = 1.0f;
+            GravityScale = (FP)(1.0f);
             BodyType = BodyType.Static;
             Enabled = true; //FPE note: Also creates proxies in the broadphase
 
@@ -202,7 +202,7 @@ namespace Framework.Lockstep.Physics2D
                 if (_bodyType != BodyType.Dynamic)
                 {
                     _linearVelocity = TSVector2.zero;
-                    _angularVelocity = 0.0f;
+                    _angularVelocity = (FP)(0.0f);
                     _sweep.A0 = _sweep.A;
                     _sweep.C0 = _sweep.C;
                     SynchronizeFixtures();
@@ -211,7 +211,7 @@ namespace Framework.Lockstep.Physics2D
                 Awake = true;
 
                 _force = TSVector2.zero;
-                _torque = 0.0f;
+                _torque = (FP)(0.0f);
 
                 // Delete the attached contacts.
                 ContactEdge ce = ContactList;
@@ -250,7 +250,7 @@ namespace Framework.Lockstep.Physics2D
                 if (_bodyType == BodyType.Static)
                     return;
 
-                if (TSVector2.Dot(value, value) > 0.0f)
+                if (TSVector2.Dot(value, value) > (FP)(0.0f))
                     Awake = true;
 
                 _linearVelocity = value;
@@ -271,7 +271,7 @@ namespace Framework.Lockstep.Physics2D
                 if (_bodyType == BodyType.Static)
                     return;
 
-                if (value * value > 0.0f)
+                if (value * value > (FP)(0.0f))
                     Awake = true;
 
                 _angularVelocity = value;
@@ -345,7 +345,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (!_awake)
                     {
-                        _sleepTime = 0.0f;
+                        _sleepTime = (FP)(0.0f);
                         _world.ContactManager.UpdateContacts(ContactList, true);
 #if USE_AWAKE_BODY_SET
 						if (InWorld && !World.AwakeBodySet.Contains(this))
@@ -366,7 +366,7 @@ namespace Framework.Lockstep.Physics2D
 					}
 #endif
                     ResetDynamics();
-                    _sleepTime = 0.0f;
+                    _sleepTime = (FP)(0.0f);
                     _world.ContactManager.UpdateContacts(ContactList, false);
                 }
 
@@ -449,7 +449,7 @@ namespace Framework.Lockstep.Physics2D
 
                 _fixedRotation = value;
 
-                _angularVelocity = 0f;
+                _angularVelocity = (FP)(0f);
                 ResetMassData();
             }
             get { return _fixedRotation; }
@@ -588,10 +588,10 @@ namespace Framework.Lockstep.Physics2D
 
                 _mass = value;
 
-                if (_mass <= 0.0f)
-                    _mass = 1.0f;
+                if (_mass <= (FP)(0.0f))
+                    _mass = (FP)(1.0f);
 
-                _invMass = 1.0f / _mass;
+                _invMass = (FP)(1.0f) / _mass;
 
                 prevKinematicMass = _mass;
                 prevKinematicInvMass = _invMass;
@@ -612,11 +612,11 @@ namespace Framework.Lockstep.Physics2D
                 if (_bodyType != BodyType.Dynamic) //Make an assert
                     return;
 
-                if (value > 0.0f && !_fixedRotation) //Make an assert
+                if (value > (FP)(0.0f) && !_fixedRotation) //Make an assert
                 {
                     _inertia = value - Mass * TSVector2.Dot(LocalCenter, LocalCenter);
-                    Debug.Assert(_inertia > 0.0f);
-                    _invI = 1.0f / _inertia;
+                    Debug.Assert(_inertia > (FP)(0.0f));
+                    _invI = (FP)(1.0f) / _inertia;
                 }
             }
         }
@@ -1041,10 +1041,10 @@ namespace Framework.Lockstep.Physics2D
         public void ResetMassData()
         {
             // Compute mass data from shapes. Each shape has its own density.
-            _mass = 0.0f;
-            _invMass = 0.0f;
-            _inertia = 0.0f;
-            _invI = 0.0f;
+            _mass = (FP)(0.0f);
+            _invMass = (FP)(0.0f);
+            _inertia = (FP)(0.0f);
+            _invI = (FP)(0.0f);
             _sweep.LocalCenter = TSVector2.zero;
 
             // Kinematic bodies have zero mass.
@@ -1081,30 +1081,30 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // Compute center of mass.
-            if (_mass > 0.0f)
+            if (_mass > (FP)(0.0f))
             {
-                _invMass = 1.0f / _mass;
+                _invMass = (FP)(1.0f) / _mass;
                 localCenter *= _invMass;
             }
             else
             {
                 // Force all dynamic bodies to have a positive mass.
-                _mass = 1.0f;
-                _invMass = 1.0f;
+                _mass = (FP)(1.0f);
+                _invMass = (FP)(1.0f);
             }
 
-            if (_inertia > 0.0f && !_fixedRotation)
+            if (_inertia > (FP)(0.0f) && !_fixedRotation)
             {
                 // Center the inertia about the center of mass.
                 _inertia -= _mass * TSVector2.Dot(localCenter, localCenter);
 
-                Debug.Assert(_inertia > 0.0f);
-                _invI = 1.0f / _inertia;
+                Debug.Assert(_inertia > (FP)(0.0f));
+                _invI = (FP)(1.0f) / _inertia;
             }
             else
             {
-                _inertia = 0.0f;
-                _invI = 0.0f;
+                _inertia = (FP)(0.0f);
+                _invI = (FP)(0.0f);
             }
 
             // Move center of mass.

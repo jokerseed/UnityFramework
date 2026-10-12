@@ -173,15 +173,15 @@ namespace Framework.Lockstep.Physics2D
                     }
                     else
                     {
-                        vcp.normalImpulse = 0.0f;
-                        vcp.tangentImpulse = 0.0f;
+                        vcp.normalImpulse = (FP)(0.0f);
+                        vcp.tangentImpulse = (FP)(0.0f);
                     }
 
                     vcp.rA = TSVector2.zero;
                     vcp.rB = TSVector2.zero;
-                    vcp.normalMass = 0.0f;
-                    vcp.tangentMass = 0.0f;
-                    vcp.velocityBias = 0.0f;
+                    vcp.normalMass = (FP)(0.0f);
+                    vcp.tangentMass = (FP)(0.0f);
+                    vcp.velocityBias = (FP)(0.0f);
 
                     pc.localPoints[j] = cp.LocalPoint;
                 }
@@ -247,7 +247,7 @@ namespace Framework.Lockstep.Physics2D
 
                     FP kNormal = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
-                    vcp.normalMass = kNormal > 0.0f ? 1.0f / kNormal : 0.0f;
+                    vcp.normalMass = kNormal > (FP)(0.0f) ? (FP)(1.0f) / kNormal : (FP)(0.0f);
 
                     TSVector2 tangent = MathUtils.Cross(vc.normal, 1.0f);
 
@@ -256,10 +256,10 @@ namespace Framework.Lockstep.Physics2D
 
                     FP kTangent = mA + mB + iA * rtA * rtA + iB * rtB * rtB;
 
-                    vcp.tangentMass = kTangent > 0.0f ? 1.0f / kTangent : 0.0f;
+                    vcp.tangentMass = kTangent > (FP)(0.0f) ? (FP)(1.0f) / kTangent : (FP)(0.0f);
 
                     // Setup a velocity bias for restitution.
-                    vcp.velocityBias = 0.0f;
+                    vcp.velocityBias = (FP)(0.0f);
                     FP vRel = TSVector2.Dot(vc.normal, vB + MathUtils.Cross(wB, vcp.rB) - vA - MathUtils.Cross(wA, vcp.rA));
                     if (vRel < -Settings.VelocityThreshold)
                     {
@@ -283,7 +283,7 @@ namespace Framework.Lockstep.Physics2D
                     FP k12 = mA + mB + iA * rn1A * rn2A + iB * rn1B * rn2B;
 
                     // Ensure a reasonable condition number.
-                    FP k_maxConditionNumber = 1000.0f;
+                    FP k_maxConditionNumber = (FP)(1000.0f);
                     if (k11 * k11 < k_maxConditionNumber * (k11 * k22 - k12 * k12))
                     {
                         // K is safe to invert.
@@ -408,7 +408,7 @@ namespace Framework.Lockstep.Physics2D
                     FP lambda = -vcp.normalMass * (vn - vcp.velocityBias);
 
                     // b2Clamp the accumulated impulse
-                    FP newImpulse = Framework.FixedMath.TSMath.Max(vcp.normalImpulse + lambda, 0.0f);
+                    FP newImpulse = Framework.FixedMath.TSMath.Max(vcp.normalImpulse + lambda, (FP)(0.0f));
                     lambda = newImpulse - vcp.normalImpulse;
                     vcp.normalImpulse = newImpulse;
 
@@ -459,7 +459,7 @@ namespace Framework.Lockstep.Physics2D
                     VelocityConstraintPoint cp2 = vc.points[1];
 
                     TSVector2 a = new TSVector2(cp1.normalImpulse, cp2.normalImpulse);
-                    Debug.Assert(a.x >= 0.0f && a.y >= 0.0f);
+                    Debug.Assert(a.x >= (FP)(0.0f) && a.y >= (FP)(0.0f));
 
                     // Relative velocity at contact
                     TSVector2 dv1 = vB + MathUtils.Cross(wB, cp1.rB) - vA - MathUtils.Cross(wA, cp1.rA);
@@ -492,7 +492,7 @@ namespace Framework.Lockstep.Physics2D
                         //
                         TSVector2 x = -MathUtils.Mul(ref vc.normalMass, b);
 
-                        if (x.x >= 0.0f && x.y >= 0.0f)
+                        if (x.x >= (FP)(0.0f) && x.y >= (FP)(0.0f))
                         {
                             // Get the incremental impulse
                             TSVector2 d = x - a;
@@ -532,11 +532,11 @@ namespace Framework.Lockstep.Physics2D
                         // vn2 = a21 * x1 + a22 * 0 + b2'
                         //
                         x.x = -cp1.normalMass * b.x;
-                        x.y = 0.0f;
-                        vn1 = 0.0f;
+                        x.y = (FP)(0.0f);
+                        vn1 = (FP)(0.0f);
                         vn2 = vc.K.ex.y * x.x + b.y;
 
-                        if (x.x >= 0.0f && vn2 >= 0.0f)
+                        if (x.x >= (FP)(0.0f) && vn2 >= (FP)(0.0f))
                         {
                             // Get the incremental impulse
                             TSVector2 d = x - a;
@@ -573,12 +573,12 @@ namespace Framework.Lockstep.Physics2D
                         // vn1 = a11 * 0 + a12 * x2 + b1' 
                         //   0 = a21 * 0 + a22 * x2 + b2'
                         //
-                        x.x = 0.0f;
+                        x.x = (FP)(0.0f);
                         x.y = -cp2.normalMass * b.y;
                         vn1 = vc.K.ey.x * x.y + b.x;
-                        vn2 = 0.0f;
+                        vn2 = (FP)(0.0f);
 
-                        if (x.y >= 0.0f && vn1 >= 0.0f)
+                        if (x.y >= (FP)(0.0f) && vn1 >= (FP)(0.0f))
                         {
                             // Resubstitute for the incremental impulse
                             TSVector2 d = x - a;
@@ -613,12 +613,12 @@ namespace Framework.Lockstep.Physics2D
                         // 
                         // vn1 = b1
                         // vn2 = b2;
-                        x.x = 0.0f;
-                        x.y = 0.0f;
+                        x.x = (FP)(0.0f);
+                        x.y = (FP)(0.0f);
                         vn1 = b.x;
                         vn2 = b.y;
 
-                        if (vn1 >= 0.0f && vn2 >= 0.0f)
+                        if (vn1 >= (FP)(0.0f) && vn2 >= (FP)(0.0f))
                         {
                             // Resubstitute for the incremental impulse
                             TSVector2 d = x - a;
@@ -672,7 +672,7 @@ namespace Framework.Lockstep.Physics2D
 
         public bool SolvePositionConstraints()
         {
-            FP minSeparation = 0.0f;
+            FP minSeparation = (FP)(0.0f);
 
             for (int i = 0; i < _count; ++i)
             {
@@ -717,7 +717,7 @@ namespace Framework.Lockstep.Physics2D
                     minSeparation = Framework.FixedMath.TSMath.Min(minSeparation, separation);
 
                     // Prevent large corrections and allow slop.
-                    FP C = MathUtils.Clamp(Settings.Baumgarte * (separation + Settings.LinearSlop), -Settings.MaxLinearCorrection, 0.0f);
+                    FP C = MathUtils.Clamp((FP)(Settings.Baumgarte * (separation + Settings.LinearSlop)), (FP)(-Settings.MaxLinearCorrection), (FP)(0.0f));
 
                     // Compute the effective mass.
                     FP rnA = MathUtils.Cross(rA, normal);
@@ -725,7 +725,7 @@ namespace Framework.Lockstep.Physics2D
                     FP K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
                     // Compute normal impulse
-                    FP impulse = K > 0.0f ? -C / K : 0.0f;
+                    FP impulse = K > (FP)(0.0f) ? -C / K : (FP)(0.0f);
 
                     TSVector2 P = impulse * normal;
 
@@ -745,13 +745,13 @@ namespace Framework.Lockstep.Physics2D
 
             // We can't expect minSpeparation >= -b2_linearSlop because we don't
             // push the separation above -b2_linearSlop.
-            return minSeparation >= -3.0f * Settings.LinearSlop;
+            return minSeparation >= (FP)(-3.0f) * Settings.LinearSlop;
         }
 
         // Sequential position solver for position constraints.
         public bool SolveTOIPositionConstraints(int toiIndexA, int toiIndexB)
         {
-            FP minSeparation = 0.0f;
+            FP minSeparation = (FP)(0.0f);
 
             for (int i = 0; i < _count; ++i)
             {
@@ -763,16 +763,16 @@ namespace Framework.Lockstep.Physics2D
                 TSVector2 localCenterB = pc.localCenterB;
                 int pointCount = pc.pointCount;
 
-                FP mA = 0.0f;
-                FP iA = 0.0f;
+                FP mA = (FP)(0.0f);
+                FP iA = (FP)(0.0f);
                 if (indexA == toiIndexA || indexA == toiIndexB)
                 {
                     mA = pc.invMassA;
                     iA = pc.invIA;
                 }
 
-                FP mB = 0.0f;
-                FP iB = 0.0f;
+                FP mB = (FP)(0.0f);
+                FP iB = (FP)(0.0f);
                 if (indexB == toiIndexA || indexB == toiIndexB)
                 {
                     mB = pc.invMassB;
@@ -808,7 +808,7 @@ namespace Framework.Lockstep.Physics2D
                     minSeparation = Framework.FixedMath.TSMath.Min(minSeparation, separation);
 
                     // Prevent large corrections and allow slop.
-                    FP C = MathUtils.Clamp(Settings.Baumgarte * (separation + Settings.LinearSlop), -Settings.MaxLinearCorrection, 0.0f);
+                    FP C = MathUtils.Clamp((FP)(Settings.Baumgarte * (separation + Settings.LinearSlop)), (FP)(-Settings.MaxLinearCorrection), (FP)(0.0f));
 
                     // Compute the effective mass.
                     FP rnA = MathUtils.Cross(rA, normal);
@@ -816,7 +816,7 @@ namespace Framework.Lockstep.Physics2D
                     FP K = mA + mB + iA * rnA * rnA + iB * rnB * rnB;
 
                     // Compute normal impulse
-                    FP impulse = K > 0.0f ? -C / K : 0.0f;
+                    FP impulse = K > (FP)(0.0f) ? -C / K : (FP)(0.0f);
 
                     TSVector2 P = impulse * normal;
 
@@ -836,7 +836,7 @@ namespace Framework.Lockstep.Physics2D
 
             // We can't expect minSpeparation >= -b2_linearSlop because we don't
             // push the separation above -b2_linearSlop.
-            return minSeparation >= -1.5f * Settings.LinearSlop;
+            return minSeparation >= (FP)(-1.5f) * Settings.LinearSlop;
         }
 
         public static class WorldManifold
@@ -868,7 +868,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     case ManifoldType.Circles:
                         {
-                            normal = new TSVector2(1.0f, 0.0f);
+                            normal = new TSVector2((FP)(1.0f), (FP)(0.0f));
                             TSVector2 pointA = MathUtils.Mul(ref xfA, manifold.LocalPoint);
                             TSVector2 pointB = MathUtils.Mul(ref xfB, manifold.Points[0].LocalPoint);
                             if (TSVector2.DistanceSquared(pointA, pointB) > Settings.EpsilonSqr)
@@ -879,7 +879,7 @@ namespace Framework.Lockstep.Physics2D
 
                             TSVector2 cA = pointA + radiusA * normal;
                             TSVector2 cB = pointB - radiusB * normal;
-                            points[0] = 0.5f * (cA + cB);
+                            points[0] = (FP)(0.5f) * (cA + cB);
                         }
                         break;
 
@@ -893,7 +893,7 @@ namespace Framework.Lockstep.Physics2D
                                 TSVector2 clipPoint = MathUtils.Mul(ref xfB, manifold.Points[i].LocalPoint);
                                 TSVector2 cA = clipPoint + (radiusA - TSVector2.Dot(clipPoint - planePoint, normal)) * normal;
                                 TSVector2 cB = clipPoint - radiusB * normal;
-                                points[i] = 0.5f * (cA + cB);
+                                points[i] = (FP)(0.5f) * (cA + cB);
                             }
                         }
                         break;
@@ -908,7 +908,7 @@ namespace Framework.Lockstep.Physics2D
                                 TSVector2 clipPoint = MathUtils.Mul(ref xfA, manifold.Points[i].LocalPoint);
                                 TSVector2 cB = clipPoint + (radiusB - TSVector2.Dot(clipPoint - planePoint, normal)) * normal;
                                 TSVector2 cA = clipPoint - radiusA * normal;
-                                points[i] = 0.5f * (cA + cB);
+                                points[i] = (FP)(0.5f) * (cA + cB);
                             }
 
                             // Ensure normal points from A to B.
@@ -934,7 +934,7 @@ namespace Framework.Lockstep.Physics2D
                             TSVector2 pointB = MathUtils.Mul(ref xfB, pc.localPoints[0]);
                             normal = pointB - pointA;
                             normal.Normalize();
-                            point = 0.5f * (pointA + pointB);
+                            point = (FP)(0.5f) * (pointA + pointB);
                             separation = TSVector2.Dot(pointB - pointA, normal) - pc.radiusA - pc.radiusB;
                         }
                         break;

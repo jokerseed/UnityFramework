@@ -119,7 +119,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 // Find an ear
                 int earIndex = -1;
-                FP earMaxMinCross = -10.0f;
+                FP earMaxMinCross = (FP)(-10.0f);
                 for (int i = 0; i < vNum; ++i)
                 {
                     if (IsEar(i, xrem, yrem, vNum))
@@ -393,7 +393,7 @@ namespace Framework.Lockstep.Physics2D
                 FP dot02 = vx0 * vx2 + vy0 * vy2;
                 FP dot11 = vx1 * vx1 + vy1 * vy1;
                 FP dot12 = vx1 * vx2 + vy1 * vy2;
-                FP invDenom = 1.0f / (dot00 * dot11 - dot01 * dot01);
+                FP invDenom = (FP)(1.0f) / (dot00 * dot11 - dot01 * dot01);
                 FP u = (dot11 * dot02 - dot01 * dot12) * invDenom;
                 FP v = (dot00 * dot12 - dot01 * dot02) * invDenom;
 

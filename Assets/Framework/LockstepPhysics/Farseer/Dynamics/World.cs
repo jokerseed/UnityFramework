@@ -409,7 +409,7 @@ namespace Framework.Lockstep.Physics2D
             if (hit)
             {
                 FP fraction = output.Fraction;
-                TSVector2 point = (1.0f - fraction) * rayCastInput.Point1 + fraction * rayCastInput.Point2;
+                TSVector2 point = ((FP)(1.0f) - fraction) * rayCastInput.Point1 + fraction * rayCastInput.Point2;
                 return _rayCastCallback(fixture, point, output.Normal, fraction);
             }
 
@@ -682,7 +682,7 @@ namespace Framework.Lockstep.Physics2D
                 for (int i = 0; i < BodyList.Count; i++)
                 {
                     BodyList[i]._island = false;
-                    BodyList[i]._sweep.Alpha0 = 0.0f;
+                    BodyList[i]._sweep.Alpha0 = (FP)(0.0f);
                 }
 #endif
 #if USE_ACTIVE_CONTACT_SET
@@ -697,7 +697,7 @@ namespace Framework.Lockstep.Physics2D
                     c.IslandFlag = false;
                     c.TOIFlag = false;
                     c._toiCount = 0;
-                    c._toi = 1.0f;
+                    c._toi = (FP)(1.0f);
                 }
             }
 
@@ -706,7 +706,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 // Find the first TOI.
                 Contact minContact = null;
-                FP minAlpha = 1.0f;
+                FP minAlpha = (FP)(1.0f);
 
 #if USE_ACTIVE_CONTACT_SET
                 foreach (var c in ContactManager.ActiveContacts)
@@ -803,14 +803,14 @@ namespace Framework.Lockstep.Physics2D
                             bB._sweep.Advance(alpha0);
                         }
 
-                        Debug.Assert(alpha0 < 1.0f);
+                        Debug.Assert(alpha0 < (FP)(1.0f));
 
                         // Compute the time of impact in interval [0, minTOI]
                         _input.ProxyA.Set(fA.Shape, c.ChildIndexA);
                         _input.ProxyB.Set(fB.Shape, c.ChildIndexB);
                         _input.SweepA = bA._sweep;
                         _input.SweepB = bB._sweep;
-                        _input.TMax = 1.0f;
+                        _input.TMax = (FP)(1.0f);
 
                         TOIOutput output;
                         TimeOfImpact.CalculateTimeOfImpact(out output, _input);
@@ -819,11 +819,11 @@ namespace Framework.Lockstep.Physics2D
                         FP beta = output.T;
                         if (output.State == TOIOutputState.Touching)
                         {
-                            alpha = Framework.FixedMath.TSMath.Min(alpha0 + (1.0f - alpha0) * beta, 1.0f);
+                            alpha = Framework.FixedMath.TSMath.Min(alpha0 + ((FP)(1.0f) - alpha0) * beta, (FP)(1.0f));
                         }
                         else
                         {
-                            alpha = 1.0f;
+                            alpha = (FP)(1.0f);
                         }
 
                         c._toi = alpha;
@@ -838,7 +838,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                 }
 
-                if (minContact == null || 1.0f - 10.0f * Settings.Epsilon < minAlpha)
+                if (minContact == null || (FP)(1.0f) - (FP)(10.0f) * Settings.Epsilon < minAlpha)
                 {
                     // No more TOI events. Done!
                     _stepComplete = true;
@@ -987,9 +987,9 @@ namespace Framework.Lockstep.Physics2D
                 }
 
                 TimeStep subStep;
-                subStep.dt = (1.0f - minAlpha) * step.dt;
-                subStep.inv_dt = 1.0f / subStep.dt;
-                subStep.dtRatio = 1.0f;
+                subStep.dt = ((FP)(1.0f) - minAlpha) * step.dt;
+                subStep.inv_dt = (FP)(1.0f) / subStep.dt;
+                subStep.dtRatio = (FP)(1.0f);
                 Island.SolveTOI(ref subStep, bA0.IslandIndex, bB0.IslandIndex, false);
 
                 // Reset island flags and synchronize broad-phase proxies.
@@ -1197,7 +1197,7 @@ namespace Framework.Lockstep.Physics2D
 
             //FPE only: moved position and velocity iterations into Settings.cs
             TimeStep step;
-            step.inv_dt = dt > 0.0f ? 1.0f / dt : 0.0f;
+            step.inv_dt = dt > (FP)(0.0f) ? (FP)(1.0f) / dt : (FP)(0.0f);
             step.dt = dt;
             step.dtRatio = _invDt0 * dt;
 
@@ -1248,7 +1248,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 Body body = BodyList[i];
                 body._force = TSVector2.zero;
-                body._torque = 0.0f;
+                body._torque = (FP)(0.0f);
             }
         }
 
@@ -1304,7 +1304,7 @@ namespace Framework.Lockstep.Physics2D
         public void RayCast(Func<Fixture, TSVector2, TSVector2, FP, FP> callback, TSVector2 point1, TSVector2 point2)
         {
             RayCastInput input = new RayCastInput();
-            input.MaxFraction = 1.0f;
+            input.MaxFraction = (FP)(1.0f);
             input.Point1 = point1;
             input.Point2 = point2;
 

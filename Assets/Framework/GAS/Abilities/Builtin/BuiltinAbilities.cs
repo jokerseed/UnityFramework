@@ -44,15 +44,15 @@ namespace Framework.GAS.Abilities.Builtin
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, cooldown, requiredTags, blockedTags)
+            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
         {
-            _speed = speed;
-            _radius = radius;
-            _lifetime = lifetime;
-            _damage = damage;
+            _speed = (FP)(speed);
+            _radius = (FP)(radius);
+            _lifetime = (FP)(lifetime);
+            _damage = (FP)(damage);
             _teamId = teamId;
             _pierceCount = pierceCount;
-            _explodeRadius = explodeRadius;
+            _explodeRadius = (FP)(explodeRadius);
             _hitEffectId = hitEffectId;
             _damageType = damageType;
             _cost = costAttributes ?? new Dictionary<string, FP>();
@@ -134,10 +134,10 @@ namespace Framework.GAS.Abilities.Builtin
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, cooldown, requiredTags, blockedTags)
+            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
         {
-            _damage = damage;
-            _range = range;
+            _damage = (FP)(damage);
+            _range = (FP)(range);
             _targetSelector = targetSelector;
             _damageType = damageType;
             _cost = costAttributes ?? new Dictionary<string, FP>();
@@ -217,10 +217,10 @@ namespace Framework.GAS.Abilities.Builtin
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, cooldown, requiredTags, blockedTags)
+            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
         {
-            _damage = damage;
-            _radius = radius;
+            _damage = (FP)(damage);
+            _radius = (FP)(radius);
             _teamId = teamId;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
@@ -275,11 +275,11 @@ namespace Framework.GAS.Abilities.Builtin
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, cooldown, requiredTags, blockedTags)
+            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
         {
-            _damage = damage;
-            _range = range;
-            _halfAngleDegrees = halfAngleDegrees;
+            _damage = (FP)(damage);
+            _range = (FP)(range);
+            _halfAngleDegrees = (FP)(halfAngleDegrees);
             _teamId = teamId;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
@@ -321,9 +321,9 @@ namespace Framework.GAS.Abilities.Builtin
         /// <param name="channelTime">引导时长（秒）。</param>
         /// <param name="projectile">引导结束后发射的弹道技能。</param>
         public ChanneledProjectileAbility(string abilityId, float cooldown, float channelTime, ProjectileAbility projectile)
-            : base(abilityId, cooldown, projectile.RequiredTags, projectile.BlockedTags)
+            : base(abilityId, (FP)(cooldown), projectile.RequiredTags, projectile.BlockedTags)
         {
-            _channelTime = channelTime;
+            _channelTime = (FP)(channelTime);
             _projectile = projectile;
         }
 
@@ -446,16 +446,16 @@ namespace Framework.GAS.Abilities.Builtin
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, cooldown, requiredTags, blockedTags)
+            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
         {
             _queryCone = queryCone;
-            _damage = damage;
-            _range = range;
-            _halfAngleDegrees = halfAngleDegrees;
-            _windup = windup;
-            _hitDuration = hitDuration;
-            _recovery = recovery;
-            _knockback = knockback;
+            _damage = (FP)(damage);
+            _range = (FP)(range);
+            _halfAngleDegrees = (FP)(halfAngleDegrees);
+            _windup = (FP)(windup);
+            _hitDuration = (FP)(hitDuration);
+            _recovery = (FP)(recovery);
+            _knockback = (FP)(knockback);
             _hitEffectId = hitEffectId;
             _comboEffectId = comboEffectId;
             _damageType = damageType;
@@ -570,10 +570,10 @@ namespace Framework.GAS.Abilities.Builtin
             string selfEffectId,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null)
-            : base(abilityId, cooldown, requiredTags, blockedTags)
+            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
         {
-            _distance = distance;
-            _duration = duration > 0f ? duration : (FP)0.25f;
+            _distance = (FP)(distance);
+            _duration = duration > 0f ? (FP)(duration) : (FP)0.25f;
             _selfEffectId = selfEffectId;
         }
 

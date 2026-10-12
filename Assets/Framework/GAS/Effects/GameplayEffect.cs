@@ -51,7 +51,7 @@ namespace Framework.GAS.Effects
         {
             AttributeName = attributeName;
             Operation = operation;
-            Magnitude = ModifierMagnitude.Constant(magnitude);
+            Magnitude = ModifierMagnitude.Constant((FP)(magnitude));
         }
 
         /// <summary>构造属性修改规则。</summary>

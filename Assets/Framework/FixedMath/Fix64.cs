@@ -860,8 +860,12 @@ namespace Framework.FixedMath {
             return value._serializedValue >> FRACTIONAL_PLACES;
         }
 
+        /// <summary>
+        /// float → FP。必须显式转换，公式仍是截断 <c>(long)(value * ONE)</c>，数值与原先隐式转换逐位相同。
+        /// </summary>
+        /// <param name="value">浮点值。</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator FP(float value) {
+        public static explicit operator FP(float value) {
             FP result;
             result._serializedValue = (long)(value * ONE);
             return result;
@@ -871,8 +875,12 @@ namespace Framework.FixedMath {
         public static explicit operator float(FP value) {
             return (float)value._serializedValue / ONE;
         }
+        /// <summary>
+        /// double → FP。必须显式转换，公式仍是截断 <c>(long)(value * ONE)</c>，数值与原先隐式转换逐位相同。
+        /// </summary>
+        /// <param name="value">双精度值。</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator FP(double value) {
+        public static explicit operator FP(double value) {
             FP result;
             result._serializedValue = (long)(value * ONE);
             return result;
@@ -967,10 +975,6 @@ namespace Framework.FixedMath {
         }
         public string ToString(string format) {
             return ((float)this).ToString(format);
-        }
-
-        public static FP FromRaw(long rawValue) {
-            return new FP(rawValue);
         }
 
         internal static void GenerateAcosLut() {

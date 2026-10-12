@@ -33,6 +33,7 @@
 1. **逻辑帧 / 锁步路径禁止 `float`/`double` 参与运算**  
    - 禁止：`Next(float,float)`、`MoveTowardsAngle(..., float maxDelta)`、`(FP)someRuntimeFloat`（非字面量）  
    - 字面量如 `(FP)0.5f` 在迁移代码里存在（与 Client 相同）；新代码优先写 `FP.Half` / `FP.EN*` / `FromRaw`
+   - `float` / `double` → `FP` 只能显式转换（`(FP)x` 或 `FP.FromFloat` / `FPConversions.ToFP`）。公式仍是截断 `(long)(value * ONE)`，与以前的隐式转换逐位相同。`int` / `long` → `FP` 仍是隐式的。
 2. **`FPConversions` 只用于渲染 / 调试**，结果不得写回模拟状态
 3. **`TSRandom` 只用 `TSRandom.New(seed)` / `Init()`**  
    - 无参构造内部用 `DateTime.Now`，**非确定性**，禁止用于同步逻辑

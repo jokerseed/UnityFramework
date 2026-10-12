@@ -287,7 +287,7 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public TSVector2 Center
         {
-            get { return 0.5f * (LowerBound + UpperBound); }
+            get { return (FP)(0.5f) * (LowerBound + UpperBound); }
         }
 
         /// <summary>
@@ -295,7 +295,7 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public TSVector2 Extents
         {
-            get { return 0.5f * (UpperBound - LowerBound); }
+            get { return (FP)(0.5f) * (UpperBound - LowerBound); }
         }
 
         /// <summary>
@@ -307,7 +307,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 FP wx = UpperBound.x - LowerBound.x;
                 FP wy = UpperBound.y - LowerBound.y;
-                return 2.0f * (wx + wy);
+                return (FP)(2.0f) * (wx + wy);
             }
         }
 
@@ -369,7 +369,7 @@ namespace Framework.Lockstep.Physics2D
         public bool IsValid()
         {
             TSVector2 d = UpperBound - LowerBound;
-            bool valid = d.x >= 0.0f && d.y >= 0.0f;
+            bool valid = d.x >= (FP)(0.0f) && d.y >= (FP)(0.0f);
             valid = valid && LowerBound.IsValid() && UpperBound.IsValid();
             return valid;
         }
@@ -437,10 +437,10 @@ namespace Framework.Lockstep.Physics2D
             TSVector2 d1 = b.LowerBound - a.UpperBound;
             TSVector2 d2 = a.LowerBound - b.UpperBound;
 
-            if (d1.x > 0.0f || d1.y > 0.0f)
+            if (d1.x > (FP)(0.0f) || d1.y > (FP)(0.0f))
                 return false;
 
-            if (d2.x > 0.0f || d2.y > 0.0f)
+            if (d2.x > (FP)(0.0f) || d2.y > (FP)(0.0f))
                 return false;
 
             return true;
@@ -486,17 +486,17 @@ namespace Framework.Lockstep.Physics2D
                 {
                     FP d_i = i == 0 ? d.x : d.y;
 
-                    FP inv_d = 1.0f / d_i;
+                    FP inv_d = (FP)(1.0f) / d_i;
                     FP t1 = (lowerBound_i - p_i) * inv_d;
                     FP t2 = (upperBound_i - p_i) * inv_d;
 
                     // Sign of the normal vector.
-                    FP s = -1.0f;
+                    FP s = (FP)(-1.0f);
 
                     if (t1 > t2)
                     {
                         MathUtils.Swap(ref t1, ref t2);
-                        s = 1.0f;
+                        s = (FP)(1.0f);
                     }
 
                     // Push the min up
@@ -526,7 +526,7 @@ namespace Framework.Lockstep.Physics2D
 
             // Does the ray start inside the box?
             // Does the ray intersect beyond the max fraction?
-            if (doInteriorCheck && (tmin < 0.0f || input.MaxFraction < tmin))
+            if (doInteriorCheck && (tmin < (FP)(0.0f) || input.MaxFraction < tmin))
             {
                 return false;
             }
@@ -614,7 +614,7 @@ namespace Framework.Lockstep.Physics2D
             DistanceOutput output;
             Distance.ComputeDistance(out output, out cache, _input);
 
-            return output.Distance < 10.0f * Settings.Epsilon;
+            return output.Distance < (FP)(10.0f) * Settings.Epsilon;
         }
 
         public static void GetPointStates(out FixedArray2<PointState> state1, out FixedArray2<PointState> state2, ref Manifold manifold1, ref Manifold manifold2)
@@ -741,7 +741,7 @@ namespace Framework.Lockstep.Physics2D
                 manifold.PointCount = 1;
                 manifold.Type = ManifoldType.FaceA;
                 manifold.LocalNormal = polygonA.Normals[normalIndex];
-                manifold.LocalPoint = 0.5f * (v1 + v2);
+                manifold.LocalPoint = (FP)(0.5f) * (v1 + v2);
 
                 ManifoldPoint p0 = manifold.Points[0];
 
@@ -757,7 +757,7 @@ namespace Framework.Lockstep.Physics2D
             FP u1 = (cLocal.x - v1.x) * (v2.x - v1.x) + (cLocal.y - v1.y) * (v2.y - v1.y);
             FP u2 = (cLocal.x - v2.x) * (v1.x - v2.x) + (cLocal.y - v2.y) * (v1.y - v2.y);
 
-            if (u1 <= 0.0f)
+            if (u1 <= (FP)(0.0f))
             {
                 FP r = (cLocal.x - v1.x) * (cLocal.x - v1.x) + (cLocal.y - v1.y) * (cLocal.y - v1.y);
                 if (r > radius * radius)
@@ -768,7 +768,7 @@ namespace Framework.Lockstep.Physics2D
                 manifold.PointCount = 1;
                 manifold.Type = ManifoldType.FaceA;
                 manifold.LocalNormal = cLocal - v1;
-                FP factor = 1f /
+                FP factor = (FP)(1f) /
                                (FP)
                                FP.Sqrt(manifold.LocalNormal.x * manifold.LocalNormal.x +
                                          manifold.LocalNormal.y * manifold.LocalNormal.y);
@@ -783,7 +783,7 @@ namespace Framework.Lockstep.Physics2D
 
                 manifold.Points[0] = p0b;
             }
-            else if (u2 <= 0.0f)
+            else if (u2 <= (FP)(0.0f))
             {
                 FP r = (cLocal.x - v2.x) * (cLocal.x - v2.x) + (cLocal.y - v2.y) * (cLocal.y - v2.y);
                 if (r > radius * radius)
@@ -794,7 +794,7 @@ namespace Framework.Lockstep.Physics2D
                 manifold.PointCount = 1;
                 manifold.Type = ManifoldType.FaceA;
                 manifold.LocalNormal = cLocal - v2;
-                FP factor = 1f /
+                FP factor = (FP)(1f) /
                                (FP)
                                FP.Sqrt(manifold.LocalNormal.x * manifold.LocalNormal.x +
                                          manifold.LocalNormal.y * manifold.LocalNormal.y);
@@ -811,7 +811,7 @@ namespace Framework.Lockstep.Physics2D
             }
             else
             {
-                TSVector2 faceCenter = 0.5f * (v1 + v2);
+                TSVector2 faceCenter = (FP)(0.5f) * (v1 + v2);
                 TSVector2 value1 = cLocal - faceCenter;
                 TSVector2 value2 = polygonA.Normals[vertIndex1];
                 FP separation2 = value1.x * value2.x + value1.y * value2.y;
@@ -862,8 +862,8 @@ namespace Framework.Lockstep.Physics2D
             Transform xf1, xf2;
             int edge1; // reference edge
             bool flip;
-            FP k_relativeTol = 0.98f;
-            FP k_absoluteTol = 0.001f;
+            FP k_relativeTol = (FP)(0.98f);
+            FP k_absoluteTol = (FP)(0.001f);
 
             if (separationB > k_relativeTol * separationA + k_absoluteTol)
             {
@@ -901,7 +901,7 @@ namespace Framework.Lockstep.Physics2D
             localTangent.Normalize();
 
             TSVector2 localNormal = new TSVector2(localTangent.y, -localTangent.x);
-            TSVector2 planePoint = 0.5f * (v11 + v12);
+            TSVector2 planePoint = (FP)(0.5f) * (v11 + v12);
 
             TSVector2 tangent = MathUtils.Mul(xf1.q, localTangent);
 
@@ -1003,7 +1003,7 @@ namespace Framework.Lockstep.Physics2D
             TSVector2 P, d;
 
             // Region A
-            if (v <= 0.0f)
+            if (v <= (FP)(0.0f))
             {
                 P = A;
                 d = Q - P;
@@ -1023,7 +1023,7 @@ namespace Framework.Lockstep.Physics2D
                     FP u1 = TSVector2.Dot(e1, B1 - Q);
 
                     // Is the circle in Region AB of the previous edge?
-                    if (u1 > 0.0f)
+                    if (u1 > (FP)(0.0f))
                     {
                         return;
                     }
@@ -1044,7 +1044,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // Region B
-            if (u <= 0.0f)
+            if (u <= (FP)(0.0f))
             {
                 P = B;
                 d = Q - P;
@@ -1064,7 +1064,7 @@ namespace Framework.Lockstep.Physics2D
                     FP v2 = TSVector2.Dot(e2, Q - A2);
 
                     // Is the circle in Region AB of the next edge?
-                    if (v2 > 0.0f)
+                    if (v2 > (FP)(0.0f))
                     {
                         return;
                     }
@@ -1088,7 +1088,7 @@ namespace Framework.Lockstep.Physics2D
             FP den;
             TSVector2.Dot(ref e, ref e, out den);
             //Debug.Assert(den > 0.0f);
-            P = (1.0f / den) * (u * A + v * B);
+            P = ((FP)(1.0f) / den) * (u * A + v * B);
             d = Q - P;
             FP dd2;
             TSVector2.Dot(ref d, ref d, out dd2);
@@ -1098,7 +1098,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             TSVector2 n = new TSVector2(-e.y, e.x);
-            if (TSVector2.Dot(n, Q - A) < 0.0f)
+            if (TSVector2.Dot(n, Q - A) < (FP)(0.0f))
             {
                 n = new TSVector2(-n.x, -n.y);
             }
@@ -1172,7 +1172,7 @@ namespace Framework.Lockstep.Physics2D
                 edge1.Normalize();
                 _normal1 = new TSVector2(edge1.y, -edge1.x);
                 FP offset1 = TSVector2.Dot(_normal1, _centroidB - _v1);
-                FP offset0 = 0.0f, offset2 = 0.0f;
+                FP offset0 = (FP)(0.0f), offset2 = (FP)(0.0f);
                 bool convex1 = false, convex2 = false;
 
                 // Is there a preceding edge?
@@ -1181,7 +1181,7 @@ namespace Framework.Lockstep.Physics2D
                     TSVector2 edge0 = _v1 - _v0;
                     edge0.Normalize();
                     _normal0 = new TSVector2(edge0.y, -edge0.x);
-                    convex1 = MathUtils.Cross(edge0, edge1) >= 0.0f;
+                    convex1 = MathUtils.Cross(edge0, edge1) >= (FP)(0.0f);
                     offset0 = TSVector2.Dot(_normal0, _centroidB - _v0);
                 }
 
@@ -1191,7 +1191,7 @@ namespace Framework.Lockstep.Physics2D
                     TSVector2 edge2 = _v3 - _v2;
                     edge2.Normalize();
                     _normal2 = new TSVector2(edge2.y, -edge2.x);
-                    convex2 = MathUtils.Cross(edge1, edge2) > 0.0f;
+                    convex2 = MathUtils.Cross(edge1, edge2) > (FP)(0.0f);
                     offset2 = TSVector2.Dot(_normal2, _centroidB - _v2);
                 }
 
@@ -1200,7 +1200,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (convex1 && convex2)
                     {
-                        _front = offset0 >= 0.0f || offset1 >= 0.0f || offset2 >= 0.0f;
+                        _front = offset0 >= (FP)(0.0f) || offset1 >= (FP)(0.0f) || offset2 >= (FP)(0.0f);
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1216,7 +1216,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                     else if (convex1)
                     {
-                        _front = offset0 >= 0.0f || (offset1 >= 0.0f && offset2 >= 0.0f);
+                        _front = offset0 >= (FP)(0.0f) || (offset1 >= (FP)(0.0f) && offset2 >= (FP)(0.0f));
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1232,7 +1232,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                     else if (convex2)
                     {
-                        _front = offset2 >= 0.0f || (offset0 >= 0.0f && offset1 >= 0.0f);
+                        _front = offset2 >= (FP)(0.0f) || (offset0 >= (FP)(0.0f) && offset1 >= (FP)(0.0f));
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1248,7 +1248,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                     else
                     {
-                        _front = offset0 >= 0.0f && offset1 >= 0.0f && offset2 >= 0.0f;
+                        _front = offset0 >= (FP)(0.0f) && offset1 >= (FP)(0.0f) && offset2 >= (FP)(0.0f);
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1267,7 +1267,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (convex1)
                     {
-                        _front = offset0 >= 0.0f || offset1 >= 0.0f;
+                        _front = offset0 >= (FP)(0.0f) || offset1 >= (FP)(0.0f);
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1283,7 +1283,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                     else
                     {
-                        _front = offset0 >= 0.0f && offset1 >= 0.0f;
+                        _front = offset0 >= (FP)(0.0f) && offset1 >= (FP)(0.0f);
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1302,7 +1302,7 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (convex2)
                     {
-                        _front = offset1 >= 0.0f || offset2 >= 0.0f;
+                        _front = offset1 >= (FP)(0.0f) || offset2 >= (FP)(0.0f);
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1318,7 +1318,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                     else
                     {
-                        _front = offset1 >= 0.0f && offset2 >= 0.0f;
+                        _front = offset1 >= (FP)(0.0f) && offset2 >= (FP)(0.0f);
                         if (_front)
                         {
                             _normal = _normal1;
@@ -1335,7 +1335,7 @@ namespace Framework.Lockstep.Physics2D
                 }
                 else
                 {
-                    _front = offset1 >= 0.0f;
+                    _front = offset1 >= (FP)(0.0f);
                     if (_front)
                     {
                         _normal = _normal1;
@@ -1358,7 +1358,7 @@ namespace Framework.Lockstep.Physics2D
                     _polygonB.Normals[i] = MathUtils.Mul(_xf.q, polygonB.Normals[i]);
                 }
 
-                _radius = 2.0f * Settings.PolygonRadius;
+                _radius = (FP)(2.0f) * Settings.PolygonRadius;
 
                 manifold.PointCount = 0;
 
@@ -1382,8 +1382,8 @@ namespace Framework.Lockstep.Physics2D
                 }
 
                 // Use hysteresis for jitter reduction.
-                FP k_relativeTol = 0.98f;
-                FP k_absoluteTol = 0.001f;
+                FP k_relativeTol = (FP)(0.98f);
+                FP k_absoluteTol = (FP)(0.001f);
 
                 EPAxis primaryAxis;
                 if (polygonAxis.Type == EPAxisType.Unknown)
@@ -1595,7 +1595,7 @@ namespace Framework.Lockstep.Physics2D
                     }
 
                     // Adjacency
-                    if (TSVector2.Dot(n, perp) >= 0.0f)
+                    if (TSVector2.Dot(n, perp) >= (FP)(0.0f))
                     {
                         if (TSVector2.Dot(n - _upperLimit, _normal) < -Settings.AngularSlop)
                         {
@@ -1646,11 +1646,11 @@ namespace Framework.Lockstep.Physics2D
             FP distance1 = normal.x * v1.V.x + normal.y * v1.V.y - offset;
 
             // If the points are behind the plane
-            if (distance0 <= 0.0f) vOut[numOut++] = v0;
-            if (distance1 <= 0.0f) vOut[numOut++] = v1;
+            if (distance0 <= (FP)(0.0f)) vOut[numOut++] = v0;
+            if (distance1 <= (FP)(0.0f)) vOut[numOut++] = v1;
 
             // If the points are on different sides of the plane
-            if (distance0 * distance1 < 0.0f)
+            if (distance0 * distance1 < (FP)(0.0f))
             {
                 // Find intersection point of edge and plane
                 FP interp = distance0 / (distance0 - distance1);

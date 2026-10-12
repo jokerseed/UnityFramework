@@ -15,7 +15,7 @@ namespace Framework.Lockstep.Physics2D
             List<TriangulationPoint> points = new List<TriangulationPoint>();
             for (int i = 0; i < n; i++)
             {
-                points.Add(new TriangulationPoint(scale*(0.5 - RNG.NextFP()), scale*(0.5 - RNG.NextFP())));
+                points.Add(new TriangulationPoint(scale*((FP)(0.5) - RNG.NextFP()), scale*((FP)(0.5) - RNG.NextFP())));
             }
             return points;
         }
@@ -24,7 +24,7 @@ namespace Framework.Lockstep.Physics2D
         {
             FP x = 0;
             FP size = scale/n;
-            FP halfScale = 0.5*scale;
+            FP halfScale = (FP)(0.5)*scale;
 
             List<TriangulationPoint> points = new List<TriangulationPoint>();
             for (int i = 0; i < n + 1; i++)

@@ -66,7 +66,7 @@ namespace Framework.Lockstep.Physics2D
                     FP forcePercent = GetPercent(distance, radius);
 
                     TSVector2 forceVector = pos - overlappingBody.Position;
-                    forceVector *= 1f / FP.Sqrt(forceVector.x * forceVector.x + forceVector.y * forceVector.y);
+                    forceVector *= (FP)(1f) / FP.Sqrt(forceVector.x * forceVector.x + forceVector.y * forceVector.y);
                     forceVector *= TSMath.Min(force * forcePercent, maxForce);
                     forceVector *= -1;
 
@@ -86,9 +86,9 @@ namespace Framework.Lockstep.Physics2D
             FP percent = (FP)Math.Pow((1 - ((distance - radius) / radius)).AsFloat(), Power.AsFloat()) - 1;
 
             if (FP.IsNaN(percent))
-                return 0f;
+                return (FP)(0f);
 
-            return TSMath.Clamp(percent, 0f, 1f);
+            return TSMath.Clamp(percent, (FP)(0f), (FP)(1f));
         }
     }
 }

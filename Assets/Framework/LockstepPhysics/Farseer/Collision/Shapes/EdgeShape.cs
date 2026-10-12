@@ -157,13 +157,13 @@ namespace Framework.Lockstep.Physics2D
             FP numerator = TSVector2.Dot(normal, v1 - p1);
             FP denominator = TSVector2.Dot(normal, d);
 
-            if (denominator == 0.0f)
+            if (denominator == (FP)(0.0f))
             {
                 return false;
             }
 
             FP t = numerator / denominator;
-            if (t < 0.0f || input.MaxFraction < t)
+            if (t < (FP)(0.0f) || input.MaxFraction < t)
             {
                 return false;
             }
@@ -174,19 +174,19 @@ namespace Framework.Lockstep.Physics2D
             // s = dot(q - v1, r) / dot(r, r)
             TSVector2 r = v2 - v1;
             FP rr = TSVector2.Dot(r, r);
-            if (rr == 0.0f)
+            if (rr == (FP)(0.0f))
             {
                 return false;
             }
 
             FP s = TSVector2.Dot(q - v1, r) / rr;
-            if (s < 0.0f || 1.0f < s)
+            if (s < (FP)(0.0f) || (FP)(1.0f) < s)
             {
                 return false;
             }
 
             output.Fraction = t;
-            if (numerator > 0.0f)
+            if (numerator > (FP)(0.0f))
             {
                 output.Normal = -normal;
             }
@@ -212,7 +212,7 @@ namespace Framework.Lockstep.Physics2D
 
         protected override void ComputeProperties()
         {
-            MassData.Centroid = 0.5f * (_vertex1 + _vertex2);
+            MassData.Centroid = (FP)(0.5f) * (_vertex1 + _vertex2);
         }
 
         public override FP ComputeSubmergedArea(ref TSVector2 normal, FP offset, ref Transform xf, out TSVector2 sc)

@@ -13,7 +13,7 @@ namespace Framework.Lockstep.Physics2D
     /// </summary>
     public static class ConvertUnits
     {
-        private static FP _displayUnitsToSimUnitsRatio = 100f;
+        private static FP _displayUnitsToSimUnitsRatio = (FP)(100f);
         private static FP _simUnitsToDisplayUnitsRatio = 1 / _displayUnitsToSimUnitsRatio;
 
         public static void SetDisplayUnitToSimUnitRatio(FP displayUnitsPerSimUnit)

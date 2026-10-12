@@ -50,7 +50,7 @@ namespace Framework.Lockstep.Physics2D
         /// The force needed to break the body apart.
         /// Default: 500
         /// </summary>
-        public FP Strength = 500.0f;
+        public FP Strength = (FP)(500.0f);
 
         private void PostSolve(Contact contact, ContactVelocityConstraint impulse)
         {
@@ -58,7 +58,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 if (Parts.Contains(contact.FixtureA) || Parts.Contains(contact.FixtureB))
                 {
-                    FP maxImpulse = 0.0f;
+                    FP maxImpulse = (FP)(0.0f);
                     int count = contact.Manifold.PointCount;
 
                     for (int i = 0; i < count; ++i)

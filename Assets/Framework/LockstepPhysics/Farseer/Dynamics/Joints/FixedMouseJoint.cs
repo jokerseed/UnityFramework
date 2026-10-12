@@ -74,8 +74,8 @@ namespace Framework.Lockstep.Physics2D
             : base(body)
         {
             JointType = JointType.FixedMouse;
-            Frequency = 5.0f;
-            DampingRatio = 0.7f;
+            Frequency = (FP)(5.0f);
+            DampingRatio = (FP)(0.7f);
             MaxForce = 1000 * body.Mass;
 
             Debug.Assert(worldAnchor.IsValid());
@@ -115,7 +115,7 @@ namespace Framework.Lockstep.Physics2D
             get { return _maxForce; }
             set
             {
-                Debug.Assert(MathUtils.IsValid(value) && value >= 0.0f);
+                Debug.Assert(MathUtils.IsValid(value) && value >= (FP)(0.0f));
                 _maxForce = value;
             }
         }
@@ -128,7 +128,7 @@ namespace Framework.Lockstep.Physics2D
             get { return _frequency; }
             set
             {
-                Debug.Assert(MathUtils.IsValid(value) && value >= 0.0f);
+                Debug.Assert(MathUtils.IsValid(value) && value >= (FP)(0.0f));
                 _frequency = value;
             }
         }
@@ -141,7 +141,7 @@ namespace Framework.Lockstep.Physics2D
             get { return _dampingRatio; }
             set
             {
-                Debug.Assert(MathUtils.IsValid(value) && value >= 0.0f);
+                Debug.Assert(MathUtils.IsValid(value) && value >= (FP)(0.0f));
                 _dampingRatio = value;
             }
         }
@@ -153,7 +153,7 @@ namespace Framework.Lockstep.Physics2D
 
         public override FP GetReactionTorque(FP invDt)
         {
-            return invDt * 0.0f;
+            return invDt * (FP)(0.0f);
         }
 
         internal override void InitVelocityConstraints(ref SolverData data)
@@ -173,10 +173,10 @@ namespace Framework.Lockstep.Physics2D
             FP mass = BodyA.Mass;
 
             // Frequency
-            FP omega = 2.0f * Settings.Pi * Frequency;
+            FP omega = (FP)(2.0f) * Settings.Pi * Frequency;
 
             // Damping coefficient
-            FP d = 2.0f * mass * DampingRatio * omega;
+            FP d = (FP)(2.0f) * mass * DampingRatio * omega;
 
             // Spring stiffness
             FP k = mass * (omega * omega);
@@ -187,9 +187,9 @@ namespace Framework.Lockstep.Physics2D
             FP h = data.step.dt;
             //Debug.Assert(d + h * k > Settings.Epsilon);
             _gamma = h * (d + h * k);
-            if (_gamma != 0.0f)
+            if (_gamma != (FP)(0.0f))
             {
-                _gamma = 1.0f / _gamma;
+                _gamma = (FP)(1.0f) / _gamma;
             }
 
             _beta = h * k * _gamma;
@@ -211,7 +211,7 @@ namespace Framework.Lockstep.Physics2D
             _C *= _beta;
 
             // Cheat with some damping
-            wA *= 0.98f;
+            wA *= (FP)(0.98f);
 
             if (Settings.EnableWarmstarting)
             {

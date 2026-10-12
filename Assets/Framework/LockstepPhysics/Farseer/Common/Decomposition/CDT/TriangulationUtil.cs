@@ -40,7 +40,7 @@ namespace Framework.Lockstep.Physics2D
 
     internal class TriangulationUtil
     {
-        public static FP EPSILON = 1e-12;
+        public static FP EPSILON = (FP)(1e-12);
 
         /// <summary>
         ///   Requirements:

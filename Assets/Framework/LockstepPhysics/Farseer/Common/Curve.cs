@@ -229,7 +229,7 @@ namespace Microsoft.Xna.Framework
         private int GetNumberOfCycle(FP position)
         {
             FP cycle = (position - keys[0].Position)/(keys[keys.Count - 1].Position - keys[0].Position);
-            if (cycle < 0f)
+            if (cycle < (FP)(0f))
                 cycle -= 1;
             return (int) cycle;
         }
@@ -246,7 +246,7 @@ namespace Microsoft.Xna.Framework
                 {
                     if (prev.Continuity == CurveContinuity.Step)
                     {
-                        if (position >= 1f)
+                        if (position >= (FP)(1f))
                         {
                             return next.Value;
                         }
@@ -260,12 +260,12 @@ namespace Microsoft.Xna.Framework
                     //http://en.wikipedia.org/wiki/Cubic_Hermite_spline
                     //P(t) = (2*t^3 - 3t^2 + 1)*P0 + (t^3 - 2t^2 + t)m0 + (-2t^3 + 3t^2)P1 + (t^3-t^2)m1
                     //with P0.value = prev.value , m0 = prev.tangentOut, P1= next.value, m1 = next.TangentIn
-                    return (2*tss - 3*ts + 1f)*prev.Value + (tss - 2*ts + t)*prev.TangentOut + (3*ts - 2*tss)*next.Value +
+                    return (2*tss - 3*ts + (FP)(1f))*prev.Value + (tss - 2*ts + t)*prev.TangentOut + (3*ts - 2*tss)*next.Value +
                            (tss - ts)*next.TangentIn;
                 }
                 prev = next;
             }
-            return 0f;
+            return (FP)(0f);
         }
 
 #endregion

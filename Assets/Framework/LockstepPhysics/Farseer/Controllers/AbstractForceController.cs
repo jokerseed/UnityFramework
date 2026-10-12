@@ -88,25 +88,25 @@ namespace Framework.Lockstep.Physics2D
         {
             Enabled = true;
 
-            Strength = 1.0f;
+            Strength = (FP)(1.0f);
             Position = new TSVector2(0, 0);
-            MaximumSpeed = 100.0f;
+            MaximumSpeed = (FP)(100.0f);
             TimingMode = TimingModes.Switched;
-            ImpulseTime = 0.0f;
-            ImpulseLength = 1.0f;
+            ImpulseTime = (FP)(0.0f);
+            ImpulseLength = (FP)(1.0f);
             Triggered = false;
             StrengthCurve = new Curve();
-            Variation = 0.0f;
+            Variation = (FP)(0.0f);
             Randomize = Framework.FixedMath.TSRandom.New(1234);
             DecayMode = DecayModes.None;
             DecayCurve = new Curve();
-            DecayStart = 0.0f;
-            DecayEnd = 0.0f;
+            DecayStart = (FP)(0.0f);
+            DecayEnd = (FP)(0.0f);
 
             StrengthCurve.Keys.Add(new CurveKey(0, 5));
-            StrengthCurve.Keys.Add(new CurveKey(0.1f, 5));
-            StrengthCurve.Keys.Add(new CurveKey(0.2f, -4));
-            StrengthCurve.Keys.Add(new CurveKey(1f, 0));
+            StrengthCurve.Keys.Add(new CurveKey((FP)(0.1f), 5));
+            StrengthCurve.Keys.Add(new CurveKey((FP)(0.2f), -4));
+            StrengthCurve.Keys.Add(new CurveKey((FP)(1f), 0));
         }
 
         /// <summary>
@@ -214,39 +214,39 @@ namespace Framework.Lockstep.Physics2D
             {
                 case DecayModes.None:
                     {
-                        return 1.0f;
+                        return (FP)(1.0f);
                     }
                 case DecayModes.Step:
                     {
                         if (distance < DecayEnd)
-                            return 1.0f;
+                            return (FP)(1.0f);
                         else
-                            return 0.0f;
+                            return (FP)(0.0f);
                     }
                 case DecayModes.Linear:
                     {
                         if (distance < DecayStart)
-                            return 1.0f;
+                            return (FP)(1.0f);
                         if (distance > DecayEnd)
-                            return 0.0f;
+                            return (FP)(0.0f);
                         return (DecayEnd - DecayStart / distance - DecayStart);
                     }
                 case DecayModes.InverseSquare:
                     {
                         if (distance < DecayStart)
-                            return 1.0f;
+                            return (FP)(1.0f);
                         else
-                            return 1.0f / ((distance - DecayStart) * (distance - DecayStart));
+                            return (FP)(1.0f) / ((distance - DecayStart) * (distance - DecayStart));
                     }
                 case DecayModes.Curve:
                     {
                         if (distance < DecayStart)
-                            return 1.0f;
+                            return (FP)(1.0f);
                         else
                             return DecayCurve.Evaluate(distance - DecayStart);
                     }
                 default:
-                    return 1.0f;
+                    return (FP)(1.0f);
             }
         }
 

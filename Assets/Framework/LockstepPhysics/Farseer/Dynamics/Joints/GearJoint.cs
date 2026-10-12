@@ -187,7 +187,7 @@ namespace Framework.Lockstep.Physics2D
 
             _ratio = ratio;
             _constant = coordinateA + _ratio * coordinateB;
-            _impulse = 0.0f;
+            _impulse = (FP)(0.0f);
         }
 
         public override TSVector2 WorldAnchorA
@@ -274,13 +274,13 @@ namespace Framework.Lockstep.Physics2D
 
             Rot qA = new Rot(aA), qB = new Rot(aB), qC = new Rot(aC), qD = new Rot(aD);
 
-            _mass = 0.0f;
+            _mass = (FP)(0.0f);
 
             if (_typeA == JointType.Revolute)
             {
                 _JvAC = TSVector2.zero;
-                _JwA = 1.0f;
-                _JwC = 1.0f;
+                _JwA = (FP)(1.0f);
+                _JwC = (FP)(1.0f);
                 _mass += _iA + _iC;
             }
             else
@@ -313,7 +313,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // Compute effective mass.
-            _mass = _mass > 0.0f ? 1.0f / _mass : 0.0f;
+            _mass = _mass > (FP)(0.0f) ? (FP)(1.0f) / _mass : (FP)(0.0f);
 
             if (Settings.EnableWarmstarting)
             {
@@ -328,7 +328,7 @@ namespace Framework.Lockstep.Physics2D
             }
             else
             {
-                _impulse = 0.0f;
+                _impulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -390,19 +390,19 @@ namespace Framework.Lockstep.Physics2D
 
             Rot qA = new Rot(aA), qB = new Rot(aB), qC = new Rot(aC), qD = new Rot(aD);
 
-            FP linearError = 0.0f;
+            FP linearError = (FP)(0.0f);
 
             FP coordinateA, coordinateB;
 
             TSVector2 JvAC, JvBD;
             FP JwA, JwB, JwC, JwD;
-            FP mass = 0.0f;
+            FP mass = (FP)(0.0f);
 
             if (_typeA == JointType.Revolute)
             {
                 JvAC = TSVector2.zero;
-                JwA = 1.0f;
-                JwC = 1.0f;
+                JwA = (FP)(1.0f);
+                JwC = (FP)(1.0f);
                 mass += _iA + _iC;
 
                 coordinateA = aA - aC - _referenceAngleA;
@@ -448,8 +448,8 @@ namespace Framework.Lockstep.Physics2D
 
             FP C = (coordinateA + _ratio * coordinateB) - _constant;
 
-            FP impulse = 0.0f;
-            if (mass > 0.0f)
+            FP impulse = (FP)(0.0f);
+            if (mass > (FP)(0.0f))
             {
                 impulse = -C / mass;
             }

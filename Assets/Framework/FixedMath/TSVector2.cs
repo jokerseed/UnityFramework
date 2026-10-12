@@ -130,8 +130,8 @@ namespace Framework.FixedMath {
         public static void Reflect(ref TSVector2 vector, ref TSVector2 normal, out TSVector2 result)
         {
             FP dot = Dot(vector, normal);
-            result.x = vector.x - ((2f*dot)*normal.x);
-            result.y = vector.y - ((2f*dot)*normal.y);
+            result.x = vector.x - (((FP)(2f)*dot)*normal.x);
+            result.y = vector.y - (((FP)(2f)*dot)*normal.y);
         }
 
         public static TSVector2 Reflect(TSVector2 vector, TSVector2 normal)
@@ -475,7 +475,7 @@ namespace Framework.FixedMath {
         {
             FP factor;
             DistanceSquared(ref value, ref zeroVector, out factor);
-            factor = 1f/(FP) FP.Sqrt(factor);
+            factor = (FP)(1f)/(FP) FP.Sqrt(factor);
             result.x = value.x*factor;
             result.y = value.y*factor;
         }
@@ -526,7 +526,7 @@ namespace Framework.FixedMath {
             // 将角度转换为0-360度范围
             if (degrees < 0)
             {
-                degrees += 360.0;
+                degrees += (FP)(360.0);
             }
 
             return degrees;

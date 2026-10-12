@@ -138,9 +138,9 @@ namespace Framework.Lockstep.Physics2D
         {
             Vertices verts = new Vertices();
 
-            FP timeStep = 1f / divisions;
+            FP timeStep = (FP)(1f / divisions);
 
-            for (FP i = 0; i < 1f; i += timeStep)
+            for (FP i = 0; i < (FP)(1f); i += timeStep)
             {
                 verts.Add(GetPosition(i));
             }
@@ -159,7 +159,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 Add(ControlPoints[0]);
 
-                _deltaT = 1f / (ControlPoints.Count - 1);
+                _deltaT = (FP)(1f / (ControlPoints.Count - 1));
 
                 int p = (int)(time / _deltaT);
 
@@ -218,7 +218,7 @@ namespace Framework.Lockstep.Physics2D
         /// <returns>The normal.</returns>
         public TSVector2 GetPositionNormal(FP time)
         {
-            FP offsetTime = time + 0.0001f;
+            FP offsetTime = time + (FP)(0.0001f);
 
             TSVector2 a = GetPosition(time);
             TSVector2 b = GetPosition(offsetTime);
@@ -241,19 +241,19 @@ output = new Vector2();
         public void Add(TSVector2 point)
         {
             ControlPoints.Add(point);
-            _deltaT = 1f / (ControlPoints.Count - 1);
+            _deltaT = (FP)(1f / (ControlPoints.Count - 1));
         }
 
         public void Remove(TSVector2 point)
         {
             ControlPoints.Remove(point);
-            _deltaT = 1f / (ControlPoints.Count - 1);
+            _deltaT = (FP)(1f / (ControlPoints.Count - 1));
         }
 
         public void RemoveAt(int index)
         {
             ControlPoints.RemoveAt(index);
-            _deltaT = 1f / (ControlPoints.Count - 1);
+            _deltaT = (FP)(1f / (ControlPoints.Count - 1));
         }
 
         public FP GetLength()
@@ -278,20 +278,20 @@ output = new Vector2();
 
             FP length = GetLength();
 
-            FP deltaLength = length / divisions + 0.001f;
-            FP t = 0.000f;
+            FP deltaLength = length / divisions + (FP)(0.001f);
+            FP t = (FP)(0.000f);
 
             // we always start at the first control point
             TSVector2 start = ControlPoints[0];
             TSVector2 end = GetPosition(t);
 
             // increment t until we are at half the distance
-            while (deltaLength * 0.5f >= TSVector2.Distance(start, end))
+            while (deltaLength * (FP)(0.5f) >= TSVector2.Distance(start, end))
             {
                 end = GetPosition(t);
-                t += 0.0001f;
+                t += (FP)(0.0001f);
 
-                if (t >= 1f)
+                if (t >= (FP)(1f))
                     break;
             }
 
@@ -309,12 +309,12 @@ output = new Vector2();
                 while (deltaLength >= TSVector2.Distance(start, end))
                 {
                     end = GetPosition(t);
-                    t += 0.00001f;
+                    t += (FP)(0.00001f);
 
-                    if (t >= 1f)
+                    if (t >= (FP)(1f))
                         break;
                 }
-                if (t >= 1f)
+                if (t >= (FP)(1f))
                     break;
 
                 start = end;

@@ -132,7 +132,7 @@ namespace Framework.Lockstep.Physics2D
                 area += vi.x * vj.y;
                 area -= vi.y * vj.x;
             }
-            area /= 2.0f;
+            area /= (FP)(2.0f);
             return area;
         }
 
@@ -158,8 +158,8 @@ namespace Framework.Lockstep.Physics2D
 
             // Same algorithm is used by Box2D
             TSVector2 c = TSVector2.zero;
-            FP area = 0.0f;
-            FP inv3 = 1.0f / 3.0f;
+            FP area = (FP)(0.0f);
+            FP inv3 = (FP)(1.0f / 3.0f);
 
             for (int i = 0; i < Count; ++i)
             {
@@ -167,7 +167,7 @@ namespace Framework.Lockstep.Physics2D
                 TSVector2 current = this[i];
                 TSVector2 next = (i + 1 < Count ? this[i + 1] : this[0]);
 
-                FP triangleArea = 0.5f * (current.x * next.y - current.y * next.x);
+                FP triangleArea = (FP)(0.5f) * (current.x * next.y - current.y * next.x);
                 area += triangleArea;
 
                 // Area weighted centroid
@@ -175,7 +175,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // Centroid
-            c *= 1.0f / area;
+            c *= (FP)(1.0f) / area;
             return c;
         }
 
@@ -339,7 +339,7 @@ namespace Framework.Lockstep.Physics2D
 
                     FP s = edge.x * r.y - edge.y * r.x;
 
-                    if (s <= 0.0f)
+                    if (s <= (FP)(0.0f))
                         return false;
                 }
             }
@@ -356,7 +356,7 @@ namespace Framework.Lockstep.Physics2D
             if (Count < 3)
                 return false;
 
-            return (GetSignedArea() > 0.0f);
+            return (GetSignedArea() > (FP)(0.0f));
         }
 
         /// <summary>
@@ -492,21 +492,21 @@ namespace Framework.Lockstep.Physics2D
                 // Test if a point is directly on the edge
                 TSVector2 edge = p2 - p1;
                 FP area = MathUtils.Area(ref p1, ref p2, ref point);
-                if (area == 0f && TSVector2.Dot(point - p1, edge) >= 0f && TSVector2.Dot(point - p2, edge) <= 0f)
+                if (area == (FP)(0f) && TSVector2.Dot(point - p1, edge) >= (FP)(0f) && TSVector2.Dot(point - p2, edge) <= (FP)(0f))
                 {
                     return 0;
                 }
                 // Test edge for intersection with ray from point
                 if (p1.y <= point.y)
                 {
-                    if (p2.y > point.y && area > 0f)
+                    if (p2.y > point.y && area > (FP)(0f))
                     {
                         ++wn;
                     }
                 }
                 else
                 {
-                    if (p2.y <= point.y && area < 0f)
+                    if (p2.y <= point.y && area < (FP)(0f))
                     {
                         --wn;
                     }
@@ -598,7 +598,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             public FP? IntersectsWithRay(TSVector2 origin, TSVector2 direction) {
-                FP largestDistance = TSMath.Max(A.Position.x - origin.x, B.Position.x - origin.x) * 2f;
+                FP largestDistance = TSMath.Max(A.Position.x - origin.x, B.Position.x - origin.x) * (FP)(2f);
                 LineSegment raySegment = new LineSegment(new Vertex(origin, 0), new Vertex(origin + (direction * largestDistance), 0));
 
                 TSVector2? intersection = FindIntersection(this, raySegment);
@@ -628,7 +628,7 @@ namespace Framework.Lockstep.Physics2D
                 FP ua = uaNum / denom;
                 FP ub = ubNum / denom;
 
-                if (TSMath.Clamp(ua, 0f, 1f) != ua || TSMath.Clamp(ub, 0f, 1f) != ub)
+                if (TSMath.Clamp(ua, (FP)(0f), (FP)(1f)) != ua || TSMath.Clamp(ub, (FP)(0f), (FP)(1f)) != ub)
                     return null;
 
                 return a.A.Position + (a.B.Position - a.A.Position) * ua;
@@ -957,7 +957,7 @@ namespace Framework.Lockstep.Physics2D
             //if there are any interior reflex vertices, find the one that, when connected
             //to our rightMostHoleVertex, forms the line closest to Vector2.UnitX
             if (interiorReflexVertices.Count > 0) {
-                FP closestDot = -1f;
+                FP closestDot = (FP)(-1f);
                 foreach (Vertex v in interiorReflexVertices) {
                     //compute the dot product of the vector against the UnitX
                     TSVector2 d = TSVector2.Normalize(v.Position - rightMostHoleVertex.Position);
@@ -1233,7 +1233,7 @@ namespace Framework.Lockstep.Physics2D
             TSVector2 d2 = TSVector2.Normalize(n.Position - c.Position);
             TSVector2 n2 = new TSVector2(-d2.y, d2.x);
 
-            return (TSVector2.Dot(d1, n2) <= 0f);
+            return (TSVector2.Dot(d1, n2) <= (FP)(0f));
         }
 
         #endregion

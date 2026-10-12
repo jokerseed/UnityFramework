@@ -166,7 +166,7 @@ namespace Framework.Lockstep.Physics2D
             _length = _u.magnitude;
 
             FP C = _length - MaxLength;
-            if (C > 0.0f)
+            if (C > (FP)(0.0f))
             {
                 State = LimitState.AtUpper;
             }
@@ -177,13 +177,13 @@ namespace Framework.Lockstep.Physics2D
 
             if (_length > Settings.LinearSlop)
             {
-                _u *= 1.0f / _length;
+                _u *= (FP)(1.0f) / _length;
             }
             else
             {
                 _u = TSVector2.zero;
-                _mass = 0.0f;
-                _impulse = 0.0f;
+                _mass = (FP)(0.0f);
+                _impulse = (FP)(0.0f);
                 return;
             }
 
@@ -192,7 +192,7 @@ namespace Framework.Lockstep.Physics2D
             FP crB = MathUtils.Cross(_rB, _u);
             FP invMass = _invMassA + _invIA * crA * crA + _invMassB + _invIB * crB * crB;
 
-            _mass = invMass != 0.0f ? 1.0f / invMass : 0.0f;
+            _mass = invMass != (FP)(0.0f) ? (FP)(1.0f) / invMass : (FP)(0.0f);
 
             if (Settings.EnableWarmstarting)
             {
@@ -207,7 +207,7 @@ namespace Framework.Lockstep.Physics2D
             }
             else
             {
-                _impulse = 0.0f;
+                _impulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -230,14 +230,14 @@ namespace Framework.Lockstep.Physics2D
             FP Cdot = TSVector2.Dot(_u, vpB - vpA);
 
             // Predictive constraint.
-            if (C < 0.0f)
+            if (C < (FP)(0.0f))
             {
                 Cdot += data.step.inv_dt * C;
             }
 
             FP impulse = -_mass * Cdot;
             FP oldImpulse = _impulse;
-            _impulse = Framework.FixedMath.TSMath.Min(0.0f, _impulse + impulse);
+            _impulse = Framework.FixedMath.TSMath.Min((FP)(0.0f), _impulse + impulse);
             impulse = _impulse - oldImpulse;
 
             TSVector2 P = impulse * _u;
@@ -268,7 +268,7 @@ namespace Framework.Lockstep.Physics2D
             FP length = u.magnitude; u.Normalize();
             FP C = length - MaxLength;
 
-            C = MathUtils.Clamp(C, 0.0f, Settings.MaxLinearCorrection);
+            C = MathUtils.Clamp((FP)(C), (FP)(0.0f), (FP)(Settings.MaxLinearCorrection));
 
             FP impulse = -_mass * C;
             TSVector2 P = impulse * u;

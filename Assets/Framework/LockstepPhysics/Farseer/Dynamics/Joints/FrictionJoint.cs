@@ -177,9 +177,9 @@ namespace Framework.Lockstep.Physics2D
             _linearMass = K.Inverse;
 
             _angularMass = iA + iB;
-            if (_angularMass > 0.0f)
+            if (_angularMass > (FP)(0.0f))
             {
-                _angularMass = 1.0f / _angularMass;
+                _angularMass = (FP)(1.0f) / _angularMass;
             }
 
             if (Settings.EnableWarmstarting)
@@ -197,7 +197,7 @@ namespace Framework.Lockstep.Physics2D
             else
             {
                 _linearImpulse = TSVector2.zero;
-                _angularImpulse = 0.0f;
+                _angularImpulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;

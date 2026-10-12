@@ -257,7 +257,7 @@ namespace Framework.Lockstep.Physics2D
                 v.WA = MathUtils.Mul(ref transformA, wALocal);
                 v.WB = MathUtils.Mul(ref transformB, wBLocal);
                 v.W = v.WB - v.WA;
-                v.A = 0.0f;
+                v.A = (FP)(0.0f);
                 V[i] = v;
             }
 
@@ -267,7 +267,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 FP metric1 = cache.Metric;
                 FP metric2 = GetMetric();
-                if (metric2 < 0.5f * metric1 || 2.0f * metric1 < metric2 || metric2 < Settings.Epsilon)
+                if (metric2 < (FP)(0.5f) * metric1 || (FP)(2.0f) * metric1 < metric2 || metric2 < Settings.Epsilon)
                 {
                     // Reset the simplex.
                     Count = 0;
@@ -285,7 +285,7 @@ namespace Framework.Lockstep.Physics2D
                 v.WA = MathUtils.Mul(ref transformA, wALocal);
                 v.WB = MathUtils.Mul(ref transformB, wBLocal);
                 v.W = v.WB - v.WA;
-                v.A = 1.0f;
+                v.A = (FP)(1.0f);
                 V[0] = v;
                 Count = 1;
             }
@@ -313,7 +313,7 @@ namespace Framework.Lockstep.Physics2D
                     {
                         TSVector2 e12 = V[1].W - V[0].W;
                         FP sgn = MathUtils.Cross(e12, -V[0].W);
-                        if (sgn > 0.0f)
+                        if (sgn > (FP)(0.0f))
                         {
                             // Origin is left of e12.
                             return new TSVector2(-e12.y, e12.x);
@@ -390,9 +390,9 @@ namespace Framework.Lockstep.Physics2D
             {
                 case 0:
                     //Debug.Assert(false);
-                    return 0.0f;
+                    return (FP)(0.0f);
                 case 1:
-                    return 0.0f;
+                    return (FP)(0.0f);
 
                 case 2:
                     return (V[0].W - V[1].W).magnitude;
@@ -402,7 +402,7 @@ namespace Framework.Lockstep.Physics2D
 
                 default:
                     //Debug.Assert(false);
-                    return 0.0f;
+                    return (FP)(0.0f);
             }
         }
 
@@ -438,11 +438,11 @@ namespace Framework.Lockstep.Physics2D
 
             // w1 region
             FP d12_2 = -TSVector2.Dot(w1, e12);
-            if (d12_2 <= 0.0f)
+            if (d12_2 <= (FP)(0.0f))
             {
                 // a2 <= 0, so we clamp it to 0
                 SimplexVertex v0 = V[0];
-                v0.A = 1.0f;
+                v0.A = (FP)(1.0f);
                 V[0] = v0;
                 Count = 1;
                 return;
@@ -450,11 +450,11 @@ namespace Framework.Lockstep.Physics2D
 
             // w2 region
             FP d12_1 = TSVector2.Dot(w2, e12);
-            if (d12_1 <= 0.0f)
+            if (d12_1 <= (FP)(0.0f))
             {
                 // a1 <= 0, so we clamp it to 0
                 SimplexVertex v1 = V[1];
-                v1.A = 1.0f;
+                v1.A = (FP)(1.0f);
                 V[1] = v1;
                 Count = 1;
                 V[0] = V[1];
@@ -462,7 +462,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // Must be in e12 region.
-            FP inv_d12 = 1.0f / (d12_1 + d12_2);
+            FP inv_d12 = (FP)(1.0f) / (d12_1 + d12_2);
             SimplexVertex v0_2 = V[0];
             SimplexVertex v1_2 = V[1];
             v0_2.A = d12_1 * inv_d12;
@@ -521,19 +521,19 @@ namespace Framework.Lockstep.Physics2D
             FP d123_3 = n123 * MathUtils.Cross(w1, w2);
 
             // w1 region
-            if (d12_2 <= 0.0f && d13_2 <= 0.0f)
+            if (d12_2 <= (FP)(0.0f) && d13_2 <= (FP)(0.0f))
             {
                 SimplexVertex v0_1 = V[0];
-                v0_1.A = 1.0f;
+                v0_1.A = (FP)(1.0f);
                 V[0] = v0_1;
                 Count = 1;
                 return;
             }
 
             // e12
-            if (d12_1 > 0.0f && d12_2 > 0.0f && d123_3 <= 0.0f)
+            if (d12_1 > (FP)(0.0f) && d12_2 > (FP)(0.0f) && d123_3 <= (FP)(0.0f))
             {
-                FP inv_d12 = 1.0f / (d12_1 + d12_2);
+                FP inv_d12 = (FP)(1.0f) / (d12_1 + d12_2);
                 SimplexVertex v0_2 = V[0];
                 SimplexVertex v1_2 = V[1];
                 v0_2.A = d12_1 * inv_d12;
@@ -545,9 +545,9 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // e13
-            if (d13_1 > 0.0f && d13_2 > 0.0f && d123_2 <= 0.0f)
+            if (d13_1 > (FP)(0.0f) && d13_2 > (FP)(0.0f) && d123_2 <= (FP)(0.0f))
             {
-                FP inv_d13 = 1.0f / (d13_1 + d13_2);
+                FP inv_d13 = (FP)(1.0f) / (d13_1 + d13_2);
                 SimplexVertex v0_3 = V[0];
                 SimplexVertex v2_3 = V[2];
                 v0_3.A = d13_1 * inv_d13;
@@ -560,10 +560,10 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // w2 region
-            if (d12_1 <= 0.0f && d23_2 <= 0.0f)
+            if (d12_1 <= (FP)(0.0f) && d23_2 <= (FP)(0.0f))
             {
                 SimplexVertex v1_4 = V[1];
-                v1_4.A = 1.0f;
+                v1_4.A = (FP)(1.0f);
                 V[1] = v1_4;
                 Count = 1;
                 V[0] = V[1];
@@ -571,10 +571,10 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // w3 region
-            if (d13_1 <= 0.0f && d23_1 <= 0.0f)
+            if (d13_1 <= (FP)(0.0f) && d23_1 <= (FP)(0.0f))
             {
                 SimplexVertex v2_5 = V[2];
-                v2_5.A = 1.0f;
+                v2_5.A = (FP)(1.0f);
                 V[2] = v2_5;
                 Count = 1;
                 V[0] = V[2];
@@ -582,9 +582,9 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // e23
-            if (d23_1 > 0.0f && d23_2 > 0.0f && d123_1 <= 0.0f)
+            if (d23_1 > (FP)(0.0f) && d23_2 > (FP)(0.0f) && d123_1 <= (FP)(0.0f))
             {
-                FP inv_d23 = 1.0f / (d23_1 + d23_2);
+                FP inv_d23 = (FP)(1.0f) / (d23_1 + d23_2);
                 SimplexVertex v1_6 = V[1];
                 SimplexVertex v2_6 = V[2];
                 v1_6.A = d23_1 * inv_d23;
@@ -597,7 +597,7 @@ namespace Framework.Lockstep.Physics2D
             }
 
             // Must be in triangle123
-            FP inv_d123 = 1.0f / (d123_1 + d123_2 + d123_3);
+            FP inv_d123 = (FP)(1.0f) / (d123_1 + d123_2 + d123_3);
             SimplexVertex v0_7 = V[0];
             SimplexVertex v1_7 = V[1];
             SimplexVertex v2_7 = V[2];
@@ -783,10 +783,10 @@ namespace Framework.Lockstep.Physics2D
                 {
                     // Shapes are overlapped when radii are considered.
                     // Move the witness points to the middle.
-                    TSVector2 p = 0.5f * (output.PointA + output.PointB);
+                    TSVector2 p = (FP)(0.5f) * (output.PointA + output.PointB);
                     output.PointA = p;
                     output.PointB = p;
-                    output.Distance = 0.0f;
+                    output.Distance = (FP)(0.0f);
                 }
             }
         }
