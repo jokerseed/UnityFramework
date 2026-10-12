@@ -115,7 +115,7 @@ namespace Framework.Lockstep.Physics2D
                     //We have a maximum of polygons that we need to keep under.
                     if (polyIndex < maxPolys)
                     {
-                        SimplifyTools.MergeParallelEdges(poly, tolerance);
+                        SimplifyTools.MergeParallelEdges(poly, (FP)(tolerance));
 
                         //If identical points are present, a triangle gets
                         //borked by the MergeParallelEdges function, hence

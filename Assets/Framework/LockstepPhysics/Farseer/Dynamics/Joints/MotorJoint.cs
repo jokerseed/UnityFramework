@@ -81,10 +81,10 @@ namespace Framework.Lockstep.Physics2D
                 _linearOffset = xB;
 
             //Defaults
-            _angularOffset = 0.0f;
-            _maxForce = 1.0f;
-            _maxTorque = 1.0f;
-            CorrectionFactor = 0.3f;
+            _angularOffset = (FP)(0.0f);
+            _maxForce = (FP)(1.0f);
+            _maxTorque = (FP)(1.0f);
+            CorrectionFactor = (FP)(0.3f);
 
             _angularOffset = BodyB.Rotation - BodyA.Rotation;
         }
@@ -108,7 +108,7 @@ namespace Framework.Lockstep.Physics2D
         {
             set
             {
-                Debug.Assert(MathUtils.IsValid(value) && value >= 0.0f);
+                Debug.Assert(MathUtils.IsValid(value) && value >= (FP)(0.0f));
                 _maxForce = value;
             }
             get { return _maxForce; }
@@ -121,7 +121,7 @@ namespace Framework.Lockstep.Physics2D
         {
             set
             {
-                Debug.Assert(MathUtils.IsValid(value) && value >= 0.0f);
+                Debug.Assert(MathUtils.IsValid(value) && value >= (FP)(0.0f));
                 _maxTorque = value;
             }
             get { return _maxTorque; }
@@ -221,9 +221,9 @@ namespace Framework.Lockstep.Physics2D
             _linearMass = K.Inverse;
 
             _angularMass = iA + iB;
-            if (_angularMass > 0.0f)
+            if (_angularMass > (FP)(0.0f))
             {
-                _angularMass = 1.0f / _angularMass;
+                _angularMass = (FP)(1.0f) / _angularMass;
             }
 
             _linearError = cB + _rB - cA - _rA - MathUtils.Mul(qA, _linearOffset);
@@ -245,7 +245,7 @@ namespace Framework.Lockstep.Physics2D
             else
             {
                 _linearImpulse = TSVector2.zero;
-                _angularImpulse = 0.0f;
+                _angularImpulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;

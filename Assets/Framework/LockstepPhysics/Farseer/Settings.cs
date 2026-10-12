@@ -30,7 +30,7 @@ namespace Framework.Lockstep.Physics2D
     public static class Settings
     {
         public static readonly FP MaxFP = FP.MaxValue;
-        public static readonly FP Epsilon = 1.192092896e-07f;
+        public static readonly FP Epsilon = (FP)(1.192092896e-07f);
         public static readonly FP EpsilonSqr = Epsilon * Epsilon;
         public static readonly FP Pi = FP.Pi;
 
@@ -151,7 +151,7 @@ namespace Framework.Lockstep.Physics2D
         /// to move by a small amount without triggering a tree adjustment.
         /// This is in meters.
         /// </summary>
-        public static readonly FP AABBExtension = 0.1f;
+        public static readonly FP AABBExtension = (FP)(0.1f);
 
         /// <summary>
         /// This is used to fatten AABBs in the dynamic tree. This is used to predict
@@ -164,20 +164,20 @@ namespace Framework.Lockstep.Physics2D
         /// A small length used as a collision and constraint tolerance. Usually it is
         /// chosen to be numerically significant, but visually insignificant.
         /// </summary>
-        public static readonly FP LinearSlop = 0.005f;
+        public static readonly FP LinearSlop = (FP)(0.005f);
 
         /// <summary>
         /// A small angle used as a collision and constraint tolerance. Usually it is
         /// chosen to be numerically significant, but visually insignificant.
         /// </summary>
-        public static readonly FP AngularSlop = (2.0f / 180.0f * Pi);
+        public static readonly FP AngularSlop = ((FP)(2.0f / 180.0f) * Pi);
 
         /// <summary>
         /// The radius of the polygon/edge shape skin. This should not be modified. Making
         /// this smaller means polygons will have an insufficient buffer for continuous collision.
         /// Making it larger may create artifacts for vertex collision.
         /// </summary>
-        public static readonly FP PolygonRadius = (2.0f * LinearSlop);
+        public static readonly FP PolygonRadius = ((FP)(2.0f) * LinearSlop);
 
         // Dynamics
 
@@ -190,48 +190,48 @@ namespace Framework.Lockstep.Physics2D
         /// A velocity threshold for elastic collisions. Any collision with a relative linear
         /// velocity below this threshold will be treated as inelastic.
         /// </summary>
-        public static readonly FP VelocityThreshold = 1.0f;
+        public static readonly FP VelocityThreshold = (FP)(1.0f);
 
         /// <summary>
         /// The maximum linear position correction used when solving constraints. This helps to
         /// prevent overshoot.
         /// </summary>
-        public static readonly FP MaxLinearCorrection = 0.2f;
+        public static readonly FP MaxLinearCorrection = (FP)(0.2f);
 
         /// <summary>
         /// The maximum angular position correction used when solving constraints. This helps to
         /// prevent overshoot.
         /// </summary>
-        public static readonly FP MaxAngularCorrection = (8.0f / 180.0f * Pi);
+        public static readonly FP MaxAngularCorrection = ((FP)(8.0f / 180.0f) * Pi);
 
         /// <summary>
         /// This scale factor controls how fast overlap is resolved. Ideally this would be 1 so
         /// that overlap is removed in one time step. However using values close to 1 often lead
         /// to overshoot.
         /// </summary>
-        public static readonly FP Baumgarte = 0.2f;
+        public static readonly FP Baumgarte = (FP)(0.2f);
 
         // Sleep
         /// <summary>
         /// The time that a body must be still before it will go to sleep.
         /// </summary>
-        public static readonly FP TimeToSleep = 0.5f;
+        public static readonly FP TimeToSleep = (FP)(0.5f);
 
         /// <summary>
         /// A body cannot sleep if its linear velocity is above this tolerance.
         /// </summary>
-        public static readonly FP LinearSleepTolerance = 0.01f;
+        public static readonly FP LinearSleepTolerance = (FP)(0.01f);
 
         /// <summary>
         /// A body cannot sleep if its angular velocity is above this tolerance.
         /// </summary>
-        public static readonly FP AngularSleepTolerance = (2.0f / 180.0f * Pi);
+        public static readonly FP AngularSleepTolerance = ((FP)(2.0f / 180.0f) * Pi);
 
         /// <summary>
         /// The maximum linear velocity of a body. This limit is very large and is used
         /// to prevent numerical problems. You shouldn't need to adjust this.
         /// </summary>
-        public static readonly FP MaxTranslation = 2.0f;
+        public static readonly FP MaxTranslation = (FP)(2.0f);
 
         public static readonly FP MaxTranslationSquared = (MaxTranslation * MaxTranslation);
 
@@ -239,7 +239,7 @@ namespace Framework.Lockstep.Physics2D
         /// The maximum angular velocity of a body. This limit is very large and is used
         /// to prevent numerical problems. You shouldn't need to adjust this.
         /// </summary>
-        public static readonly FP MaxRotation = (0.5f * Pi);
+        public static readonly FP MaxRotation = ((FP)(0.5f) * Pi);
 
         public static readonly FP MaxRotationSquared = (MaxRotation * MaxRotation);
 

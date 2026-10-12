@@ -280,7 +280,7 @@ namespace Framework.Lockstep.Physics2D
             FP dv = v0 - v1;
             FP t;
             if (dv * dv < Settings.Epsilon)
-                t = 0.5f;
+                t = (FP)(0.5f);
             else t = v0 / dv;
             return x0 + t * (x1 - x0);
         }

@@ -113,12 +113,12 @@ namespace Framework.Lockstep.Physics2D
                 LengthB = dB.magnitude;
             }
 
-            Debug.Assert(ratio != 0.0f);
+            Debug.Assert(ratio != (FP)(0.0f));
             Debug.Assert(ratio > Settings.Epsilon);
 
             Ratio = ratio;
             Constant = LengthA + ratio * LengthB;
-            _impulse = 0.0f;
+            _impulse = (FP)(0.0f);
         }
 
         /// <summary>
@@ -200,7 +200,7 @@ namespace Framework.Lockstep.Physics2D
 
         public override FP GetReactionTorque(FP invDt)
         {
-            return 0.0f;
+            return (FP)(0.0f);
         }
 
         internal override void InitVelocityConstraints(ref SolverData data)
@@ -236,18 +236,18 @@ namespace Framework.Lockstep.Physics2D
             FP lengthA = _uA.magnitude;
             FP lengthB = _uB.magnitude;
 
-            if (lengthA > 10.0f * Settings.LinearSlop)
+            if (lengthA > (FP)(10.0f) * Settings.LinearSlop)
             {
-                _uA *= 1.0f / lengthA;
+                _uA *= (FP)(1.0f) / lengthA;
             }
             else
             {
                 _uA = TSVector2.zero;
             }
 
-            if (lengthB > 10.0f * Settings.LinearSlop)
+            if (lengthB > (FP)(10.0f) * Settings.LinearSlop)
             {
-                _uB *= 1.0f / lengthB;
+                _uB *= (FP)(1.0f) / lengthB;
             }
             else
             {
@@ -263,9 +263,9 @@ namespace Framework.Lockstep.Physics2D
 
             _mass = mA + Ratio * Ratio * mB;
 
-            if (_mass > 0.0f)
+            if (_mass > (FP)(0.0f))
             {
-                _mass = 1.0f / _mass;
+                _mass = (FP)(1.0f) / _mass;
             }
 
             if (Settings.EnableWarmstarting)
@@ -284,7 +284,7 @@ namespace Framework.Lockstep.Physics2D
             }
             else
             {
-                _impulse = 0.0f;
+                _impulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -339,18 +339,18 @@ namespace Framework.Lockstep.Physics2D
             FP lengthA = uA.magnitude;
             FP lengthB = uB.magnitude;
 
-            if (lengthA > 10.0f * Settings.LinearSlop)
+            if (lengthA > (FP)(10.0f) * Settings.LinearSlop)
             {
-                uA *= 1.0f / lengthA;
+                uA *= (FP)(1.0f) / lengthA;
             }
             else
             {
                 uA = TSVector2.zero;
             }
 
-            if (lengthB > 10.0f * Settings.LinearSlop)
+            if (lengthB > (FP)(10.0f) * Settings.LinearSlop)
             {
-                uB *= 1.0f / lengthB;
+                uB *= (FP)(1.0f) / lengthB;
             }
             else
             {
@@ -366,9 +366,9 @@ namespace Framework.Lockstep.Physics2D
 
             FP mass = mA + Ratio * Ratio * mB;
 
-            if (mass > 0.0f)
+            if (mass > (FP)(0.0f))
             {
-                mass = 1.0f / mass;
+                mass = (FP)(1.0f) / mass;
             }
 
             FP C = Constant - lengthA - Ratio * lengthB;

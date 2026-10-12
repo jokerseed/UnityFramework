@@ -85,17 +85,17 @@ namespace Framework.Lockstep.Physics2D
             Vertices vertices = new Vertices();
             if (segments == 0)
             {
-                vertices.Add(new TSVector2(width * .5f - xRadius, -height * .5f));
-                vertices.Add(new TSVector2(width * .5f, -height * .5f + yRadius));
+                vertices.Add(new TSVector2(width * (FP)(.5f) - xRadius, -height * (FP)(.5f)));
+                vertices.Add(new TSVector2(width * (FP)(.5f), -height * (FP)(.5f) + yRadius));
 
-                vertices.Add(new TSVector2(width * .5f, height * .5f - yRadius));
-                vertices.Add(new TSVector2(width * .5f - xRadius, height * .5f));
+                vertices.Add(new TSVector2(width * (FP)(.5f), height * (FP)(.5f) - yRadius));
+                vertices.Add(new TSVector2(width * (FP)(.5f) - xRadius, height * (FP)(.5f)));
 
-                vertices.Add(new TSVector2(-width * .5f + xRadius, height * .5f));
-                vertices.Add(new TSVector2(-width * .5f, height * .5f - yRadius));
+                vertices.Add(new TSVector2(-width * (FP)(.5f) + xRadius, height * (FP)(.5f)));
+                vertices.Add(new TSVector2(-width * (FP)(.5f), height * (FP)(.5f) - yRadius));
 
-                vertices.Add(new TSVector2(-width * .5f, -height * .5f + yRadius));
-                vertices.Add(new TSVector2(-width * .5f + xRadius, -height * .5f));
+                vertices.Add(new TSVector2(-width * (FP)(.5f), -height * (FP)(.5f) + yRadius));
+                vertices.Add(new TSVector2(-width * (FP)(.5f) + xRadius, -height * (FP)(.5f)));
             }
             else
             {
@@ -252,7 +252,7 @@ namespace Framework.Lockstep.Physics2D
 
             Vertices vertices = new Vertices();
 
-            FP newHeight = (height - topRadius - bottomRadius) * 0.5f;
+            FP newHeight = (height - topRadius - bottomRadius) * (FP)(0.5f);
 
             // top
             vertices.Add(new TSVector2(topRadius, newHeight));
@@ -294,21 +294,21 @@ namespace Framework.Lockstep.Physics2D
             Vertices vertices = new Vertices();
 
             FP stepSize = FP.PiTimes2 / numberOfTeeth;
-            tipPercentage /= 100f;
-            TSMath.Clamp(tipPercentage, 0f, 1f);
-            FP toothTipStepSize = (stepSize / 2f) * tipPercentage;
+            tipPercentage /= (FP)(100f);
+            TSMath.Clamp(tipPercentage, (FP)(0f), (FP)(1f));
+            FP toothTipStepSize = (stepSize / (FP)(2f)) * tipPercentage;
 
-            FP toothAngleStepSize = (stepSize - (toothTipStepSize * 2f)) / 2f;
+            FP toothAngleStepSize = (stepSize - (toothTipStepSize * (FP)(2f))) / (FP)(2f);
 
             for (int i = numberOfTeeth - 1; i >= 0; --i)
             {
-                if (toothTipStepSize > 0f)
+                if (toothTipStepSize > (FP)(0f))
                 {
                     vertices.Add(
                         new TSVector2(radius *
-                                    FP.Cos(stepSize * i + toothAngleStepSize * 2f + toothTipStepSize),
+                                    FP.Cos(stepSize * i + toothAngleStepSize * (FP)(2f) + toothTipStepSize),
                                     -radius *
-                                    FP.Sin(stepSize * i + toothAngleStepSize * 2f + toothTipStepSize)));
+                                    FP.Sin(stepSize * i + toothAngleStepSize * (FP)(2f) + toothTipStepSize)));
 
                     vertices.Add(
                         new TSVector2((radius + toothHeight) *

@@ -327,13 +327,13 @@ namespace Framework.Lockstep.Physics2D
             FP b = Points[0].X - Points[1].X;
             FP h = Points[2].Y - Points[1].Y;
 
-            return FP.Abs((b*h*0.5f));
+            return FP.Abs((b*h*(FP)(0.5f)));
         }
 
         public TriangulationPoint Centroid()
         {
-            FP cx = (Points[0].X + Points[1].X + Points[2].X)/3f;
-            FP cy = (Points[0].Y + Points[1].Y + Points[2].Y)/3f;
+            FP cx = (Points[0].X + Points[1].X + Points[2].X)/(FP)(3f);
+            FP cy = (Points[0].Y + Points[1].Y + Points[2].Y)/(FP)(3f);
             return new TriangulationPoint(cx, cy);
         }
 

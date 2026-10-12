@@ -32,7 +32,7 @@ namespace Framework.Lockstep.Physics2D
             : base(bodyA, bodyB)
         {
             JointType = JointType.Angle;
-            BiasFactor = .2f;
+            BiasFactor = (FP)(.2f);
             MaxImpulse = FP.MaxValue;
         }
 

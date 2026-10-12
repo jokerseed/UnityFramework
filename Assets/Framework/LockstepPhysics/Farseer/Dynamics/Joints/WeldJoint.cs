@@ -196,20 +196,20 @@ namespace Framework.Lockstep.Physics2D
             K.ey.z = K.ez.y;
             K.ez.z = iA + iB;
 
-            if (FrequencyHz > 0.0f)
+            if (FrequencyHz > (FP)(0.0f))
             {
                 K.GetInverse22(ref _mass);
 
                 FP invM = iA + iB;
-                FP m = invM > 0.0f ? 1.0f / invM : 0.0f;
+                FP m = invM > (FP)(0.0f) ? (FP)(1.0f) / invM : (FP)(0.0f);
 
                 FP C = aB - aA - ReferenceAngle;
 
                 // Frequency
-                FP omega = 2.0f * Settings.Pi * FrequencyHz;
+                FP omega = (FP)(2.0f) * Settings.Pi * FrequencyHz;
 
                 // Damping coefficient
-                FP d = 2.0f * m * DampingRatio * omega;
+                FP d = (FP)(2.0f) * m * DampingRatio * omega;
 
                 // Spring stiffness
                 FP k = m * omega * omega;
@@ -217,17 +217,17 @@ namespace Framework.Lockstep.Physics2D
                 // magic formulas
                 FP h = data.step.dt;
                 _gamma = h * (d + h * k);
-                _gamma = _gamma != 0.0f ? 1.0f / _gamma : 0.0f;
+                _gamma = _gamma != (FP)(0.0f) ? (FP)(1.0f) / _gamma : (FP)(0.0f);
                 _bias = C * h * k * _gamma;
 
                 invM += _gamma;
-                _mass.ez.z = invM != 0.0f ? 1.0f / invM : 0.0f;
+                _mass.ez.z = invM != (FP)(0.0f) ? (FP)(1.0f) / invM : (FP)(0.0f);
             }
             else
             {
                 K.GetSymInverse33(ref _mass);
-                _gamma = 0.0f;
-                _bias = 0.0f;
+                _gamma = (FP)(0.0f);
+                _bias = (FP)(0.0f);
             }
 
             if (Settings.EnableWarmstarting)
@@ -264,7 +264,7 @@ namespace Framework.Lockstep.Physics2D
             FP mA = _invMassA, mB = _invMassB;
             FP iA = _invIA, iB = _invIB;
 
-            if (FrequencyHz > 0.0f)
+            if (FrequencyHz > (FP)(0.0f))
             {
                 FP Cdot2 = wB - wA;
 
@@ -340,12 +340,12 @@ namespace Framework.Lockstep.Physics2D
             K.ey.z = K.ez.y;
             K.ez.z = iA + iB;
 
-            if (FrequencyHz > 0.0f)
+            if (FrequencyHz > (FP)(0.0f))
             {
                 TSVector2 C1 = cB + rB - cA - rA;
 
                 positionError = C1.magnitude;
-                angularError = 0.0f;
+                angularError = (FP)(0.0f);
 
                 TSVector2 P = -K.Solve22(C1);
 

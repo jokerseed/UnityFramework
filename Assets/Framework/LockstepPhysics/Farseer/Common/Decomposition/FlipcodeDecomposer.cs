@@ -116,7 +116,7 @@ namespace Framework.Lockstep.Physics2D
             //b cross cp
             FP bcp = (a.x - c.x) * (p.y - c.y) - (a.y - c.y) * (p.x - c.x);
 
-            return ((abp >= 0.0f) && (bcp >= 0.0f) && (aap >= 0.0f));
+            return ((abp >= (FP)(0.0f)) && (bcp >= (FP)(0.0f)) && (aap >= (FP)(0.0f)));
         }
 
         /// <summary>

@@ -119,13 +119,13 @@ namespace Framework.Lockstep.Physics2D
             {
                 if (_root == NullNode)
                 {
-                    return 0.0f;
+                    return (FP)(0.0f);
                 }
 
                 TreeNode<T> root = _nodes[_root];
                 FP rootArea = root.AABB.Perimeter;
 
-                FP totalArea = 0.0f;
+                FP totalArea = (FP)(0.0f);
                 for (int i = 0; i < _nodeCapacity; ++i)
                 {
                     TreeNode<T> node = _nodes[i];
@@ -239,7 +239,7 @@ namespace Framework.Lockstep.Physics2D
             // Predict AABB displacement.
             TSVector2 d = Settings.AABBMultiplier * displacement;
 
-            if (d.x < 0.0f)
+            if (d.x < (FP)(0.0f))
             {
                 b.LowerBound.x += d.x;
             }
@@ -248,7 +248,7 @@ namespace Framework.Lockstep.Physics2D
                 b.UpperBound.x += d.x;
             }
 
-            if (d.y < 0.0f)
+            if (d.y < (FP)(0.0f))
             {
                 b.LowerBound.y += d.y;
             }
@@ -382,7 +382,7 @@ namespace Framework.Lockstep.Physics2D
                 TSVector2 c = node.AABB.Center;
                 TSVector2 h = node.AABB.Extents;
                 FP separation = FP.Abs(TSVector2.Dot(new TSVector2(-r.y, r.x), p1 - c)) - TSVector2.Dot(absV, h);
-                if (separation > 0.0f)
+                if (separation > (FP)(0.0f))
                 {
                     continue;
                 }
@@ -396,13 +396,13 @@ namespace Framework.Lockstep.Physics2D
 
                     FP value = callback(subInput, nodeId);
 
-                    if (value == 0.0f)
+                    if (value == (FP)(0.0f))
                     {
                         // the client has terminated the raycast.
                         return;
                     }
 
-                    if (value > 0.0f)
+                    if (value > (FP)(0.0f))
                     {
                         // Update segment bounding box.
                         maxFraction = value;
@@ -492,10 +492,10 @@ namespace Framework.Lockstep.Physics2D
                 FP combinedArea = combinedAABB.Perimeter;
 
                 // Cost of creating a new parent for this node and the new leaf
-                FP cost = 2.0f * combinedArea;
+                FP cost = (FP)(2.0f) * combinedArea;
 
                 // Minimum cost of pushing the leaf further down the tree
-                FP inheritanceCost = 2.0f * (combinedArea - area);
+                FP inheritanceCost = (FP)(2.0f) * (combinedArea - area);
 
                 // Cost of descending into child1
                 FP cost1;

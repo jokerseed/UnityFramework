@@ -53,7 +53,7 @@ namespace Framework.Lockstep.Physics2D
             : base(0)
         {
             ShapeType = ShapeType.Circle;
-            _radius = 0.0f;
+            _radius = (FP)(0.0f);
             _position = TSVector2.zero;
         }
 
@@ -102,7 +102,7 @@ namespace Framework.Lockstep.Physics2D
             FP sigma = c * c - rr * b;
 
             // Check for negative discriminant and short segment.
-            if (sigma < 0.0f || rr < Settings.Epsilon)
+            if (sigma < (FP)(0.0f) || rr < Settings.Epsilon)
             {
                 return false;
             }
@@ -111,7 +111,7 @@ namespace Framework.Lockstep.Physics2D
             FP a = -(c + FP.Sqrt(sigma));
 
             // Is the intersection point on the segment?
-            if (0.0f <= a && a <= input.MaxFraction * rr)
+            if ((FP)(0.0f) <= a && a <= input.MaxFraction * rr)
             {
                 a /= rr;
                 output.Fraction = a;
@@ -140,7 +140,7 @@ namespace Framework.Lockstep.Physics2D
             MassData.Centroid = Position;
 
             // inertia about the local origin
-            MassData.Inertia = MassData.Mass * (0.5f * _2radius + TSVector2.Dot(Position, Position));
+            MassData.Inertia = MassData.Mass * ((FP)(0.5f) * _2radius + TSVector2.Dot(Position, Position));
         }
 
         public override FP ComputeSubmergedArea(ref TSVector2 normal, FP offset, ref Transform xf, out TSVector2 sc)

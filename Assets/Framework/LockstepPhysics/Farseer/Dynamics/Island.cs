@@ -266,8 +266,8 @@ namespace Framework.Lockstep.Physics2D
 
                     if (!b.SleepingAllowed || b._angularVelocity * b._angularVelocity > AngTolSqr || TSVector2.Dot(b._linearVelocity, b._linearVelocity) > LinTolSqr)
                     {
-                        b._sleepTime = 0.0f;
-                        minSleepTime = 0.0f;
+                        b._sleepTime = (FP)(0.0f);
+                        minSleepTime = (FP)(0.0f);
                     }
                     else
                     {

@@ -295,17 +295,17 @@ namespace Framework.Lockstep.Physics2D
 
                 _mass = mA + mB + iA * _sAy * _sAy + iB * _sBy * _sBy;
 
-                if (_mass > 0.0f)
+                if (_mass > (FP)(0.0f))
                 {
-                    _mass = 1.0f / _mass;
+                    _mass = (FP)(1.0f) / _mass;
                 }
             }
 
             // Spring constraint
-            _springMass = 0.0f;
-            _bias = 0.0f;
-            _gamma = 0.0f;
-            if (Frequency > 0.0f)
+            _springMass = (FP)(0.0f);
+            _bias = (FP)(0.0f);
+            _gamma = (FP)(0.0f);
+            if (Frequency > (FP)(0.0f))
             {
                 _ax = MathUtils.Mul(qA, LocalXAxis);
                 _sAx = MathUtils.Cross(d1 + rA, _ax);
@@ -313,17 +313,17 @@ namespace Framework.Lockstep.Physics2D
 
                 FP invMass = mA + mB + iA * _sAx * _sAx + iB * _sBx * _sBx;
 
-                if (invMass > 0.0f)
+                if (invMass > (FP)(0.0f))
                 {
-                    _springMass = 1.0f / invMass;
+                    _springMass = (FP)(1.0f) / invMass;
 
                     FP C = TSVector2.Dot(d1, _ax);
 
                     // Frequency
-                    FP omega = 2.0f * Settings.Pi * Frequency;
+                    FP omega = (FP)(2.0f) * Settings.Pi * Frequency;
 
                     // Damping coefficient
-                    FP d = 2.0f * _springMass * DampingRatio * omega;
+                    FP d = (FP)(2.0f) * _springMass * DampingRatio * omega;
 
                     // Spring stiffness
                     FP k = _springMass * omega * omega;
@@ -331,38 +331,38 @@ namespace Framework.Lockstep.Physics2D
                     // magic formulas
                     FP h = data.step.dt;
                     _gamma = h * (d + h * k);
-                    if (_gamma > 0.0f)
+                    if (_gamma > (FP)(0.0f))
                     {
-                        _gamma = 1.0f / _gamma;
+                        _gamma = (FP)(1.0f) / _gamma;
                     }
 
                     _bias = C * h * k * _gamma;
 
                     _springMass = invMass + _gamma;
-                    if (_springMass > 0.0f)
+                    if (_springMass > (FP)(0.0f))
                     {
-                        _springMass = 1.0f / _springMass;
+                        _springMass = (FP)(1.0f) / _springMass;
                     }
                 }
             }
             else
             {
-                _springImpulse = 0.0f;
+                _springImpulse = (FP)(0.0f);
             }
 
             // Rotational motor
             if (_enableMotor)
             {
                 _motorMass = iA + iB;
-                if (_motorMass > 0.0f)
+                if (_motorMass > (FP)(0.0f))
                 {
-                    _motorMass = 1.0f / _motorMass;
+                    _motorMass = (FP)(1.0f) / _motorMass;
                 }
             }
             else
             {
-                _motorMass = 0.0f;
-                _motorImpulse = 0.0f;
+                _motorMass = (FP)(0.0f);
+                _motorImpulse = (FP)(0.0f);
             }
 
             if (Settings.EnableWarmstarting)
@@ -384,9 +384,9 @@ namespace Framework.Lockstep.Physics2D
             }
             else
             {
-                _impulse = 0.0f;
-                _springImpulse = 0.0f;
-                _motorImpulse = 0.0f;
+                _impulse = (FP)(0.0f);
+                _springImpulse = (FP)(0.0f);
+                _motorImpulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -482,13 +482,13 @@ namespace Framework.Lockstep.Physics2D
             FP k = _invMassA + _invMassB + _invIA * _sAy * _sAy + _invIB * _sBy * _sBy;
 
             FP impulse;
-            if (k != 0.0f)
+            if (k != (FP)(0.0f))
             {
                 impulse = -C / k;
             }
             else
             {
-                impulse = 0.0f;
+                impulse = (FP)(0.0f);
             }
 
             TSVector2 P = impulse * ay;

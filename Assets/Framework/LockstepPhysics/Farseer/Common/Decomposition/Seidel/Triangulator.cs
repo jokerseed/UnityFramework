@@ -15,7 +15,7 @@ namespace Framework.Lockstep.Physics2D
         private Trapezoid _boundingBox;
         private List<Edge> _edgeList;
         private QueryGraph _queryGraph;
-        private FP _sheer = 0.001f;
+        private FP _sheer = (FP)(0.001f);
         private TrapezoidalMap _trapezoidalMap;
         private List<MonotoneMountain> _xMonoPoly;
 

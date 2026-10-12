@@ -54,13 +54,13 @@ namespace Framework.Lockstep.Physics2D
                     TSVector2 r = vertices[ie] - vertices[hull[m]];
                     TSVector2 v = vertices[j] - vertices[hull[m]];
                     FP c = MathUtils.Cross(ref r, ref v);
-                    if (c < 0.0f)
+                    if (c < (FP)(0.0f))
                     {
                         ie = j;
                     }
 
                     // Collinearity check
-                    if (c == 0.0f && v.LengthSquared() > r.LengthSquared())
+                    if (c == (FP)(0.0f) && v.LengthSquared() > r.LengthSquared())
                     {
                         ie = j;
                     }

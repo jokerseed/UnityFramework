@@ -44,7 +44,7 @@ namespace Framework.Lockstep.Physics2D
     {
         // Inital triangle factor, seed triangle will extend 30% of 
         // PointSet width to both left and right.
-        private static readonly FP ALPHA = 0.3f;
+        private static readonly FP ALPHA = (FP)(0.3f);
 
         public DTSweepBasin Basin = new DTSweepBasin();
         public DTSweepEdgeEvent EdgeEvent = new DTSweepEdgeEvent();

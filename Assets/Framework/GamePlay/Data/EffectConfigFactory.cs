@@ -41,7 +41,7 @@ namespace Framework.GamePlay.Data
                     executions.Add(new DamageExecution());
                     break;
                 case CfgEffectExecutionType.Heal:
-                    executions.Add(new HealExecution(ModifierMagnitude.Constant(def.ModMagnitude)));
+                    executions.Add(new HealExecution(ModifierMagnitude.Constant((FP)(def.ModMagnitude))));
                     break;
                 case CfgEffectExecutionType.ApplyEffect:
                     if (!string.IsNullOrEmpty(def.ExecutionEffectId) &&
@@ -60,12 +60,12 @@ namespace Framework.GamePlay.Data
 
             var cost = string.IsNullOrEmpty(def.CostAttribute) || def.CostAmount <= 0f
                 ? null
-                : new Dictionary<string, FP> { [def.CostAttribute] = def.CostAmount };
+                : new Dictionary<string, FP> { [def.CostAttribute] = (FP)(def.CostAmount) };
 
             return new GameplayEffectDef(
                 def.Id,
                 MapDuration(def.DurationType),
-                def.Duration,
+                (FP)(def.Duration),
                 modifiers,
                 ParseTags(def.GrantedTags),
                 MapStacking(def.Stacking),
@@ -73,7 +73,7 @@ namespace Framework.GamePlay.Data
                 ParseTags(def.BlockedTags),
                 ParseTags(def.ImmunityTags),
                 executions: executions,
-                period: def.Period,
+                period: (FP)(def.Period),
                 cueTagsOnApply: ParseCue(def.CueApply),
                 cueTagsOnRemove: ParseCue(def.CueRemove),
                 costAttributes: cost,

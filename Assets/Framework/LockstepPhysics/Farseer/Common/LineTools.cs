@@ -145,14 +145,14 @@ namespace Framework.Lockstep.Physics2D
             {
                 FP e = point1.y - point3.y;
                 FP f = point1.x - point3.x;
-                FP oneOverDenom = 1.0f / denom;
+                FP oneOverDenom = (FP)(1.0f) / denom;
 
                 // numerator of first equation
                 FP ua = (c * e) - (a * f);
                 ua *= oneOverDenom;
 
                 // check if intersection point of the two lines is on line segment 1
-                if (!firstIsSegment || ua >= 0.0f && ua <= 1.0f)
+                if (!firstIsSegment || ua >= (FP)(0.0f) && ua <= (FP)(1.0f))
                 {
                     // numerator of second equation
                     FP ub = (b * e) - (d * f);
@@ -161,10 +161,10 @@ namespace Framework.Lockstep.Physics2D
                     // check if intersection point of the two lines is on line segment 2
                     // means the line segments intersect, since we know it is on
                     // segment 1 as well.
-                    if (!secondIsSegment || ub >= 0.0f && ub <= 1.0f)
+                    if (!secondIsSegment || ub >= (FP)(0.0f) && ub <= (FP)(1.0f))
                     {
                         // check if they are coincident (no collision in this case)
-                        if (ua != 0f || ub != 0f)
+                        if (ua != (FP)(0f) || ub != (FP)(0f))
                         {
                             //There is an intersection
                             point.x = point1.x + ua * b;

@@ -9,7 +9,7 @@ namespace Framework.Lockstep.Physics2D
     internal class MonotoneMountain
     {
         // Almost Pi!
-        private static readonly FP PiSlop = 3.1f;
+        private static readonly FP PiSlop = (FP)(3.1f);
 
         // Triangles that constitute the mountain
         public List<List<Point>> Triangles;
@@ -87,7 +87,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 FP a = Angle(p);
                 // If the point is almost colinear with it's neighbor, remove it!
-                if (a >= PiSlop || a <= -PiSlop || a == 0.0f)
+                if (a >= PiSlop || a <= -PiSlop || a == (FP)(0.0f))
                     Remove(p);
                 else if (IsConvex(p))
                     _convexPoints.Add(p);

@@ -283,8 +283,8 @@ namespace Framework.Lockstep.Physics2D
                 for (int i = 0; i < Manifold.PointCount; ++i)
                 {
                     ManifoldPoint mp2 = Manifold.Points[i];
-                    mp2.NormalImpulse = 0.0f;
-                    mp2.TangentImpulse = 0.0f;
+                    mp2.NormalImpulse = (FP)(0.0f);
+                    mp2.TangentImpulse = (FP)(0.0f);
                     ContactID id2 = mp2.Id;
 
                     for (int j = 0; j < oldManifold.PointCount; ++j)

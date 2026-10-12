@@ -776,12 +776,12 @@ namespace Framework.GAS
             Attributes.GetOrCreate(BattleConstants.Health, maxHealth).SetCurrentValue(maxHealth);
             Attributes.GetOrCreate(BattleConstants.MaxMana, maxMana).SetBaseValue(maxMana);
             Attributes.GetOrCreate(BattleConstants.Mana, maxMana).SetCurrentValue(maxMana);
-            Attributes.GetOrCreate(BattleConstants.Shield, 0f).SetCurrentValue(0f);
-            Attributes.GetOrCreate(BattleConstants.MagicDefense, 0f);
-            Attributes.GetOrCreate(BattleConstants.CritChance, 0f);
+            Attributes.GetOrCreate(BattleConstants.Shield, (FP)(0f)).SetCurrentValue((FP)(0f));
+            Attributes.GetOrCreate(BattleConstants.MagicDefense, (FP)(0f));
+            Attributes.GetOrCreate(BattleConstants.CritChance, (FP)(0f));
             Attributes.GetOrCreate(BattleConstants.CritMultiplier, BattleConstants.DefaultCritMultiplier)
                 .SetBaseValue(BattleConstants.DefaultCritMultiplier);
-            Attributes.GetOrCreate(BattleConstants.IncomingDamageMultiplier, 1f).SetBaseValue(1f);
+            Attributes.GetOrCreate(BattleConstants.IncomingDamageMultiplier, (FP)(1f)).SetBaseValue((FP)(1f));
         }
 
         /// <summary>清空持续效果与控制状态并回满资源，供 Actor 池回收复用。</summary>

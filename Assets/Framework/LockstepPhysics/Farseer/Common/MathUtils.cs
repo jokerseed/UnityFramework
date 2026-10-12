@@ -253,10 +253,10 @@ namespace Framework.Lockstep.Physics2D
         {
             FPConverter convert = new FPConverter();
             convert.x = x;
-            FP xhalf = 0.5f * x;
+            FP xhalf = (FP)(0.5f) * x;
             convert.i = 0x5f3759df - (convert.i >> 1);
             x = convert.x;
-            x = x * (1.5f - xhalf * x * x);
+            x = x * ((FP)(1.5f) - xhalf * x * x);
             return x;
         }
 
@@ -441,9 +441,9 @@ namespace Framework.Lockstep.Physics2D
             {
                 FP a = ex.x, b = ey.x, c = ex.y, d = ey.y;
                 FP det = a * d - b * c;
-                if (det != 0.0f)
+                if (det != (FP)(0.0f))
                 {
-                    det = 1.0f / det;
+                    det = (FP)(1.0f) / det;
                 }
 
                 Mat22 result = new Mat22();
@@ -473,10 +473,10 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public void SetIdentity()
         {
-            ex.x = 1.0f;
-            ey.x = 0.0f;
-            ex.y = 0.0f;
-            ey.y = 1.0f;
+            ex.x = (FP)(1.0f);
+            ey.x = (FP)(0.0f);
+            ex.y = (FP)(0.0f);
+            ey.y = (FP)(1.0f);
         }
 
         /// <summary>
@@ -484,10 +484,10 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public void SetZero()
         {
-            ex.x = 0.0f;
-            ey.x = 0.0f;
-            ex.y = 0.0f;
-            ey.y = 0.0f;
+            ex.x = (FP)(0.0f);
+            ey.x = (FP)(0.0f);
+            ex.y = (FP)(0.0f);
+            ey.y = (FP)(0.0f);
         }
 
         /// <summary>
@@ -500,9 +500,9 @@ namespace Framework.Lockstep.Physics2D
         {
             FP a11 = ex.x, a12 = ey.x, a21 = ex.y, a22 = ey.y;
             FP det = a11 * a22 - a12 * a21;
-            if (det != 0.0f)
+            if (det != (FP)(0.0f))
             {
-                det = 1.0f / det;
+                det = (FP)(1.0f) / det;
             }
 
             return new TSVector2(det * (a22 * b.x - a12 * b.y), det * (a11 * b.y - a21 * b.x));
@@ -554,9 +554,9 @@ namespace Framework.Lockstep.Physics2D
         public TSVector Solve33(TSVector b)
         {
             FP det = TSVector.Dot(ex, TSVector.Cross(ey, ez));
-            if (det != 0.0f)
+            if (det != (FP)(0.0f))
             {
-                det = 1.0f / det;
+                det = (FP)(1.0f) / det;
             }
 
             return new TSVector(det * TSVector.Dot(b, TSVector.Cross(ey, ez)), det * TSVector.Dot(ex, TSVector.Cross(b, ez)), det * TSVector.Dot(ex, TSVector.Cross(ey, b)));
@@ -574,9 +574,9 @@ namespace Framework.Lockstep.Physics2D
             FP a11 = ex.x, a12 = ey.x, a21 = ex.y, a22 = ey.y;
             FP det = a11 * a22 - a12 * a21;
 
-            if (det != 0.0f)
+            if (det != (FP)(0.0f))
             {
-                det = 1.0f / det;
+                det = (FP)(1.0f) / det;
             }
 
             return new TSVector2(det * (a22 * b.x - a12 * b.y), det * (a11 * b.y - a21 * b.x));
@@ -588,14 +588,14 @@ namespace Framework.Lockstep.Physics2D
         {
             FP a = ex.x, b = ey.x, c = ex.y, d = ey.y;
             FP det = a * d - b * c;
-            if (det != 0.0f)
+            if (det != (FP)(0.0f))
             {
-                det = 1.0f / det;
+                det = (FP)(1.0f) / det;
             }
 
-            M.ex.x = det * d; M.ey.x = -det * b; M.ex.z = 0.0f;
-            M.ex.y = -det * c; M.ey.y = det * a; M.ey.z = 0.0f;
-            M.ez.x = 0.0f; M.ez.y = 0.0f; M.ez.z = 0.0f;
+            M.ex.x = det * d; M.ey.x = -det * b; M.ex.z = (FP)(0.0f);
+            M.ex.y = -det * c; M.ey.y = det * a; M.ey.z = (FP)(0.0f);
+            M.ez.x = (FP)(0.0f); M.ez.y = (FP)(0.0f); M.ez.z = (FP)(0.0f);
         }
 
         /// Get the symmetric inverse of this matrix as a 3-by-3.
@@ -603,9 +603,9 @@ namespace Framework.Lockstep.Physics2D
         public void GetSymInverse33(ref Mat33 M)
         {
             FP det = MathUtils.Dot(ex, MathUtils.Cross(ey, ez));
-            if (det != 0.0f)
+            if (det != (FP)(0.0f))
             {
-                det = 1.0f / det;
+                det = (FP)(1.0f) / det;
             }
 
             FP a11 = ex.x, a12 = ey.x, a13 = ez.x;
@@ -661,8 +661,8 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public void SetIdentity()
         {
-            s = 0.0f;
-            c = 1.0f;
+            s = (FP)(0.0f);
+            c = (FP)(1.0f);
         }
 
         /// <summary>
@@ -772,9 +772,9 @@ namespace Framework.Lockstep.Physics2D
         public void GetTransform(out Transform xfb, FP beta)
         {
             xfb = new Transform();
-            xfb.p.x = (1.0f - beta) * C0.x + beta * C.x;
-            xfb.p.y = (1.0f - beta) * C0.y + beta * C.y;
-            FP angle = (1.0f - beta) * A0 + beta * A;
+            xfb.p.x = ((FP)(1.0f) - beta) * C0.x + beta * C.x;
+            xfb.p.y = ((FP)(1.0f) - beta) * C0.y + beta * C.y;
+            FP angle = ((FP)(1.0f) - beta) * A0 + beta * A;
             xfb.q.Set(angle);
 
             // Shift to origin
@@ -788,7 +788,7 @@ namespace Framework.Lockstep.Physics2D
         public void Advance(FP alpha)
         {
             //Debug.Assert(Alpha0 < 1.0f);
-            FP beta = (alpha - Alpha0) / (1.0f - Alpha0);
+            FP beta = (alpha - Alpha0) / ((FP)(1.0f) - Alpha0);
             C0 += beta * (C - C0);
             A0 += beta * (A - A0);
             Alpha0 = alpha;

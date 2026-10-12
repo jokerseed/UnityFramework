@@ -162,7 +162,7 @@ namespace Framework.Lockstep.Physics2D
         /// <returns></returns>
         public override FP GetReactionTorque(FP invDt)
         {
-            return 0.0f;
+            return (FP)(0.0f);
         }
 
         internal override void InitVelocityConstraints(ref SolverData data)
@@ -196,7 +196,7 @@ namespace Framework.Lockstep.Physics2D
             FP length = _u.magnitude;
             if (length > Settings.LinearSlop)
             {
-                _u *= 1.0f / length;
+                _u *= (FP)(1.0f) / length;
             }
             else
             {
@@ -208,17 +208,17 @@ namespace Framework.Lockstep.Physics2D
             FP invMass = _invMassA + _invIA * crAu * crAu + _invMassB + _invIB * crBu * crBu;
 
             // Compute the effective mass matrix.
-            _mass = invMass != 0.0f ? 1.0f / invMass : 0.0f;
+            _mass = invMass != (FP)(0.0f) ? (FP)(1.0f) / invMass : (FP)(0.0f);
 
-            if (Frequency > 0.0f)
+            if (Frequency > (FP)(0.0f))
             {
                 FP C = length - Length;
 
                 // Frequency
-                FP omega = 2.0f * Settings.Pi * Frequency;
+                FP omega = (FP)(2.0f) * Settings.Pi * Frequency;
 
                 // Damping coefficient
-                FP d = 2.0f * _mass * DampingRatio * omega;
+                FP d = (FP)(2.0f) * _mass * DampingRatio * omega;
 
                 // Spring stiffness
                 FP k = _mass * omega * omega;
@@ -226,16 +226,16 @@ namespace Framework.Lockstep.Physics2D
                 // magic formulas
                 FP h = data.step.dt;
                 _gamma = h * (d + h * k);
-                _gamma = _gamma != 0.0f ? 1.0f / _gamma : 0.0f;
+                _gamma = _gamma != (FP)(0.0f) ? (FP)(1.0f) / _gamma : (FP)(0.0f);
                 _bias = C * h * k * _gamma;
 
                 invMass += _gamma;
-                _mass = invMass != 0.0f ? 1.0f / invMass : 0.0f;
+                _mass = invMass != (FP)(0.0f) ? (FP)(1.0f) / invMass : (FP)(0.0f);
             }
             else
             {
-                _gamma = 0.0f;
-                _bias = 0.0f;
+                _gamma = (FP)(0.0f);
+                _bias = (FP)(0.0f);
             }
 
             if (Settings.EnableWarmstarting)
@@ -251,7 +251,7 @@ namespace Framework.Lockstep.Physics2D
             }
             else
             {
-                _impulse = 0.0f;
+                _impulse = (FP)(0.0f);
             }
 
             data.velocities[_indexA].v = vA;
@@ -290,7 +290,7 @@ namespace Framework.Lockstep.Physics2D
 
         internal override bool SolvePositionConstraints(ref SolverData data)
         {
-            if (Frequency > 0.0f)
+            if (Frequency > (FP)(0.0f))
             {
                 // There is no position correction for soft distance constraints.
                 return true;

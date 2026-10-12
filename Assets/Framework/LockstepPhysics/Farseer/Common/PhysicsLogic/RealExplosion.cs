@@ -67,7 +67,7 @@ namespace Framework.Lockstep.Physics2D
         /// Ratio of arc length to angle from edges to first ray tested.
         /// Defaults to 1/40.
         /// </summary>
-        public FP EdgeRatio = 1.0f / 40.0f;
+        public FP EdgeRatio = (FP)(1.0f / 40.0f);
 
         /// <summary>
         /// Ignore Explosion if it happens inside a shape.
@@ -182,8 +182,8 @@ namespace Framework.Lockstep.Physics2D
                     FP angleToCentroid = FP.Atan2(toCentroid.y, toCentroid.x);
                     FP min = FP.MaxValue;
                     FP max = FP.MinValue;
-                    FP minAbsolute = 0.0f;
-                    FP maxAbsolute = 0.0f;
+                    FP minAbsolute = (FP)(0.0f);
+                    FP maxAbsolute = (FP)(0.0f);
 
                     for (int j = 0; j < ps.Vertices.Count; ++j)
                     {
@@ -194,7 +194,7 @@ namespace Framework.Lockstep.Physics2D
                         diff = (diff - FP.Pi) % (2 * FP.Pi);
                         // the minus pi is important. It means cutoff for going other direction is at 180 deg where it needs to be
 
-                        if (diff < 0.0f)
+                        if (diff < (FP)(0.0f))
                             diff += 2 * FP.Pi; // correction for not handling negs
 
                         diff -= FP.Pi;
@@ -323,17 +323,17 @@ namespace Framework.Lockstep.Physics2D
                 FP arclen = _data[i].Max - _data[i].Min;
 
                 FP first = TSMath.Min(MaxEdgeOffset, EdgeRatio * arclen);
-                int insertedRays = FP.Ceiling((((arclen - 2.0f * first) - (MinRays - 1) * MaxAngle) / MaxAngle)).AsInt();
+                int insertedRays = FP.Ceiling((((arclen - (FP)(2.0f) * first) - (MinRays - 1) * MaxAngle) / MaxAngle)).AsInt();
 
                 if (insertedRays < 0)
                     insertedRays = 0;
 
-                FP offset = (arclen - first * 2.0f) / ((FP)MinRays + insertedRays - 1);
+                FP offset = (arclen - first * (FP)(2.0f)) / ((FP)MinRays + insertedRays - 1);
 
                 //Note: This loop can go into infinite as it operates on FPs.
                 //Added FPEquals with a large epsilon.
                 for (FP j = _data[i].Min + first;
-                     j < _data[i].Max || MathUtils.FPEquals(j, _data[i].Max, 0.0001f);
+                     j < _data[i].Max || MathUtils.FPEquals(j, _data[i].Max, (FP)(0.0001f));
                      j += offset)
                 {
                     TSVector2 p1 = pos;
@@ -348,7 +348,7 @@ namespace Framework.Lockstep.Physics2D
                         RayCastInput ri;
                         ri.Point1 = p1;
                         ri.Point2 = p2;
-                        ri.MaxFraction = 50f;
+                        ri.MaxFraction = (FP)(50f);
 
                         RayCastOutput ro;
                         if (f.RayCast(out ro, ref ri, 0))
@@ -362,7 +362,7 @@ namespace Framework.Lockstep.Physics2D
 
                         // the force that is to be applied for this particular ray.
                         // offset is angular coverage. lambda*length of segment is distance.
-                        FP impulse = (arclen / (MinRays + insertedRays)) * maxForce * 180.0f / FP.Pi * (1.0f - Framework.FixedMath.TSMath.Min(FP.One, minlambda));
+                        FP impulse = (arclen / (MinRays + insertedRays)) * maxForce * (FP)(180.0f) / FP.Pi * ((FP)(1.0f) - Framework.FixedMath.TSMath.Min(FP.One, minlambda));
 
                         // We Apply the impulse!!!
                         TSVector2 vectImp = TSVector2.Dot(impulse * new TSVector2(FP.Cos(j), FP.Sin(j)), -ro.Normal) * new TSVector2(FP.Cos(j), FP.Sin(j));
@@ -374,7 +374,7 @@ namespace Framework.Lockstep.Physics2D
                         else
                             exploded.Add(f, vectImp);
 
-                        if (minlambda > 1.0f)
+                        if (minlambda > (FP)(1.0f))
                             hitpoint = p2;
                     }
                 }
@@ -388,7 +388,7 @@ namespace Framework.Lockstep.Physics2D
                 if (!IsActiveOn(fix.Body))
                     continue;
 
-                FP impulse = MinRays * maxForce * 180.0f / FP.Pi;
+                FP impulse = MinRays * maxForce * (FP)(180.0f) / FP.Pi;
                 TSVector2 hitPoint;
 
                 CircleShape circShape = fix.Shape as CircleShape;

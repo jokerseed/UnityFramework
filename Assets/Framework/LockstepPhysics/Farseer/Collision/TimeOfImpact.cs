@@ -113,14 +113,14 @@ namespace Framework.Lockstep.Physics2D
                 _axis.Normalize();
                 TSVector2 normal = MathUtils.Mul(ref xfB.q, _axis);
 
-                _localPoint = 0.5f * (localPointB1 + localPointB2);
+                _localPoint = (FP)(0.5f) * (localPointB1 + localPointB2);
                 TSVector2 pointB = MathUtils.Mul(ref xfB, _localPoint);
 
                 TSVector2 localPointA = proxyA.Vertices[cache.IndexA[0]];
                 TSVector2 pointA = MathUtils.Mul(ref xfA, localPointA);
 
                 FP s = TSVector2.Dot(pointA - pointB, normal);
-                if (s < 0.0f)
+                if (s < (FP)(0.0f))
                 {
                     _axis = -_axis;
                 }
@@ -137,14 +137,14 @@ namespace Framework.Lockstep.Physics2D
                 _axis.Normalize();
                 TSVector2 normal = MathUtils.Mul(ref xfA.q, _axis);
 
-                _localPoint = 0.5f * (localPointA1 + localPointA2);
+                _localPoint = (FP)(0.5f) * (localPointA1 + localPointA2);
                 TSVector2 pointA = MathUtils.Mul(ref xfA, _localPoint);
 
                 TSVector2 localPointB = _proxyB.Vertices[cache.IndexB[0]];
                 TSVector2 pointB = MathUtils.Mul(ref xfB, localPointB);
 
                 FP s = TSVector2.Dot(pointB - pointA, normal);
-                if (s < 0.0f)
+                if (s < (FP)(0.0f))
                 {
                     _axis = -_axis;
                 }
@@ -217,7 +217,7 @@ namespace Framework.Lockstep.Physics2D
                     //Debug.Assert(false);
                     indexA = -1;
                     indexB = -1;
-                    return 0.0f;
+                    return (FP)(0.0f);
             }
         }
 
@@ -264,7 +264,7 @@ namespace Framework.Lockstep.Physics2D
                     }
                 default:
                     //Debug.Assert(false);
-                    return 0.0f;
+                    return (FP)(0.0f);
             }
         }
     }
@@ -310,11 +310,11 @@ namespace Framework.Lockstep.Physics2D
             FP tMax = input.TMax;
 
             FP totalRadius = input.ProxyA.Radius + input.ProxyB.Radius;
-            FP target = Framework.FixedMath.TSMath.Max(Settings.LinearSlop, totalRadius - 3.0f * Settings.LinearSlop);
-            FP tolerance = 0.25f * Settings.LinearSlop;
+            FP target = Framework.FixedMath.TSMath.Max(Settings.LinearSlop, totalRadius - (FP)(3.0f) * Settings.LinearSlop);
+            FP tolerance = (FP)(0.25f) * Settings.LinearSlop;
             //Debug.Assert(target > tolerance);
 
-            FP t1 = 0.0f;
+            FP t1 = (FP)(0.0f);
             const int k_maxIterations = 20;
             int iter = 0;
 
@@ -341,11 +341,11 @@ namespace Framework.Lockstep.Physics2D
                 Distance.ComputeDistance(out distanceOutput, out cache, _distanceInput);
 
                 // If the shapes are overlapped, we give up on continuous collision.
-                if (distanceOutput.Distance <= 0.0f)
+                if (distanceOutput.Distance <= (FP)(0.0f))
                 {
                     // Failure!
                     output.State = TOIOutputState.Overlapped;
-                    output.T = 0.0f;
+                    output.T = (FP)(0.0f);
                     break;
                 }
 
@@ -426,7 +426,7 @@ namespace Framework.Lockstep.Physics2D
                         else
                         {
                             // Bisection to guarantee progress.
-                            t = 0.5f * (a1 + a2);
+                            t = (FP)(0.5f) * (a1 + a2);
                         }
 
                         ++rootIterCount;

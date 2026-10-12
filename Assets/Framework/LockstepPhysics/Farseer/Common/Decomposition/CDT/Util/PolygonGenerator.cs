@@ -41,7 +41,7 @@ namespace Framework.Lockstep.Physics2D
     {
         private static readonly TSRandom RNG = TSRandom.New(0);
 
-        private static FP PI_2 = 2.0* FP.Pi;
+        private static FP PI_2 = (FP)(2.0)* FP.Pi;
 
         public static Polygon RandomCircleSweep(FP scale, int vertexCount)
         {
@@ -56,15 +56,15 @@ namespace Framework.Lockstep.Physics2D
                 {
                     if (i%250 == 0)
                     {
-                        radius += scale/2*(0.5 - RNG.NextFP());
+                        radius += scale/2*((FP)(0.5) - RNG.NextFP());
                     }
                     else if (i%50 == 0)
                     {
-                        radius += scale/5*(0.5 - RNG.NextFP());
+                        radius += scale/5*((FP)(0.5) - RNG.NextFP());
                     }
                     else
                     {
-                        radius += 25*scale/vertexCount*(0.5 - RNG.NextFP());
+                        radius += 25*scale/vertexCount*((FP)(0.5) - RNG.NextFP());
                     }
                     radius = radius > scale/2 ? scale/2 : radius;
                     radius = radius < scale/10 ? scale/10 : radius;
@@ -87,7 +87,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 do
                 {
-                    radius += scale/5*(0.5 - RNG.NextFP());
+                    radius += scale/5*((FP)(0.5) - RNG.NextFP());
                     radius = radius > scale/2 ? scale/2 : radius;
                     radius = radius < scale/10 ? scale/10 : radius;
                 } while (radius < scale/10 || radius > scale/2);

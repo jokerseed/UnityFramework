@@ -37,7 +37,7 @@ namespace Framework.GamePlay.Data
             var cost = ParseCost(def.CostAttribute, def.CostAmount);
             return new GameplayAbilityDef(
                 def.Id,
-                def.Cooldown,
+                (FP)(def.Cooldown),
                 () => Create(def, teamId),
                 ParseTags(def.RequiredTags),
                 ParseTags(def.BlockedTags),
@@ -170,7 +170,7 @@ namespace Framework.GamePlay.Data
                 return new Dictionary<string, FP>();
             }
 
-            return new Dictionary<string, FP> { [attribute] = amount };
+            return new Dictionary<string, FP> { [attribute] = (FP)(amount) };
         }
     }
 }

@@ -21,7 +21,7 @@ namespace Framework.Lockstep.Physics2D
         public TrapezoidalMap()
         {
             Map = new HashSet<Trapezoid>();
-            _margin = 50.0f;
+            _margin = (FP)(50.0f);
             _bCross = null;
             _cross = null;
         }

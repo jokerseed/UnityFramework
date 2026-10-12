@@ -180,8 +180,8 @@ namespace Framework.GamePlay
         {
             var asc = new AbilitySystemComponent(actorId);
             asc.InitializeCombatAttributes((FP)maxHealth, BattleConstants.DefaultMaxMana);
-            asc.Attributes.GetOrCreate(BattleConstants.Attack, 10f);
-            asc.Attributes.GetOrCreate(BattleConstants.Defense, 0f);
+            asc.Attributes.GetOrCreate(BattleConstants.Attack, (FP)(10f));
+            asc.Attributes.GetOrCreate(BattleConstants.Defense, (FP)(0f));
             asc.CueSimPosition = FPConversions.ToFP(position);
             asc.CueSimDirection = TSVector.forward;
             asc.CueManager = _cueManager;

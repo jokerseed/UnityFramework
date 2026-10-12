@@ -137,7 +137,7 @@ namespace Framework.Lockstep.Physics2D
             IgnoreCCDWith = Settings.DefaultFixtureIgnoreCCDWith;
 
             //Fixture defaults
-            Friction = 0.2f;
+            Friction = (FP)(0.2f);
             Restitution = 0;
         }
 
@@ -403,7 +403,7 @@ namespace Framework.Lockstep.Physics2D
             Body.FixtureList.Add(this);
 
             // Adjust mass properties if needed.
-            if (Shape._density > 0.0f)
+            if (Shape._density > (FP)(0.0f))
             {
                 Body.ResetMassData();
             }

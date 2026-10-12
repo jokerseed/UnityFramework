@@ -106,7 +106,7 @@ namespace Framework.Lockstep.Physics2D
         public void Initialize()
         {
             // find top left of terrain in world space
-            _topLeft = new TSVector2(Center.x - (Width * 0.5f), Center.y - (-Height * 0.5f));
+            _topLeft = new TSVector2(Center.x - (Width * (FP)(0.5f)), Center.y - (-Height * (FP)(0.5f)));
 
             // convert the terrains size to a point cloud size
             _localWidth = Width * PointsPerUnit;
@@ -236,7 +236,7 @@ namespace Framework.Lockstep.Physics2D
             _bodyMap[gx, gy] = new List<Body>();
 
             // create the scale vector
-            TSVector2 scale = new TSVector2(1f / PointsPerUnit, 1f / -PointsPerUnit);
+            TSVector2 scale = new TSVector2((FP)(1f / PointsPerUnit), (FP)(1f / -PointsPerUnit));
 
             // create physics object for this grid cell
             foreach (Vertices item in polys)

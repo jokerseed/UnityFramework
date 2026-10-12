@@ -10,7 +10,7 @@ namespace Framework.FixedMath
         /// <summary>float → FP。</summary>
         /// <param name="value">浮点值。</param>
         /// <returns>定点数。</returns>
-        public static FP ToFP(float value) => value;
+        public static FP ToFP(float value) => (FP)value;
 
         /// <summary>FP → float。</summary>
         /// <param name="value">定点数。</param>
@@ -20,7 +20,7 @@ namespace Framework.FixedMath
         /// <summary><see cref="Vector2"/> → <see cref="TSVector2"/>。</summary>
         /// <param name="v">Unity 向量。</param>
         /// <returns>定点数向量。</returns>
-        public static TSVector2 ToFP(Vector2 v) => new TSVector2(v.x, v.y);
+        public static TSVector2 ToFP(Vector2 v) => new TSVector2((FP)v.x, (FP)v.y);
 
         /// <summary><see cref="TSVector2"/> → <see cref="Vector2"/>。</summary>
         /// <param name="v">定点数向量。</param>
@@ -30,7 +30,7 @@ namespace Framework.FixedMath
         /// <summary><see cref="Vector3"/> → <see cref="TSVector"/>。</summary>
         /// <param name="v">Unity 向量。</param>
         /// <returns>定点数向量。</returns>
-        public static TSVector ToFP(Vector3 v) => new TSVector(v.x, v.y, v.z);
+        public static TSVector ToFP(Vector3 v) => new TSVector((FP)v.x, (FP)v.y, (FP)v.z);
 
         /// <summary><see cref="TSVector"/> → <see cref="Vector3"/>。</summary>
         /// <param name="v">定点数向量。</param>
@@ -40,7 +40,7 @@ namespace Framework.FixedMath
         /// <summary><see cref="Quaternion"/> → <see cref="TSQuaternion"/>（按分量转换）。</summary>
         /// <param name="q">Unity 四元数。</param>
         /// <returns>定点数四元数。</returns>
-        public static TSQuaternion ToFP(Quaternion q) => new TSQuaternion(q.x, q.y, q.z, q.w);
+        public static TSQuaternion ToFP(Quaternion q) => new TSQuaternion((FP)q.x, (FP)q.y, (FP)q.z, (FP)q.w);
 
         /// <summary><see cref="TSQuaternion"/> → <see cref="Quaternion"/>。</summary>
         /// <param name="q">定点数四元数。</param>
