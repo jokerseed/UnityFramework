@@ -3,6 +3,7 @@
     "rootNamespace": "Framework.GamePlay.Data",
     "references": [
         "Framework.Core",
+        "Framework.Events",
         "Framework.Battle.Core",
         "Framework.Config",
         "Framework.FixedMath",
