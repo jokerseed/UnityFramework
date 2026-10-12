@@ -22,6 +22,8 @@ namespace Framework.FixedMath {
         private uint[] mag01 = { 0x0U, MATRIX_A };
         private uint[] mt = new uint[N];
         private int mti = N + 1;
+        bool _stateHashValid;
+        int _cachedStateHash;
 
         /**
          *  @brief Static instance of {@link TSRandom} with seed 1.
@@ -166,12 +168,18 @@ namespace Framework.FixedMath {
 
             Array.Copy(source, mt, N);
             mti = index;
+            InvalidateStateHash();
         }
 
         /// <summary>当前生成器内部状态的稳定哈希，不消耗随机序列。</summary>
         /// <returns>由 <c>mti</c> 与 <c>mt</c> 表混合得到的 32 位哈希。</returns>
         public int GetStateHash()
         {
+            if (_stateHashValid)
+            {
+                return _cachedStateHash;
+            }
+
             unchecked
             {
                 var hash = (int)2166136261;
@@ -181,8 +189,15 @@ namespace Framework.FixedMath {
                     hash = (hash * 16777619) ^ (int)mt[i];
                 }
 
+                _cachedStateHash = hash;
+                _stateHashValid = true;
                 return hash;
             }
+        }
+
+        void InvalidateStateHash()
+        {
+            _stateHashValid = false;
         }
 
         /**
@@ -253,6 +268,7 @@ namespace Framework.FixedMath {
         }
 
         private void init_genrand(uint s) {
+            InvalidateStateHash();
             mt[0] = s & 0xffffffffU;
             for (mti = 1; mti < N; mti++) {
                 mt[mti] = (uint)(1812433253U * (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + mti);
@@ -292,6 +308,7 @@ namespace Framework.FixedMath {
         }
 
         uint genrand_int32() {
+            InvalidateStateHash();
             uint y;
             if (mti >= N) {
                 int kk;

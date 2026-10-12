@@ -191,14 +191,14 @@ Launch 场景
 - 通过 `BattleMonsterView` 对象池批量生成 12 个杂兵视图。
 - 创建英雄 Actor、怪物 Actor。
 - 给英雄注册 `Fireball / Slash / Slash2 / Slash3 / Dodge`。
-- 给怪物注册 `MobSlash` 并挂上 `BattleAiNodes.CreateMeleeChaserAgent(...)`。
+- 给怪物注册 `MobSlash` 并挂上 `BattleAiNodes.CreateMeleeChaserAgent(...)`。不传入共享会话随机源，每个怪物用 `DeriveSeed(session.RandomSeed, actorId)`。
 - 创建 `BattleWaveDirector` 驱动后续刷波。
 
 这里最重要的边界是：
 
 - **资源加载与实例创建放在 Setup**
 - **逻辑 Actor 创建也放在 Setup**
-- **但每帧同步显示不放在 Setup，而交给 ViewBinder**
+- **但每帧同步显示不放在 Setup，而交给 ViewBinder**。投射物视图除了实体 ID，还看技能、主人、半径，以及寿命是否变长。ID 回收后如果这些都相同、寿命却更短，视图可能沿用上一个弹，这是已知限制
 
 这样就避免“初始化”和“运行中表现”搅在一起。
 
