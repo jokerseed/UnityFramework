@@ -53,7 +53,7 @@ namespace Framework.ECS
 
         /// <summary>
         /// 保存存活实体与内置战斗组件。单例（物理世界、空间网格）不在这里。
-        /// 物理运动学用 <see cref="BattlePhysicsWorld.SaveKinematics"/>，且不包含接触。
+        /// 物理运动学由物理插件另存，且不包含接触。
         /// </summary>
         /// <param name="writer">写入器。</param>
         public void Save(SnapshotWriter writer)
@@ -101,7 +101,7 @@ namespace Framework.ECS
         /// <summary>
         /// 清空实体和组件后按快照重建。不销毁系统，不碰单例。
         /// 旧的 <see cref="Entity"/> 会被标成死亡；持有者要按 ID 重新绑定。
-        /// 若物理刚体还在，需要另调 <see cref="BattlePhysicsWorld.RestoreKinematics"/>。
+        /// 若物理刚体还在，需要由物理插件另行恢复运动学。
         /// </summary>
         /// <param name="reader">读取器。</param>
         /// <exception cref="InvalidOperationException">魔数、版本或扩展类型不匹配。</exception>

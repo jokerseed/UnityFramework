@@ -3,6 +3,7 @@
     "rootNamespace": "Framework.GAS",
     "references": [
         "Framework.Core",
+        "Framework.Battle.Core",
         "Framework.Events",
         "Framework.FixedMath"
     ],

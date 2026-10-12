@@ -15,7 +15,7 @@ namespace Framework.ECS
     /// 战斗用 Farseer 2D 物理世界：XZ 平面圆体、无重力。
     /// Actor 为动态刚体（互相挤开）；投射物为运动学传感器（只检测、不推开）。
     /// </summary>
-    public sealed class BattlePhysicsWorld
+    public sealed class BattlePhysicsWorld : IEcsBodyRemover
     {
         const Category ActorCategory = Category.Cat1;
         const Category ProjectileCategory = Category.Cat2;

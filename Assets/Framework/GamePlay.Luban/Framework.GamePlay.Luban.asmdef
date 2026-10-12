@@ -1,0 +1,22 @@
+{
+    "name": "Framework.GamePlay.Luban",
+    "rootNamespace": "Framework.GamePlay.Data",
+    "references": [
+        "Framework.Core",
+        "Framework.Battle.Core",
+        "Framework.Config",
+        "Framework.FixedMath",
+        "Framework.GamePlay",
+        "Framework.GAS",
+        "Generated.Luban"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

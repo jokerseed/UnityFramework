@@ -1,7 +1,7 @@
 # Framework.ECS
 
 轻量 ECS 层，处理空间、移动、投射物等**热路径模拟**。不持有 GAS 规则数据。  
-位移、挤开、击退与弹道命中由 `BattlePhysicsWorld` 驱动 **Farseer 2D**（`Framework.LockstepPhysics`）；GAS 扇形/半径查询仍走 `SpatialHashGrid`。
+位移、挤开、击退与弹道命中由 `Framework.ECS.Physics` 里的 `BattlePhysicsWorld` 驱动 **Farseer 2D**。ECS 核心只在销毁实体时调用 `IEcsBodyRemover`。GAS 扇形/半径查询仍走 `SpatialHashGrid`。
 
 ## 程序集
 
@@ -9,7 +9,7 @@
 |---|---|
 | 程序集 | `Framework.ECS` |
 | 命名空间 | `Framework.ECS` |
-| 依赖 | `Framework.Core`、`Framework.FixedMath`、`Framework.Lockstep`、`Framework.LockstepPhysics` |
+| 依赖 | `Framework.Core`、`Framework.Battle.Core`、`Framework.FixedMath`。Farseer 在 `Framework.ECS.Physics` |
 
 ## 目录结构
 
@@ -19,15 +19,16 @@ ECS/
 ├── Entity.cs                    实体与按实体 ID 升序的 ComponentStorage（稠密数组）
 ├── ISystem.cs                   IComponent / ISystem / EcsSystemPhase
 ├── EntityQuery.cs               ForEach 组件交集查询
-├── BattlePhysicsWorld.cs        Farseer 2D 包装（XZ 圆体、无重力）
+├── IEcsBodyRemover.cs           销毁实体时卸刚体的接口
 ├── SpatialHashGrid.cs           空间哈希（HashSet 去重）
 ├── SpatialIndexService.cs       Actor 空间索引重建
 ├── Snapshot/                    ISnapshotable：实体与内置组件；物理仅运动学扩展点
 ├── Components/
 │   └── BattleComponents.cs      Transform、Velocity、Projectile 等
 └── Systems/
-    ├── PhysicsSimulationSystem.cs  速度→刚体→Step→回写；投射物命中
     └── BattleSystems.cs            空间索引、投射物寿命
+
+`BattlePhysicsWorld`、`BattlePhysicsSnapshot`、`PhysicsSimulationSystem` 在 `Framework.ECS.Physics`。创建物理世界后要再 `RegisterSingleton<IEcsBodyRemover>`，销毁实体才会卸刚体。
 ```
 
 ## 核心能力

@@ -3,10 +3,13 @@
     "rootNamespace": "Framework.Tests",
     "references": [
         "Framework.Core",
+        "Framework.Battle.Core",
         "Framework.ECS",
+        "Framework.ECS.Physics",
         "Framework.FixedMath",
         "Framework.GAS",
         "Framework.GamePlay",
+        "Framework.GamePlay.Luban",
         "Framework.Lockstep",
         "Framework.Editor",
         "Framework.Logging",
