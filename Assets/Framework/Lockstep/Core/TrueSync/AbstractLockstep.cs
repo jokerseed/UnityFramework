@@ -170,6 +170,11 @@ namespace Framework.Lockstep
             _syncedDataCacheDrop = null;
             _syncedDataCacheUpdateData = null; 
 
+            foreach (var pair in players)
+            {
+                pair.Value?.Clear();
+            }
+
             activePlayers.Clear();
 
             auxPlayersSyncedData.Clear();
@@ -180,6 +185,8 @@ namespace Framework.Lockstep
             players.Clear();
             StepUpdate = null;
             localPlayer?.Clear();
+            this._dataPool.DetachFromStaticList();
+            this._listPool.DetachFromStaticList();
             GetLocalData = null; // 获取本地数据
 
             InputDataProvider = null;
@@ -660,7 +667,11 @@ namespace Framework.Lockstep
                     bool flag2 = !tSPlayer.IsDataReady(refTick);
                     if (flag2)
                     {
-                        tSPlayer.dropCount++;
+                        if (this.localPlayer != null && tSPlayer.RegisterDropVote(this.localPlayer.ID))
+                        {
+                            tSPlayer.dropCount++;
+                        }
+
                         list.Add(tSPlayer);
                     }
                     i++;
@@ -772,8 +783,8 @@ namespace Framework.Lockstep
                     this.OnSyncedDataReceived(owner, list);
                     if (list[0].dropPlayer && owner.ID != this.localPlayer.ID)
                     {
-                        TSPlayer from;
-                        if (this.players.TryGetValue(list[0].dropFromPlayerId, out from) && !from.dropped)
+                        TSPlayer voter;
+                        if (this.players.TryGetValue(list[0].dropFromPlayerId, out voter) && !voter.dropped)
                         {
                             if (owner.RegisterDropVote(list[0].dropFromPlayerId))
                             {
@@ -798,7 +809,9 @@ namespace Framework.Lockstep
             if (eventCode == 198)
             {
                 SyncedInfo info;
-                if (!SyncedInfo.TryDecode(content as byte[], out info) || !this.players.ContainsKey(info.playerId))
+                if (!SyncedInfo.TryDecode(content as byte[], out info) ||
+                    info.checksum == null ||
+                    !this.players.ContainsKey(info.playerId))
                 {
                     this.RejectedNetworkInputs++;
                     return;

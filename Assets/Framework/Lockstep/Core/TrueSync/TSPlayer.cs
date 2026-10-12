@@ -35,6 +35,10 @@ namespace Framework.Lockstep
 		{
 			playerInfo = null;
             controls.Clear();
+            if (this._dropVotes != null)
+            {
+                this._dropVotes.Clear();
+            }
 
         }
 

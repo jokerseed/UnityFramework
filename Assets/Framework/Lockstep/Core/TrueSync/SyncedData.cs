@@ -128,8 +128,9 @@ namespace Framework.Lockstep
 					}
 
 					item.Init(ownerID, currentTick--);
+					var before = i;
 					item.inputData.Deserialize(data, ref i);
-					if (i < 0 || i > data.Length)
+					if (i <= before || i < 0 || i > data.Length)
 					{
 						throw new ArgumentOutOfRangeException(nameof(data));
 					}
