@@ -23,6 +23,7 @@ namespace Framework.GAS
         int _nextSpecHandle = 1;
         int _nextActiveInstanceId = 1;
         int _nextActiveEffectHandle = 1;
+        int _nextEffectRuntimeId = 1;
 
         readonly Dictionary<GameplayAbilitySpecHandle, GameplayAbilitySpec> _grantedSpecs =
             new Dictionary<GameplayAbilitySpecHandle, GameplayAbilitySpec>();
@@ -514,6 +515,11 @@ namespace Framework.GAS
                 return false;
             }
 
+            if (spec.RuntimeId == 0)
+            {
+                spec.AssignRuntimeId(_nextEffectRuntimeId++);
+            }
+
             if (!CanApplyEffect(spec))
             {
                 return false;
@@ -987,9 +993,15 @@ namespace Framework.GAS
             GrantTags(spec.GrantedTags, eventBus);
             PublishCueTags(spec.CueTagsOnApply, eventBus, GameplayCueAction.Execute);
 
+            var recalc = false;
             for (var i = 0; i < spec.Modifiers.Count; i++)
             {
-                ApplyModifierInstant(spec.Modifiers[i], eventBus, setByCaller, sourceAsc);
+                recalc |= ApplyModifierInstant(spec.Modifiers[i], eventBus, setByCaller, sourceAsc);
+            }
+
+            if (recalc)
+            {
+                RecalculateAttributes(eventBus);
             }
 
             if (spec.Executions != null && spec.Executions.Count > 0)
@@ -1005,7 +1017,8 @@ namespace Framework.GAS
             RemoveTags(spec.GrantedTags, eventBus);
         }
 
-        void ApplyModifierInstant(
+        /// <returns>非资源属性改了基础值、需要立刻聚合时返回 true。</returns>
+        bool ApplyModifierInstant(
             EffectModifier modifier,
             IEventBus eventBus,
             IReadOnlyDictionary<string, FP> setByCaller,
@@ -1013,8 +1026,25 @@ namespace Framework.GAS
         {
             var magnitude = modifier.Magnitude.Evaluate(sourceAsc ?? this, this, setByCaller);
             var attribute = Attributes.GetOrCreate(modifier.AttributeName);
-            var oldValue = attribute.CurrentValue;
+            if (!BattleConstants.IsResourceAttribute(modifier.AttributeName))
+            {
+                switch (modifier.Operation)
+                {
+                    case EffectModifierOperation.Add:
+                        attribute.SetBaseValue(attribute.BaseValue + magnitude);
+                        break;
+                    case EffectModifierOperation.Multiply:
+                        attribute.SetBaseValue(attribute.BaseValue * magnitude);
+                        break;
+                    case EffectModifierOperation.Override:
+                        attribute.SetBaseValue(magnitude);
+                        break;
+                }
 
+                return true;
+            }
+
+            var oldValue = attribute.CurrentValue;
             switch (modifier.Operation)
             {
                 case EffectModifierOperation.Add:
@@ -1040,6 +1070,8 @@ namespace Framework.GAS
             {
                 HandleDeath(eventBus, sourceAsc?.ActorId ?? ActorId.Invalid, null);
             }
+
+            return false;
         }
 
         void TickEffects(FP deltaTime, IEventBus eventBus)
@@ -1353,6 +1385,25 @@ namespace Framework.GAS
             }
         }
 
+        /// <summary>
+        /// 持续效果里的 Health / Mana 改上限，不直接覆盖当前生命或法力。
+        /// Shield 仍走可耗尽上限。
+        /// </summary>
+        static string DurationAggregatorAttribute(string attributeName)
+        {
+            if (attributeName == BattleConstants.Health)
+            {
+                return BattleConstants.MaxHealth;
+            }
+
+            if (attributeName == BattleConstants.Mana)
+            {
+                return BattleConstants.MaxMana;
+            }
+
+            return attributeName;
+        }
+
         void AccumulateModifiers(AttributeModifierAggregator aggregator)
         {
             for (var i = 0; i < _activeEffects.Count; i++)
@@ -1363,7 +1414,11 @@ namespace Framework.GAS
                 {
                     var modifier = modifiers[j];
                     var magnitude = modifier.Magnitude.Evaluate(effect.SourceAsc ?? this, this, effect.Spec.SetByCaller);
-                    aggregator.Add(modifier.AttributeName, magnitude, modifier.Operation, effect.StackCount);
+                    aggregator.Add(
+                        DurationAggregatorAttribute(modifier.AttributeName),
+                        magnitude,
+                        modifier.Operation,
+                        effect.StackCount);
                 }
             }
         }

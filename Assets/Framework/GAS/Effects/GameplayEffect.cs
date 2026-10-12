@@ -74,8 +74,8 @@ namespace Framework.GAS.Effects
             s_nextHandle = 1;
         }
 
-        /// <summary>运行时 Spec 句柄（Apply 时分配）。</summary>
-        public int RuntimeId { get; }
+        /// <summary>运行时 Spec 句柄。0 表示尚未由 ASC 分配；施加时按该 ASC 的计数写入。</summary>
+        public int RuntimeId { get; private set; }
 
         /// <summary>效果唯一标识符。</summary>
         public string EffectId { get; }
@@ -158,10 +158,22 @@ namespace Framework.GAS.Effects
         {
         }
 
-        /// <summary>从 Def 构造运行时 Spec。</summary>
+        /// <summary>从 Def 构造运行时 Spec。RuntimeId 先为 0，由接受它的 ASC 分配。</summary>
         public GameplayEffectSpec(GameplayEffectDef def, IReadOnlyDictionary<string, FP> setByCaller = null)
-            : this(def, setByCaller, s_nextHandle++)
+            : this(def, setByCaller, 0)
         {
+        }
+
+        /// <summary>把尚未分配的 RuntimeId 记到所属 ASC。已有正数句柄时不改。</summary>
+        /// <param name="id">该 ASC 分配的句柄，必须大于 0。</param>
+        internal void AssignRuntimeId(int id)
+        {
+            if (RuntimeId > 0 || id <= 0)
+            {
+                return;
+            }
+
+            RuntimeId = id;
         }
 
         /// <summary>用显式 RuntimeId 构造 Spec，不推进静态计数。快照恢复使用。</summary>

@@ -27,12 +27,14 @@ namespace Framework.GAS.Attributes
             CurrentValue = baseValue;
         }
 
-        /// <summary>设置基础值并立即以零偏移、单位乘数重新计算当前值。</summary>
+        /// <summary>
+        /// 只改基础值，不改当前值。
+        /// 非资源属性的当前值由下一次聚合重算从基础值得出；这样即时效果写入的基础值不会在重算时被丢掉。
+        /// </summary>
         /// <param name="value">新基础值。</param>
         public void SetBaseValue(FP value)
         {
             BaseValue = value;
-            Recalculate(FP.Zero, FP.One);
         }
 
         /// <summary>直接覆写当前值（用于受到伤害、治疗等即时改变场景）。</summary>

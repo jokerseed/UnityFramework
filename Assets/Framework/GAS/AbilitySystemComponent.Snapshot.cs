@@ -30,6 +30,7 @@ namespace Framework.GAS
             writer.WriteInt(_nextSpecHandle);
             writer.WriteInt(_nextActiveInstanceId);
             writer.WriteInt(_nextActiveEffectHandle);
+            writer.WriteInt(_nextEffectRuntimeId);
             writer.WriteFp(_appliedShieldBonus);
             WriteAttributes(writer);
             WriteTagCounts(writer);
@@ -72,6 +73,7 @@ namespace Framework.GAS
             _nextSpecHandle = reader.ReadInt();
             _nextActiveInstanceId = reader.ReadInt();
             _nextActiveEffectHandle = reader.ReadInt();
+            _nextEffectRuntimeId = reader.ReadInt();
             _appliedShieldBonus = reader.ReadFp();
             ReadAttributes(reader);
             ReadTagCounts(reader);
