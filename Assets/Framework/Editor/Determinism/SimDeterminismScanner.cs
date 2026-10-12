@@ -22,11 +22,14 @@ namespace Framework.Editor.Determinism
         static readonly string[] ScanRoots =
         {
             "Framework/ECS",
+            "Framework/ECS.Physics",
             "Framework/GAS",
             "Framework/FixedMath",
             "Framework/GamePlay",
+            "Framework/GamePlay.Luban",
             "Framework/BehaviourTree",
             "Framework/Core",
+            "Framework/Battle.Core",
             "Framework/Lockstep",
         };
 
@@ -174,7 +177,9 @@ namespace Framework.Editor.Determinism
                 return false;
             }
 
-            if (path.Contains("Framework/ECS") || path.Contains("Framework/Core"))
+            if (path.Contains("Framework/ECS") ||
+                path.Contains("Framework/Core") ||
+                path.Contains("Framework/Battle.Core"))
             {
                 return true;
             }
