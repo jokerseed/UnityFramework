@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using Framework.Events;
 using Framework.Logging;
 
@@ -21,22 +22,12 @@ namespace Framework.Network
             new Dictionary<ushort, Action<INetworkChannel, NetworkPacket>>(32);
         readonly INetworkChannelHelper _helper;
         readonly MemoryStream _serializeStream = new MemoryStream(256);
-        readonly SocketAsyncEventArgs _connectArgs = new SocketAsyncEventArgs();
-        readonly SocketAsyncEventArgs _receiveArgs = new SocketAsyncEventArgs();
-        readonly SocketAsyncEventArgs _sendArgs = new SocketAsyncEventArgs();
 
-        byte[] _receiveBuffer = new byte[ReceiveBufferSize];
-        int _receiveOffset;
-        int _packetBodyLength = -1;
-        bool _sending;
+        IoSession _session;
         bool _closed = true;
-        Socket _socket;
         Action<INetworkChannel, NetworkPacket> _defaultHandler;
         float _heartBeatElapse;
         int _generation;
-        bool _connectArgsBusy;
-        bool _receiveArgsBusy;
-        bool _sendArgsBusy;
         bool _queuedConnect;
         IPAddress _queuedAddress;
         int _queuedPort;
@@ -52,11 +43,6 @@ namespace Framework.Network
             {
                 throw new ArgumentException("PacketHeaderLength must be greater than 0.", nameof(helper));
             }
-
-            _connectArgs.Completed += OnSocketCompleted;
-            _receiveArgs.Completed += OnSocketCompleted;
-            _sendArgs.Completed += OnSocketCompleted;
-            _receiveArgs.SetBuffer(_receiveBuffer, 0, _receiveBuffer.Length);
         }
 
         /// <inheritdoc />
@@ -72,7 +58,7 @@ namespace Framework.Network
             {
                 lock (_sync)
                 {
-                    var socket = _socket;
+                    var socket = _session == null ? null : _session.Socket;
                     return State == NetworkChannelState.Connected && socket != null && socket.Connected;
                 }
             }
@@ -85,7 +71,7 @@ namespace Framework.Network
             {
                 lock (_sync)
                 {
-                    return _socket;
+                    return _session == null ? null : _session.Socket;
                 }
             }
         }
@@ -314,7 +300,7 @@ namespace Framework.Network
             var miss = 0;
             lock (_sync)
             {
-                var socket = _socket;
+                var socket = _session == null ? null : _session.Socket;
                 var connected = State == NetworkChannelState.Connected && socket != null && socket.Connected;
                 if (!connected || HeartBeatInterval <= 0f)
                 {
@@ -467,19 +453,21 @@ namespace Framework.Network
 
         void OnConnectCompleted(SocketAsyncEventArgs e)
         {
-            var generation = e.UserToken is int connectToken ? connectToken : -1;
+            var session = e.UserToken as IoSession;
+            if (session == null)
+            {
+                return;
+            }
+
             var accepted = false;
             lock (_sync)
             {
-                accepted = !_closed && generation == _generation;
-                if (accepted)
-                {
-                    _connectArgsBusy = false;
-                }
+                accepted = !_closed && ReferenceEquals(_session, session);
             }
 
             if (!accepted)
             {
+                session.DisposeConnectArgs();
                 TryStartQueuedConnect();
                 return;
             }
@@ -487,21 +475,26 @@ namespace Framework.Network
             if (e.SocketError != SocketError.Success)
             {
                 EnqueueError(NetworkErrorCode.ConnectError, e.SocketError, e.SocketError.ToString());
-                CloseSocket(generation);
+                if (CloseSocket(session.Generation))
+                {
+                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                }
+
+                session.DisposeConnectArgs();
                 return;
             }
 
-            var current = false;
             lock (_sync)
             {
-                current = !_closed && e.UserToken is int token && token == _generation;
-                if (current)
+                accepted = !_closed && ReferenceEquals(_session, session);
+                if (accepted)
                 {
                     State = NetworkChannelState.Connected;
                 }
             }
 
-            if (!current)
+            session.DisposeConnectArgs();
+            if (!accepted)
             {
                 TryStartQueuedConnect();
                 return;
@@ -513,43 +506,46 @@ namespace Framework.Network
 
         void BeginReceive()
         {
+            IoSession session;
             Socket socket;
-            var generation = 0;
+            SocketAsyncEventArgs args;
             lock (_sync)
             {
-                if (_closed || _socket == null || _receiveArgsBusy)
+                session = _session;
+                if (_closed || session == null || session.ReceiveInFlight)
                 {
                     return;
                 }
 
-                var remaining = _receiveBuffer.Length - _receiveOffset;
+                var remaining = session.ReceiveBuffer.Length - session.ReceiveOffset;
                 if (remaining <= 0)
                 {
-                    GrowReceiveBuffer(_receiveBuffer.Length * 2);
-                    remaining = _receiveBuffer.Length - _receiveOffset;
+                    session.GrowReceiveBuffer(session.ReceiveBuffer.Length * 2);
+                    remaining = session.ReceiveBuffer.Length - session.ReceiveOffset;
                 }
 
-                generation = _generation;
-                _receiveArgs.UserToken = generation;
-                _receiveArgs.SetBuffer(_receiveBuffer, _receiveOffset, remaining);
-                _receiveArgsBusy = true;
-                socket = _socket;
+                session.ReceiveArgs.SetBuffer(session.ReceiveBuffer, session.ReceiveOffset, remaining);
+                session.ReceiveInFlight = true;
+                session.ReceivePosted = true;
+                socket = session.Socket;
+                args = session.ReceiveArgs;
             }
 
             try
             {
-                if (!socket.ReceiveAsync(_receiveArgs))
+                if (!socket.ReceiveAsync(args))
                 {
-                    OnReceiveCompleted(_receiveArgs);
+                    OnReceiveCompleted(args);
                 }
             }
             catch (Exception ex)
             {
+                var generation = session.Generation;
                 lock (_sync)
                 {
-                    if (generation == _generation)
+                    if (ReferenceEquals(_session, session))
                     {
-                        _receiveArgsBusy = false;
+                        session.ReceiveInFlight = false;
                     }
                 }
 
@@ -558,48 +554,55 @@ namespace Framework.Network
                 {
                     Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 }
+
+                session.DisposeReceiveArgs();
             }
         }
 
         void OnReceiveCompleted(SocketAsyncEventArgs e)
         {
-            var generation = e.UserToken is int token ? token : -1;
+            var session = e.UserToken as IoSession;
+            if (session == null)
+            {
+                return;
+            }
+
             var current = false;
             var fatal = false;
             var reportError = false;
-            SocketError socketError = SocketError.Success;
-            byte[] copy = null;
+            var socketError = SocketError.Success;
+            byte[] buffer = null;
             var length = 0;
             var bodyLength = -1;
             lock (_sync)
             {
-                current = !_closed && generation == _generation;
+                current = !_closed && ReferenceEquals(_session, session);
                 if (current)
                 {
-                _receiveArgsBusy = false;
-                if (e.SocketError != SocketError.Success)
-                {
-                    fatal = true;
-                    reportError = true;
-                    socketError = e.SocketError;
-                }
-                else if (e.BytesTransferred <= 0)
-                {
-                    fatal = true;
-                }
-                else
-                {
-                    _receiveOffset += e.BytesTransferred;
-                    length = _receiveOffset;
-                    bodyLength = _packetBodyLength;
-                    copy = new byte[length];
-                    Buffer.BlockCopy(_receiveBuffer, 0, copy, 0, length);
-                }
+                    session.ReceiveInFlight = false;
+                    if (e.SocketError != SocketError.Success)
+                    {
+                        fatal = true;
+                        reportError = true;
+                        socketError = e.SocketError;
+                    }
+                    else if (e.BytesTransferred <= 0)
+                    {
+                        fatal = true;
+                    }
+                    else
+                    {
+                        session.ReceiveOffset += e.BytesTransferred;
+                        length = session.ReceiveOffset;
+                        bodyLength = session.PacketBodyLength;
+                        buffer = session.ReceiveBuffer;
+                    }
                 }
             }
 
             if (!current)
             {
+                session.DisposeReceiveArgs();
                 TryStartQueuedConnect();
                 return;
             }
@@ -611,51 +614,57 @@ namespace Framework.Network
                     EnqueueError(NetworkErrorCode.ReceiveError, socketError, socketError.ToString());
                 }
 
-                if (CloseSocket(generation))
+                if (CloseSocket(session.Generation))
                 {
                     Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 }
 
+                session.DisposeReceiveArgs();
                 return;
             }
 
-            var parsed = ParseReceive(copy, length, bodyLength);
+            var parsed = ParseReceive(buffer, length, bodyLength);
             if (!parsed.Ok)
             {
                 ReleasePackets(parsed.Packets);
                 EnqueueError(NetworkErrorCode.DeserializeError, SocketError.SocketError, parsed.Error);
-                if (CloseSocket(generation))
+                if (CloseSocket(session.Generation))
                 {
                     Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 }
 
+                session.DisposeReceiveArgs();
                 return;
             }
 
             var stale = false;
             lock (_sync)
             {
-                if (_closed || _generation != generation)
+                if (_closed || !ReferenceEquals(_session, session))
                 {
                     stale = true;
                 }
                 else
                 {
-                    _packetBodyLength = parsed.BodyLength;
-                    _receiveOffset = parsed.Remain;
+                    session.PacketBodyLength = parsed.BodyLength;
                     if (parsed.Remain > 0)
                     {
-                        if (_receiveBuffer.Length < parsed.Remain)
+                        if (session.ReceiveBuffer.Length < parsed.Remain)
                         {
-                            GrowReceiveBuffer(NextBufferSize(parsed.Remain));
+                            var grown = new byte[session.NextBufferSize(parsed.Remain)];
+                            Buffer.BlockCopy(buffer, parsed.Consumed, grown, 0, parsed.Remain);
+                            session.ReceiveBuffer = grown;
                         }
-
-                        Buffer.BlockCopy(parsed.Remainder, 0, _receiveBuffer, 0, parsed.Remain);
+                        else
+                        {
+                            Buffer.BlockCopy(buffer, parsed.Consumed, session.ReceiveBuffer, 0, parsed.Remain);
+                        }
                     }
 
-                    if (parsed.RequiredCapacity > _receiveBuffer.Length)
+                    session.ReceiveOffset = parsed.Remain;
+                    if (parsed.RequiredCapacity > session.ReceiveBuffer.Length)
                     {
-                        GrowReceiveBuffer(NextBufferSize(parsed.RequiredCapacity));
+                        session.GrowReceiveBuffer(session.NextBufferSize(parsed.RequiredCapacity));
                     }
                 }
             }
@@ -663,6 +672,7 @@ namespace Framework.Network
             if (stale)
             {
                 ReleasePackets(parsed.Packets);
+                session.DisposeReceiveArgs();
                 TryStartQueuedConnect();
                 return;
             }
@@ -725,13 +735,8 @@ namespace Framework.Network
                 result.BodyLength = -1;
             }
 
+            result.Consumed = readOffset;
             result.Remain = length - readOffset;
-            if (result.Remain > 0)
-            {
-                result.Remainder = new byte[result.Remain];
-                Buffer.BlockCopy(buffer, readOffset, result.Remainder, 0, result.Remain);
-            }
-
             return result;
         }
 
@@ -751,52 +756,42 @@ namespace Framework.Network
             }
         }
 
-        static int NextBufferSize(int required)
-        {
-            var size = ReceiveBufferSize;
-            while (size < required)
-            {
-                size *= 2;
-            }
-
-            return size;
-        }
-
         void TrySend()
         {
+            IoSession session;
             Socket socket;
-            var generation = 0;
+            SocketAsyncEventArgs args;
             lock (_sync)
             {
-                if (_sending || _sendArgsBusy || _sendQueue.Count == 0 || _socket == null || _closed)
+                session = _session;
+                if (session == null || session.Sending || _sendQueue.Count == 0 || _closed)
                 {
                     return;
                 }
 
                 var data = _sendQueue.Dequeue();
-                generation = _generation;
-                _sending = true;
-                _sendArgsBusy = true;
-                _sendArgs.UserToken = generation;
-                _sendArgs.SetBuffer(data, 0, data.Length);
-                socket = _socket;
+                session.Sending = true;
+                session.SendPosted = true;
+                session.SendArgs.SetBuffer(data, 0, data.Length);
+                socket = session.Socket;
+                args = session.SendArgs;
             }
 
             try
             {
-                if (!socket.SendAsync(_sendArgs))
+                if (!socket.SendAsync(args))
                 {
-                    OnSendCompleted(_sendArgs);
+                    OnSendCompleted(args);
                 }
             }
             catch (Exception ex)
             {
+                var generation = session.Generation;
                 lock (_sync)
                 {
-                    if (generation == _generation)
+                    if (ReferenceEquals(_session, session))
                     {
-                        _sendArgsBusy = false;
-                        _sending = false;
+                        session.Sending = false;
                     }
                 }
 
@@ -805,24 +800,28 @@ namespace Framework.Network
                 {
                     Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 }
+
+                session.DisposeSendArgs();
             }
         }
 
         void OnSendCompleted(SocketAsyncEventArgs e)
         {
-            var generation = e.UserToken is int token ? token : -1;
+            var session = e.UserToken as IoSession;
+            if (session == null)
+            {
+                return;
+            }
+
             var current = false;
             lock (_sync)
             {
-                current = !_closed && generation == _generation;
-                if (current)
-                {
-                    _sendArgsBusy = false;
-                }
+                current = !_closed && ReferenceEquals(_session, session);
             }
 
             if (!current)
             {
+                session.DisposeSendArgs();
                 TryStartQueuedConnect();
                 return;
             }
@@ -831,11 +830,12 @@ namespace Framework.Network
             {
                 var error = e.SocketError != SocketError.Success ? e.SocketError : SocketError.ConnectionReset;
                 EnqueueError(NetworkErrorCode.SendError, error, error.ToString());
-                if (CloseSocket(generation))
+                if (CloseSocket(session.Generation))
                 {
                     Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 }
 
+                session.DisposeSendArgs();
                 return;
             }
 
@@ -847,37 +847,36 @@ namespace Framework.Network
                 var stillCurrent = false;
                 lock (_sync)
                 {
-                    stillCurrent = !_closed && _socket != null && generation == _generation;
+                    stillCurrent = !_closed && ReferenceEquals(_session, session);
                     if (stillCurrent)
                     {
-                        _sendArgs.UserToken = generation;
-                        _sendArgs.SetBuffer(offset, remain);
-                        _sendArgsBusy = true;
-                        socket = _socket;
+                        session.SendArgs.SetBuffer(offset, remain);
+                        socket = session.Socket;
                     }
                 }
 
                 if (!stillCurrent)
                 {
+                    session.DisposeSendArgs();
                     TryStartQueuedConnect();
                     return;
                 }
 
                 try
                 {
-                    if (!socket.SendAsync(_sendArgs))
+                    if (!socket.SendAsync(session.SendArgs))
                     {
-                        OnSendCompleted(_sendArgs);
+                        OnSendCompleted(session.SendArgs);
                     }
                 }
                 catch (Exception ex)
                 {
+                    var generation = session.Generation;
                     lock (_sync)
                     {
-                        if (generation == _generation)
+                        if (ReferenceEquals(_session, session))
                         {
-                            _sendArgsBusy = false;
-                            _sending = false;
+                            session.Sending = false;
                         }
                     }
 
@@ -886,6 +885,8 @@ namespace Framework.Network
                     {
                         Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                     }
+
+                    session.DisposeSendArgs();
                 }
 
                 return;
@@ -893,41 +894,14 @@ namespace Framework.Network
 
             lock (_sync)
             {
-                if (generation == _generation)
+                if (ReferenceEquals(_session, session))
                 {
                     SentPacketCount++;
-                    _sending = false;
+                    session.Sending = false;
                 }
             }
 
             TrySend();
-        }
-
-        void EnsureReceiveCapacity(int required)
-        {
-            if (_receiveBuffer.Length >= required)
-            {
-                return;
-            }
-
-            var size = _receiveBuffer.Length;
-            while (size < required)
-            {
-                size *= 2;
-            }
-
-            GrowReceiveBuffer(size);
-        }
-
-        void GrowReceiveBuffer(int size)
-        {
-            var next = new byte[size];
-            if (_receiveOffset > 0)
-            {
-                Buffer.BlockCopy(_receiveBuffer, 0, next, 0, _receiveOffset);
-            }
-
-            _receiveBuffer = next;
         }
 
         /// <summary>关闭套接字。同一场连接只算一次，避免收发两条错误各报一次 Closed。</summary>
@@ -941,7 +915,7 @@ namespace Framework.Network
 
         bool FinishClose(bool matchGeneration, int generation)
         {
-            Socket socket;
+            IoSession session;
             bool closedNow;
             lock (_sync)
             {
@@ -950,49 +924,25 @@ namespace Framework.Network
                     return false;
                 }
 
-                closedNow = _socket != null || State != NetworkChannelState.Disconnected;
+                closedNow = _session != null || State != NetworkChannelState.Disconnected;
                 _generation++;
                 _closed = true;
                 State = NetworkChannelState.Disconnected;
-                _sending = false;
-                _connectArgsBusy = false;
-                _receiveArgsBusy = false;
-                _sendArgsBusy = false;
                 _queuedConnect = false;
                 _queuedAddress = null;
                 _queuedPort = 0;
-                _receiveOffset = 0;
-                _packetBodyLength = -1;
                 _heartBeatElapse = 0f;
                 MissHeartBeatCount = 0;
                 SentPacketCount = 0;
                 ReceivedPacketCount = 0;
                 _sendQueue.Clear();
-                socket = _socket;
-                _socket = null;
+                session = _session;
+                _session = null;
             }
 
-            if (socket == null)
+            if (session != null)
             {
-                return closedNow;
-            }
-
-            try
-            {
-                socket.Shutdown(SocketShutdown.Both);
-            }
-            catch (Exception)
-            {
-                // ignored
-            }
-
-            try
-            {
-                socket.Close();
-            }
-            catch (Exception)
-            {
-                // ignored
+                session.Release();
             }
 
             return closedNow;
@@ -1014,89 +964,74 @@ namespace Framework.Network
         {
             IPAddress address;
             var port = 0;
+            var generation = 0;
             lock (_sync)
             {
-                if (!_queuedConnect || _connectArgsBusy || _receiveArgsBusy || _sendArgsBusy)
+                if (!_queuedConnect)
                 {
                     return;
                 }
 
                 address = _queuedAddress;
                 port = _queuedPort;
+                generation = _generation;
                 _queuedAddress = null;
                 _queuedConnect = false;
                 if (address == null)
                 {
                     return;
                 }
-
-                _connectArgsBusy = true;
             }
 
-            BeginConnect(address, port);
+            BeginConnect(address, port, generation);
         }
 
-        void BeginConnect(IPAddress address, int port)
+        void BeginConnect(IPAddress address, int port, int generation)
         {
             if (address == null)
             {
-                lock (_sync)
-                {
-                    _connectArgsBusy = false;
-                }
-
                 return;
             }
 
-            Socket socket;
-            var generation = 0;
+            IoSession session;
             lock (_sync)
             {
+                if (generation != _generation)
+                {
+                    return;
+                }
+
                 _closed = false;
                 State = NetworkChannelState.Connecting;
-                _receiveOffset = 0;
-                _packetBodyLength = -1;
-                _socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+                var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
                 {
                     NoDelay = true,
                 };
-                generation = _generation;
-                _connectArgs.UserToken = generation;
-                _receiveArgs.UserToken = generation;
-                _sendArgs.UserToken = generation;
-                _connectArgs.RemoteEndPoint = new IPEndPoint(address, port);
-                socket = _socket;
+                session = new IoSession(generation, socket, OnSocketCompleted);
+                session.ConnectArgs.RemoteEndPoint = new IPEndPoint(address, port);
+                session.ConnectPosted = true;
+                _session = session;
             }
 
             try
             {
-                if (!socket.ConnectAsync(_connectArgs))
+                if (!session.Socket.ConnectAsync(session.ConnectArgs))
                 {
-                    OnConnectCompleted(_connectArgs);
+                    OnConnectCompleted(session.ConnectArgs);
                 }
             }
             catch (Exception ex)
             {
-                lock (_sync)
+                EnqueueError(NetworkErrorCode.ConnectError, SocketError.SocketError, ex.Message);
+                if (CloseSocket(generation))
                 {
-                    if (generation == _generation)
-                    {
-                        _connectArgsBusy = false;
-                    }
+                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 }
 
-                EnqueueError(NetworkErrorCode.ConnectError, SocketError.SocketError, ex.Message);
-                CloseSocket(generation);
+                session.DisposeConnectArgs();
             }
         }
 
-        bool IsCurrentOperation(SocketAsyncEventArgs args)
-        {
-            lock (_sync)
-            {
-                return !_closed && args.UserToken is int token && token == _generation;
-            }
-        }
 
         void EnqueueError(NetworkErrorCode errorCode, SocketError socketError, string message)
         {
@@ -1135,13 +1070,188 @@ namespace Framework.Network
             return addresses[0];
         }
 
+        /// <summary>一次连接自带的 socket 和三套异步参数。回调只读这份代号。</summary>
+        sealed class IoSession
+        {
+            int _connectDisposed;
+            int _receiveDisposed;
+            int _sendDisposed;
+            int _released;
+
+            /// <summary>发起这次连接时的代号。</summary>
+            public readonly int Generation;
+
+            /// <summary>这次连接的套接字。</summary>
+            public readonly Socket Socket;
+
+            /// <summary>连接完成参数。</summary>
+            public readonly SocketAsyncEventArgs ConnectArgs;
+
+            /// <summary>接收完成参数。</summary>
+            public readonly SocketAsyncEventArgs ReceiveArgs;
+
+            /// <summary>发送完成参数。</summary>
+            public readonly SocketAsyncEventArgs SendArgs;
+
+            /// <summary>这次连接自己的接收缓冲。</summary>
+            public byte[] ReceiveBuffer;
+
+            /// <summary>缓冲里尚未解析完的字节数。</summary>
+            public int ReceiveOffset;
+
+            /// <summary>当前包还缺的包体长度；-1 表示还在等包头。</summary>
+            public int PacketBodyLength = -1;
+
+            /// <summary>有一包还没发完。</summary>
+            public bool Sending;
+
+            /// <summary>接收操作正在进行。</summary>
+            public bool ReceiveInFlight;
+
+            /// <summary>已经把连接操作交给套接字。</summary>
+            public bool ConnectPosted;
+
+            /// <summary>已经把接收操作交给套接字。</summary>
+            public bool ReceivePosted;
+
+            /// <summary>已经把发送操作交给套接字。</summary>
+            public bool SendPosted;
+
+            /// <summary>创建一套只属于这次连接的异步参数。</summary>
+            /// <param name="generation">连接代号。</param>
+            /// <param name="socket">套接字。</param>
+            /// <param name="completed">完成回调。</param>
+            public IoSession(int generation, Socket socket, EventHandler<SocketAsyncEventArgs> completed)
+            {
+                Generation = generation;
+                Socket = socket;
+                ConnectArgs = CreateArgs(completed);
+                ReceiveArgs = CreateArgs(completed);
+                SendArgs = CreateArgs(completed);
+                ReceiveBuffer = new byte[ReceiveBufferSize];
+                ReceiveArgs.SetBuffer(ReceiveBuffer, 0, ReceiveBuffer.Length);
+            }
+
+            SocketAsyncEventArgs CreateArgs(EventHandler<SocketAsyncEventArgs> completed)
+            {
+                var args = new SocketAsyncEventArgs();
+                args.UserToken = this;
+                args.Completed += completed;
+                return args;
+            }
+
+            /// <summary>扩大接收缓冲，并保留已经收到、还没解析完的字节。</summary>
+            /// <param name="size">新容量。</param>
+            public void GrowReceiveBuffer(int size)
+            {
+                var next = new byte[size];
+                if (ReceiveOffset > 0)
+                {
+                    Buffer.BlockCopy(ReceiveBuffer, 0, next, 0, ReceiveOffset);
+                }
+
+                ReceiveBuffer = next;
+            }
+
+            /// <summary>不小于 <paramref name="required"/> 的缓冲容量。</summary>
+            /// <param name="required">至少要容纳的字节数。</param>
+            /// <returns>容量。</returns>
+            public int NextBufferSize(int required)
+            {
+                var size = ReceiveBufferSize;
+                while (size < required)
+                {
+                    size *= 2;
+                }
+
+                return size;
+            }
+
+            /// <summary>关掉套接字。还没提交的异步参数在这里释放，已经提交的等各自的回调释放。</summary>
+            public void Release()
+            {
+                if (Interlocked.Exchange(ref _released, 1) != 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    Socket.Shutdown(SocketShutdown.Both);
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+
+                try
+                {
+                    Socket.Close();
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+
+                if (!ConnectPosted)
+                {
+                    DisposeConnectArgs();
+                }
+
+                if (!ReceivePosted)
+                {
+                    DisposeReceiveArgs();
+                }
+
+                if (!SendPosted)
+                {
+                    DisposeSendArgs();
+                }
+            }
+
+            /// <summary>释放连接参数。重复调用无效果。</summary>
+            public void DisposeConnectArgs()
+            {
+                DisposeOnce(ConnectArgs, ref _connectDisposed);
+            }
+
+            /// <summary>释放接收参数。重复调用无效果。</summary>
+            public void DisposeReceiveArgs()
+            {
+                DisposeOnce(ReceiveArgs, ref _receiveDisposed);
+            }
+
+            /// <summary>释放发送参数。重复调用无效果。</summary>
+            public void DisposeSendArgs()
+            {
+                DisposeOnce(SendArgs, ref _sendDisposed);
+            }
+
+            static void DisposeOnce(SocketAsyncEventArgs args, ref int flag)
+            {
+                if (Interlocked.Exchange(ref flag, 1) != 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    args.Dispose();
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+            }
+        }
+
         struct ParsedReceive
         {
             public bool Ok;
             public string Error;
             public int BodyLength;
             public int Remain;
-            public byte[] Remainder;
+            public int Consumed;
             public List<NetworkPacket> Packets;
             public int RequiredCapacity;
         }
