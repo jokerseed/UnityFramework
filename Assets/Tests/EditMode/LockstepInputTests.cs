@@ -73,5 +73,75 @@ namespace Framework.Tests
             Assert.IsTrue(step.checksumOk);
             Assert.Greater(step.RejectedNetworkInputs, rejected);
         }
+
+        [Test]
+        public void ReadyInputClearsDropVotesAndTheNextGapStartsFromZero()
+        {
+            var hub = new LoopbackHub();
+            var step = AbstractLockstep.NewInstance(
+                0.02f,
+                hub.Open(0),
+                null,
+                0,
+                1,
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                () => new EmptyInput());
+            step.AddPlayer(0, "local", true);
+            step.AddPlayer(1, "remote", false);
+            step.AddPlayer(2, "other", false);
+            var remote = step.ActivePlayers[1];
+            var register = typeof(TSPlayer).GetMethod(
+                "RegisterDropVote",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var drop = typeof(AbstractLockstep).GetMethod(
+                "DropLagPlayers",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            drop.Invoke(step, null);
+            Assert.AreEqual(1, remote.dropCount);
+            Assert.IsTrue((bool)register.Invoke(remote, new object[] { (byte)2 }));
+
+            var ready = remote.GetData(0);
+            ready.fake = false;
+            drop.Invoke(step, null);
+            Assert.AreEqual(0, remote.dropCount);
+            Assert.IsTrue((bool)register.Invoke(remote, new object[] { (byte)2 }));
+
+            remote.RemoveData(0);
+            drop.Invoke(step, null);
+            Assert.AreEqual(1, remote.dropCount);
+        }
+
+        /// <summary>掉线票测试用的空输入，避免 <c>SyncedData.Init</c> 碰到空的输入对象。</summary>
+        sealed class EmptyInput : InputDataBase
+        {
+            public override void Serialize(List<byte> bytes)
+            {
+            }
+
+            public override void Deserialize(byte[] data, ref int offset)
+            {
+            }
+
+            public override bool EqualsData(InputDataBase otherBase)
+            {
+                return true;
+            }
+
+            public override void CleanUp()
+            {
+            }
+
+            public override void CopyFrom(InputDataBase fromBase)
+            {
+            }
+        }
     }
 }
