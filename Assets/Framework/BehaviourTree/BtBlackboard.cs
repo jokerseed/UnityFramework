@@ -281,6 +281,52 @@ namespace Framework.BehaviourTree
             }
         }
 
+        /// <summary>拷贝整数槽。顺序不稳定，调用方需要排序后再做校验。</summary>
+        /// <param name="destination">输出；不可为 null，调用前会被清空。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopyInts(List<KeyValuePair<string, int>> destination)
+        {
+            CopyPairs(_ints, destination);
+        }
+
+        /// <summary>拷贝布尔槽。顺序不稳定，调用方需要排序后再做校验。</summary>
+        /// <param name="destination">输出；不可为 null，调用前会被清空。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopyBools(List<KeyValuePair<string, bool>> destination)
+        {
+            CopyPairs(_bools, destination);
+        }
+
+        /// <summary>拷贝定点槽的 raw 值。顺序不稳定，调用方需要排序后再做校验。</summary>
+        /// <param name="destination">输出；不可为 null，调用前会被清空。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopyFpRaws(List<KeyValuePair<string, long>> destination)
+        {
+            CopyPairs(_fps, destination);
+        }
+
+        /// <summary>拷贝 id 槽。顺序不稳定，调用方需要排序后再做校验。</summary>
+        /// <param name="destination">输出；不可为 null，调用前会被清空。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopyIds(List<KeyValuePair<string, uint>> destination)
+        {
+            CopyPairs(_ids, destination);
+        }
+
+        static void CopyPairs<T>(Dictionary<string, T> source, List<KeyValuePair<string, T>> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            destination.Clear();
+            foreach (var pair in source)
+            {
+                destination.Add(pair);
+            }
+        }
+
         /// <summary>供调试列出权威键；顺序不稳定，禁止用于逻辑。</summary>
         /// <param name="results">输出；不可为 null。</param>
         public void CopyDebugKeys(List<string> results)

@@ -27,7 +27,7 @@ namespace Framework.GamePlay.Data
         {
             if (_tables.CfgTbEffect.DataMap.TryGetValue(effectId, out var def))
             {
-                effect = EffectConfigFactory.CreateDef(def);
+                effect = EffectConfigFactory.CreateDef(def, _tables);
                 return true;
             }
 

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Framework.BehaviourTree;
+using Framework.Core;
 using Framework.Core.Snapshot;
 using Framework.ECS;
 using Framework.FixedMath;
@@ -12,7 +14,7 @@ namespace Framework.GamePlay
 {
     /// <summary>
     /// 用一场 <see cref="BattleSession"/> 实现 <see cref="ILockstepSimulation"/>。
-    /// 检查点包含随机数、ECS、GAS 和 Farseer 接触克隆。玩家下标对应创建顺序里的 Actor。
+    /// 检查点包含随机数、ECS、GAS、Farseer 接触克隆，以及已绑定 Agent 的行为树快照。玩家下标对应创建顺序里的 Actor。
     /// 输入是 8 字节：X、Z 速度的毫单位，小端 int。
     /// </summary>
     public sealed class BattleLockstepSimulation : ILockstepSimulation, IDisposable
@@ -23,6 +25,7 @@ namespace Framework.GamePlay
         readonly List<AbilitySystemComponent> _components;
         readonly DeterministicRandomSnapshot _random;
         readonly Dictionary<int, Checkpoint> _checkpoints = new Dictionary<int, Checkpoint>();
+        readonly List<ActorId> _actorScratch = new List<ActorId>(8);
 
         /// <summary>创建一场两名以上单位、固定种子的模拟。</summary>
         /// <param name="seed">随机种子。对端必须相同。</param>
@@ -76,7 +79,23 @@ namespace Framework.GamePlay
             gas.Save(writer);
             var physics = new BattlePhysicsSnapshot();
             _session.Framework.EcsWorld.GetSingleton<BattlePhysicsWorld>().SaveFull(physics);
-            _checkpoints[tick] = new Checkpoint(buffer, gas, physics);
+            var framework = _session.Framework;
+            framework.Registry.CopySortedActorIds(_actorScratch);
+            var agentActors = new List<uint>();
+            var agentSnapshots = new List<BtSnapshot>();
+            for (var i = 0; i < _actorScratch.Count; i++)
+            {
+                var actorId = _actorScratch[i];
+                if (!framework.TryGetBattleAgent(actorId, out var agent))
+                {
+                    continue;
+                }
+
+                agentActors.Add(actorId.Value);
+                agentSnapshots.Add(agent.CaptureTree());
+            }
+
+            _checkpoints[tick] = new Checkpoint(buffer, gas, physics, agentActors.ToArray(), agentSnapshots.ToArray());
         }
 
         /// <inheritdoc />
@@ -98,6 +117,15 @@ namespace Framework.GamePlay
             _session.Framework.Registry.RebindEntitiesAfterSnapshot();
             _session.Framework.Registry.SyncPositionsFromEcs();
             world.GetSingleton<SpatialHashGrid>().MarkStructuralDirty();
+            var framework = _session.Framework;
+            var actors = checkpoint.AgentActors;
+            for (var i = 0; i < actors.Length; i++)
+            {
+                if (framework.TryGetBattleAgent(new ActorId(actors[i]), out var agent))
+                {
+                    agent.RestoreTree(checkpoint.AgentSnapshots[i]);
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -195,12 +223,21 @@ namespace Framework.GamePlay
             public readonly SnapshotBuffer Buffer;
             public readonly GasSnapshot Gas;
             public readonly BattlePhysicsSnapshot Physics;
+            public readonly uint[] AgentActors;
+            public readonly BtSnapshot[] AgentSnapshots;
 
-            public Checkpoint(SnapshotBuffer buffer, GasSnapshot gas, BattlePhysicsSnapshot physics)
+            public Checkpoint(
+                SnapshotBuffer buffer,
+                GasSnapshot gas,
+                BattlePhysicsSnapshot physics,
+                uint[] agentActors,
+                BtSnapshot[] agentSnapshots)
             {
                 Buffer = buffer;
                 Gas = gas;
                 Physics = physics;
+                AgentActors = agentActors;
+                AgentSnapshots = agentSnapshots;
             }
         }
     }

@@ -45,12 +45,16 @@ namespace Framework.GamePlay
         static readonly Comparison<ActorId> ActorIdOrder = ActorRegistry.CompareActorId;
         static readonly Comparison<TickStep> TickStepOrder = CompareTickStep;
         readonly TSRandom _random;
+        readonly int _randomSeed;
         List<BattleIntentCommand> _intentSink;
         static readonly FP FullAiRangeSqr = (FP)64;
         static readonly FP FarChaseSpeed = (FP)2.2f;
 
         /// <summary>本场战斗确定性随机源。</summary>
         public TSRandom Random => _random;
+
+        /// <summary>构造时传入的会话种子，供 Agent 派生私有随机源。</summary>
+        public int RandomSeed => _randomSeed;
 
         /// <summary>表现层事件总线，用于向外广播战斗事件（如伤害飘字、技能特效触发）。</summary>
         public IEventBus EventBus => _presentationBus;
@@ -72,7 +76,7 @@ namespace Framework.GamePlay
 
         /// <summary>
         /// 结算阶段按效果 ID 创建定义的目录。
-        /// 为 null 时命令处理器仍走 Luban <c>ConfigManager</c> 查表，与未设置时相同。
+        /// 为 null 时具名效果直接失败，不再静默读取全局 <c>ConfigManager</c>。
         /// </summary>
         public IBattleEffectCatalog EffectCatalog
         {
@@ -84,6 +88,7 @@ namespace Framework.GamePlay
         /// <param name="randomSeed">确定性随机种子。</param>
         public GamePlayFramework(int randomSeed = 1)
         {
+            _randomSeed = randomSeed;
             _random = TSRandom.New(randomSeed);
             _battleContext = new BattleContext(_commandBuffer, _presentationBus, new TsRandomAdapter(_random));
             _world = new World { Commands = _commandBuffer };
@@ -395,6 +400,13 @@ namespace Framework.GamePlay
 
             _agents[actorId] = agent;
         }
+
+        /// <summary>读取已绑定的行为树 Agent。</summary>
+        /// <param name="actorId">目标 Actor。</param>
+        /// <param name="agent">找到时的 Agent；否则为 null。</param>
+        /// <returns>已绑定时返回 true。</returns>
+        public bool TryGetBattleAgent(ActorId actorId, out BattleAgent agent) =>
+            _agents.TryGetValue(actorId, out agent);
 
         /// <summary>查询该 Actor 本帧围攻槽位世界坐标；无槽则返回 false。</summary>
         /// <param name="attacker">攻击者。</param>

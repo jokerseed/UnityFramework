@@ -53,6 +53,19 @@ namespace Framework.GAS.Abilities.Tasks
         /// <summary>标记任务完成。</summary>
         protected void Finish() => IsDone = true;
 
+        /// <summary>把会影响后续模拟的进度混成稳定整数。默认只含完成和取消标记。</summary>
+        /// <returns>进度哈希。</returns>
+        public virtual int ProgressHash()
+        {
+            unchecked
+            {
+                var hash = (int)2166136261;
+                hash = (hash * 16777619) ^ (IsDone ? 1 : 0);
+                hash = (hash * 16777619) ^ (IsCancelled ? 1 : 0);
+                return hash;
+            }
+        }
+
         /// <summary>按快照写回完成与取消标记，不调用取消回调。</summary>
         /// <param name="isDone">是否已完成。</param>
         /// <param name="isCancelled">是否已取消。</param>

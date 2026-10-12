@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using Framework.Config;
 using Framework.Core;
 using Framework.Core.Commands;
 using Framework.Events;
@@ -9,9 +9,7 @@ using Framework.GAS;
 using Framework.GAS.Combat;
 using Framework.GAS.Targeting;
 using Framework.GamePlay.Data;
-using Framework.Logging;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -23,7 +21,8 @@ namespace Framework.GamePlay
         readonly List<ActorId> _areaScratch = new List<ActorId>(16);
 
         /// <summary>
-        /// 具名效果目录。为 null 时结算仍按 Luban <see cref="ConfigManager"/> 查表，不在热路径分配目录。
+        /// 具名效果目录。模拟结算只读这个目录，不再回退到全局 <c>ConfigManager</c>。
+        /// 未设置或找不到效果时抛出 <see cref="InvalidOperationException"/>，两端一起失败。
         /// </summary>
         public IBattleEffectCatalog EffectCatalog { get; set; }
 
@@ -243,41 +242,24 @@ namespace Framework.GamePlay
                 return;
             }
 
-            if (EffectCatalog != null)
+            if (EffectCatalog == null)
             {
-                if (!EffectCatalog.TryCreateEffect(effectId, out var catalogDef))
-                {
-                    return;
-                }
-
-                _registry.TryGet(source, out var catalogSource);
-                targetActor.AbilitySystem.ApplyEffect(
-                    catalogDef,
-                    source,
-                    presentation,
-                    sourceAsc: catalogSource?.AbilitySystem);
-                return;
+                throw new InvalidOperationException(
+                    "EffectCatalog is not set. Inject IBattleEffectCatalog before applying '" + effectId + "'.");
             }
 
-            if (!ConfigManager.HasInstance)
+            if (!EffectCatalog.TryCreateEffect(effectId, out var catalogDef))
             {
-                GameLog.Error(LogCategories.GamePlay, $"Effect '{effectId}' skipped: config is not loaded.");
-                return;
+                throw new InvalidOperationException(
+                    "Effect '" + effectId + "' is not in the injected catalog.");
             }
 
-            var tables = ConfigManager.Instance.GetTables();
-            if (tables == null || !tables.CfgTbEffect.DataMap.TryGetValue(effectId, out var row))
-            {
-                GameLog.Error(LogCategories.GamePlay, $"Effect config not found: {effectId}");
-                return;
-            }
-
-            _registry.TryGet(source, out var sourceActor);
+            _registry.TryGet(source, out var catalogSource);
             targetActor.AbilitySystem.ApplyEffect(
-                EffectConfigFactory.CreateDef(row),
+                catalogDef,
                 source,
                 presentation,
-                sourceAsc: sourceActor?.AbilitySystem);
+                sourceAsc: catalogSource?.AbilitySystem);
         }
     }
 }

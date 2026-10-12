@@ -31,7 +31,8 @@ namespace Framework.Tests
                     Target = actorId,
                     EffectId = "Test.Buff"
                 });
-                framework.Tick((FP)1 / 30);
+                Assert.Throws<InvalidOperationException>(() => framework.Tick((FP)1 / 30));
+                framework.Commands.ClearAll();
                 Assert.AreEqual(0, asc.ActiveEffectCount);
 
                 var effect = new GameplayEffectDef(
@@ -58,7 +59,8 @@ namespace Framework.Tests
                     Target = actorId,
                     EffectId = "Missing.Effect"
                 });
-                framework.Tick((FP)1 / 30);
+                Assert.Throws<InvalidOperationException>(() => framework.Tick((FP)1 / 30));
+                framework.Commands.ClearAll();
                 Assert.AreEqual(1, asc.ActiveEffectCount);
 
                 var dash = new DashAbility("Test.Dash", 1f, 3f, 0.2f, null);

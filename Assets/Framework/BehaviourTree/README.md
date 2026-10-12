@@ -46,8 +46,8 @@ tree.Tick(ctx);
 
 ## 快照
 
-`CaptureSnapshot` / `RestoreSnapshot` 还原：FrameIndex、LastStatus、Runtime、权威黑板。  
-**不还原** `TSRandom`。权威槽覆盖时会清空 object 袋，避免恢复后留下更新的对象。object 袋本身仍不写入快照。
+`CaptureSnapshot` / `RestoreSnapshot` 还原：FrameIndex、LastStatus、Runtime、权威黑板，以及上下文里的 `TSRandom`（`CopyState` / `LoadState`，不消耗序列）。没有随机源的旧快照不会改写当前随机源。  
+权威槽覆盖时会清空 object 袋，避免恢复后留下更新的对象。object 袋本身仍不写入快照。
 
 ## 类型化黑板
 
@@ -154,7 +154,7 @@ agent.ReplaceFromResource("MonsterCommon");
 3. 时长用 `FP`（配置优先 FpRaw）
 4. 随机走 `ctx.Random`（`TSRandom.New(seed)`）；RandomSelector 在 Random 为 null 时取 0
 5. 模板可共享；含闭包捕获单个 Agent 的叶子不要跨 Agent 共享该模板
-6. 回滚用 `CaptureSnapshot` / `RestoreSnapshot`（不含 object 袋与随机源）
+6. 回滚用 `CaptureSnapshot` / `RestoreSnapshot`（含随机源，不含 object 袋；恢复权威槽时会清空 object 袋）
 
 ## 资源路径建议
 

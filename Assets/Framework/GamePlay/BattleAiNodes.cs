@@ -32,19 +32,29 @@ namespace Framework.GamePlay
         /// <param name="abilityId">技能 ID。</param>
         /// <param name="targetId">追击目标。</param>
         /// <param name="meleeRange">近战距离；默认 2。</param>
-        /// <param name="random">确定性随机源；为 null 时使用种子 1。</param>
+        /// <param name="random">确定性随机源；为 null 时按会话种子和 Agent 的 Actor 派生，不再固定为 1。</param>
+        /// <param name="agentId">该 Agent 所属 Actor；只在 <paramref name="random"/> 为 null 时参与派生。</param>
+        /// <param name="sessionSeed">会话种子；只在 <paramref name="random"/> 为 null 时参与派生。</param>
         /// <returns>可交给 <see cref="GamePlayFramework.SetBattleAgent"/> 的 Agent。</returns>
         public static BattleAgent CreateMeleeChaserAgent(
             string abilityId,
             ActorId targetId,
             float meleeRange = DefaultMeleeRange,
-            TSRandom random = null)
+            TSRandom random = null,
+            ActorId agentId = default,
+            int sessionSeed = 1)
         {
             BattleAiNodeRegistry.EnsureRegistered();
             var tree = BtTreeResource.LoadTree(MeleeChaserTreeId);
             var board = new BtBlackboard();
             ApplyMeleeChaserBlackboard(board, abilityId, targetId, meleeRange);
-            return new BattleAgent(tree, board, focusTarget: targetId, random: random);
+            return new BattleAgent(
+                tree,
+                board,
+                focusTarget: targetId,
+                random: random,
+                sessionSeed: sessionSeed,
+                actorValue: agentId.Value);
         }
 
         /// <summary>写入近战追击树运行时参数。</summary>

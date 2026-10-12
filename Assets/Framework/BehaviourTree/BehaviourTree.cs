@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Framework.FixedMath;
 
 namespace Framework.BehaviourTree
 {
@@ -130,7 +131,21 @@ namespace Framework.BehaviourTree
                 throw new ArgumentNullException(nameof(context));
             }
 
-            return new BtSnapshot(context.FrameIndex, LastStatus, Runtime.Clone(), context.Blackboard.Clone());
+            uint[] randomState = null;
+            var randomIndex = 0;
+            if (context.Random != null)
+            {
+                randomState = new uint[TSRandom.StateLength];
+                context.Random.CopyState(randomState, out randomIndex);
+            }
+
+            return new BtSnapshot(
+                context.FrameIndex,
+                LastStatus,
+                Runtime.Clone(),
+                context.Blackboard.Clone(),
+                randomState,
+                randomIndex);
         }
 
         /// <summary>从快照恢复运行时槽、黑板与帧号。</summary>
@@ -152,6 +167,15 @@ namespace Framework.BehaviourTree
             context.Blackboard.CopyAuthoritativeFrom(snapshot.Blackboard);
             context.FrameIndex = snapshot.FrameIndex;
             LastStatus = snapshot.LastStatus;
+            if (snapshot.RandomState != null)
+            {
+                if (context.Random == null)
+                {
+                    context.Random = TSRandom.New(1);
+                }
+
+                context.Random.LoadState(snapshot.RandomState, snapshot.RandomIndex);
+            }
         }
 
         BtDebugFrame BuildDebugFrame(long elapsedTicks, BtContext context)

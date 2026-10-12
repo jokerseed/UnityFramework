@@ -21,19 +21,42 @@ namespace Framework.GamePlay
         /// <summary>黑板（替换树时可选择保留）。</summary>
         public BtBlackboard Blackboard => _context.Blackboard;
 
+        /// <summary>该 Agent 的私有随机源。</summary>
+        public TSRandom Random => _context.Random;
+
+        /// <summary>
+        /// 由会话种子和 Actor 数值混合出非 0 的私有种子。
+        /// 公式是 <c>sessionSeed xor actorValue xor (actorValue &gt;&gt; 16) xor 0x9E3779B9</c>，结果为 0 时改为 1。
+        /// </summary>
+        /// <param name="sessionSeed">会话种子。</param>
+        /// <param name="actorValue"><see cref="ActorId.Value"/>。</param>
+        /// <returns>非 0 种子。</returns>
+        public static int DeriveSeed(int sessionSeed, uint actorValue)
+        {
+            unchecked
+            {
+                var mixed = sessionSeed ^ (int)actorValue ^ (int)(actorValue >> 16) ^ unchecked((int)0x9E3779B9);
+                return mixed == 0 ? 1 : mixed;
+            }
+        }
+
         /// <summary>创建 Agent。</summary>
         /// <param name="tree">已编译的行为树；不可为 null。</param>
         /// <param name="blackboard">黑板；不可为 null。</param>
         /// <param name="owner">宿主对象；通常为 ActorId 或业务包装。</param>
         /// <param name="focusTarget">追击目标；远距离时只朝该目标走，不跑整棵树。</param>
-        /// <param name="random">确定性随机源；为 null 时使用种子 1 的独立实例。</param>
+        /// <param name="random">确定性随机源；为 null 时按 <paramref name="sessionSeed"/> 与 <paramref name="actorValue"/> 派生。</param>
+        /// <param name="sessionSeed">会话种子；只在 <paramref name="random"/> 为 null 时使用。</param>
+        /// <param name="actorValue">所属 Actor 的数值；只在 <paramref name="random"/> 为 null 时使用。</param>
         /// <exception cref="ArgumentNullException"><paramref name="tree"/> 或 <paramref name="blackboard"/> 为 null。</exception>
         public BattleAgent(
             BtTree tree,
             BtBlackboard blackboard,
             object owner = null,
             ActorId focusTarget = default,
-            TSRandom random = null)
+            TSRandom random = null,
+            int sessionSeed = 1,
+            uint actorValue = 0)
         {
             _tree = tree ?? throw new ArgumentNullException(nameof(tree));
             if (blackboard == null)
@@ -41,9 +64,20 @@ namespace Framework.GamePlay
                 throw new ArgumentNullException(nameof(blackboard));
             }
 
-            _context = new BtContext(blackboard, owner, random ?? TSRandom.New(1));
+            _context = new BtContext(
+                blackboard,
+                owner,
+                random ?? TSRandom.New(DeriveSeed(sessionSeed, actorValue)));
             FocusTarget = focusTarget;
         }
+
+        /// <summary>捕获当前树、权威黑板和随机源。</summary>
+        /// <returns>可还原快照。</returns>
+        public BtSnapshot CaptureTree() => _tree.CaptureSnapshot(_context);
+
+        /// <summary>把快照写回当前树。拓扑须与捕获时相同。</summary>
+        /// <param name="snapshot">快照；不可为 null。</param>
+        public void RestoreTree(BtSnapshot snapshot) => _tree.RestoreSnapshot(snapshot, _context);
 
         /// <summary>驱动一帧 AI。</summary>
         /// <param name="framework">玩法框架。</param>

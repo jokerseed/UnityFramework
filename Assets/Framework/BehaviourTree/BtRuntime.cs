@@ -109,6 +109,26 @@ namespace Framework.BehaviourTree
             }
         }
 
+        /// <summary>按节点下标混合状态、整型槽、定点槽和标记。不消耗随机数。</summary>
+        /// <returns>稳定哈希。</returns>
+        public int ProgressHash()
+        {
+            unchecked
+            {
+                var hash = (int)2166136261;
+                hash = (hash * 16777619) ^ NodeCount;
+                for (var i = 0; i < NodeCount; i++)
+                {
+                    hash = (hash * 16777619) ^ (int)_status[i];
+                    hash = (hash * 16777619) ^ _ints[i];
+                    hash = (hash * 16777619) ^ _fpRaw[i].GetHashCode();
+                    hash = (hash * 16777619) ^ _flags[i];
+                }
+
+                return hash;
+            }
+        }
+
         /// <summary>清空全部槽位。</summary>
         public void ResetAll()
         {

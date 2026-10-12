@@ -12,10 +12,11 @@ namespace Framework.GamePlay.Data
     /// <summary>从 Luban 效果表创建 <see cref="GameplayEffectDef"/>。</summary>
     public static class EffectConfigFactory
     {
-        /// <summary>创建效果定义。</summary>
+        /// <summary>创建效果定义。嵌套效果从同一张表解析，不读全局 <c>ConfigManager</c>。</summary>
         /// <param name="def">Luban 效果行。</param>
+        /// <param name="tables">已加载的表；为 null 时不展开 <c>ApplyEffect</c>。</param>
         /// <returns>效果定义。</returns>
-        public static GameplayEffectDef CreateDef(CfgEffectDef def)
+        public static GameplayEffectDef CreateDef(CfgEffectDef def, CfgTables tables)
         {
             var modifiers = new List<EffectModifier>();
             if (!string.IsNullOrEmpty(def.ModAttribute))
@@ -46,14 +47,10 @@ namespace Framework.GamePlay.Data
                 case CfgEffectExecutionType.ApplyEffect:
                     if (!string.IsNullOrEmpty(def.ExecutionEffectId) &&
                         def.ExecutionEffectId != def.Id &&
-                        ConfigManager.HasInstance)
+                        tables != null &&
+                        tables.CfgTbEffect.DataMap.TryGetValue(def.ExecutionEffectId, out var nested))
                     {
-                        var tables = ConfigManager.Instance.GetTables();
-                        if (tables != null &&
-                            tables.CfgTbEffect.DataMap.TryGetValue(def.ExecutionEffectId, out var nested))
-                        {
-                            executions.Add(new ApplyGameplayEffectExecution(CreateDef(nested)));
-                        }
+                        executions.Add(new ApplyGameplayEffectExecution(CreateDef(nested, tables)));
                     }
                     break;
             }
@@ -80,10 +77,28 @@ namespace Framework.GamePlay.Data
                 maxStacks: def.MaxStacks);
         }
 
-        /// <summary>创建运行时 Spec（兼容旧 API）。</summary>
+        /// <summary>
+        /// 创建效果定义。仍会在 <c>ConfigManager</c> 已加载时展开嵌套效果。
+        /// 模拟路径请改用 <see cref="CreateDef(CfgEffectDef, CfgTables)"/>。
+        /// </summary>
+        /// <param name="def">Luban 效果行。</param>
+        /// <returns>效果定义。</returns>
+        [Obsolete("请改用 CreateDef(CfgEffectDef, CfgTables)，避免在模拟里读 ConfigManager。")]
+        public static GameplayEffectDef CreateDef(CfgEffectDef def)
+        {
+            CfgTables tables = null;
+            if (ConfigManager.HasInstance)
+            {
+                tables = ConfigManager.Instance.GetTables();
+            }
+
+            return CreateDef(def, tables);
+        }
+
+        /// <summary>创建运行时 Spec（兼容旧 API）。不展开嵌套效果。</summary>
         /// <param name="def">Luban 效果行。</param>
         /// <returns>运行时 Spec。</returns>
-        public static GameplayEffectSpec Create(CfgEffectDef def) => CreateDef(def).ToRuntimeSpec();
+        public static GameplayEffectSpec Create(CfgEffectDef def) => CreateDef(def, null).ToRuntimeSpec();
 
         static EffectDurationPolicy MapDuration(CfgEffectDurationType type)
         {
