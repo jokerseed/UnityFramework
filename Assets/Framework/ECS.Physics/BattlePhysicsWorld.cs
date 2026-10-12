@@ -318,6 +318,8 @@ namespace Framework.ECS
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
+            // 刚体先进入添加列表，要等 ProcessChanges 才进 BodyList。不先处理的话，第 0 帧克隆是空世界。
+            _world.ProcessChanges();
             snapshot.Clone.Clone(_world, false);
         }
 
@@ -335,6 +337,7 @@ namespace Framework.ECS
 
             snapshot.Clone.Restore(_world);
             PruneMissingBodies();
+            _world.ProcessChanges();
         }
 
         /// <summary>清空全部刚体。</summary>
