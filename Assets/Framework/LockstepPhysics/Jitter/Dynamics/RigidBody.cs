@@ -129,7 +129,7 @@ namespace Framework.Lockstep.Physics3D {
         }
 
         public RigidBody(Shape shape)
-            : this(shape, new BodyMaterial(), false)
+            : this(shape, new BodyMaterial(), false, null)
         {
            
         }
