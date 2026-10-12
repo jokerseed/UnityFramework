@@ -43,6 +43,13 @@ namespace Framework.GAS.Abilities
         public virtual IReadOnlyDictionary<string, FP> CostAttributes { get; } =
             new Dictionary<string, FP>();
 
+        /// <summary>
+        /// 为一次授予创建独立实例。默认浅拷贝，避免多个 ASC 共用同一个对象。
+        /// 引用类型字段仍共享；会变化的状态应放在 <see cref="ActiveAbilityInstance"/> 上。
+        /// </summary>
+        /// <returns>新的技能实例。</returns>
+        public virtual GameplayAbility CreateInstance() => (GameplayAbility)MemberwiseClone();
+
         /// <summary>初始化技能基础属性。</summary>
         /// <param name="abilityId">技能唯一 ID；不可为 null 或空。</param>
         /// <param name="cooldown">冷却时间（秒）；0 表示无冷却。</param>

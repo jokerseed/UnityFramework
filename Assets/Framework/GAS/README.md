@@ -56,13 +56,15 @@ ActiveAbility Task → Effects（Duration / Periodic，Source 为施法者 ASC�
 - 标签引用计数（恢复后刷新眩晕、死亡等缓存）
 - 活跃效果，含冷却 GE：句柄、剩余时间、周期计时、层数、SetByCaller、来源
 - 已授予技能的 Spec 句柄、等级、输入绑定和 `_nextSpecHandle`
-- 每个 ASC 自己的 `_nextActiveInstanceId`、`_nextActiveEffectHandle`（版本 2）。新技能实例和活跃效果用这两个计数，不再吃进程静态
+- 每个 ASC 自己的 `_nextActiveInstanceId`、`_nextActiveEffectHandle`、`_nextEffectRuntimeId`（版本 3）。新技能实例、活跃效果和效果 Spec 的 RuntimeId 用这三个计数
 - 激活中的技能实例。`MeleeSweepAbility`、`ChanneledProjectileAbility`、`DashAbility` 会恢复任务进度；其它带未完成任务的技能必须重写 `SaveActiveTasks` / `RestoreActiveTasks`，否则保存时抛出
 - 护盾加成 `_appliedShieldBonus`。恢复后会重算修改器，避免只回写当前值、下一帧被效果 Tick 盖掉
 
 技能定义上的工厂委托不进字节流，留在 `GasSnapshot` 对象里。必须用同一次 `Save` 的实例 `Restore`。同一快照里一个技能 ID 只能对应一份定义。`DamageExecution`、`HealExecution`、`ApplyGameplayEffectExecution` 可以恢复；其它 Execution 在保存时抛出。
 
-`GameplayEffectSpec.RuntimeId` 仍是进程内静态计数，会随快照头回写。不要拿半场 ASC 的快照去回绕它。技能实例 ID 和活跃效果句柄在每个 ASC 上递增，随该 ASC 的状态回写；版本 1 的 GAS 快照字节不能再读。直接 `new ActiveGameplayEffect(spec, source)` 仍会走静态计数，战斗路径不会这么做。恢复不会重放 Cue，也不会再次调用 `Activate`。
+效果 Spec 的 RuntimeId 在 `ApplyEffect` 时由该 ASC 分配，并随 ASC 状态回写。版本 2 的 GAS 快照字节不能再读。直接 `new ActiveGameplayEffect(spec, source)` 仍会走静态句柄，战斗路径不会这么做。`GameplayAbilityDef(GameplayAbility)` 每次授予调用 `CreateInstance()`（默认浅拷贝），不再把同一个对象交给所有 ASC。恢复不会重放 Cue，也不会再次调用 `Activate`。
+
+非资源属性的即时修改写进基础值，之后的聚合从基础值重算，不会把这次修改抹掉。Health / Mana / Shield 的即时修改仍只改当前值。持续效果上的 Health / Mana 修改器改的是 MaxHealth / MaxMana，不覆盖当前生命或法力。
 
 ## 典型用法
 

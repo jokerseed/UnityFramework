@@ -49,10 +49,10 @@ namespace Framework.GAS.Abilities
         public string GetCooldownId() => string.IsNullOrEmpty(CooldownId) ? AbilityId : CooldownId;
 
         /// <summary>
-        /// 使用已有技能实例包装为定义。工厂每次返回同一个对象，技能字段会在所有 Actor 之间共享。
-        /// 技能必须无状态；需要每个 Actor 一份实例时用 <c>Func&lt;GameplayAbility&gt;</c> 工厂构造。
+        /// 使用已有技能实例包装为定义。每次 <see cref="CreateAbility"/> 调用 <see cref="GameplayAbility.CreateInstance"/>，
+        /// 默认是浅拷贝，不再把同一个对象交给所有 ASC。
         /// </summary>
-        /// <param name="ability">技能实例；不可为 null。调用方须保证它没有跨 Actor 的可变字段。</param>
+        /// <param name="ability">技能模板；不可为 null。</param>
         public GameplayAbilityDef(GameplayAbility ability)
         {
             if (ability == null)
@@ -70,7 +70,7 @@ namespace Framework.GAS.Abilities
             CancelAbilitiesWithTags = ability.CancelAbilitiesWithTags;
             TriggerTag = default;
             CostAttributes = ability.CostAttributes ?? new Dictionary<string, FP>();
-            _abilityFactory = () => ability;
+            _abilityFactory = () => ability.CreateInstance();
         }
 
         /// <summary>使用工厂方法创建技能定义。</summary>

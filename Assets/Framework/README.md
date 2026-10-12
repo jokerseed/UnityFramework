@@ -29,7 +29,7 @@
 |----|------|
 | 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
 | 战斗 Demo 锁步权威 Tick | 已接 `LocalLockstepHost`（意图帧 + checksum + F8 对拍） |
-| **预测回滚 / 状态快照** | **`LockstepHost` 可等输入，并按检查点回滚重放**。检查点含 `GasSnapshot`（版本 2）、ECS、随机数和 `BattlePhysicsSnapshot`（内存克隆，不是字节流）。`World.Restore` 之后要 `RebindEntitiesAfterSnapshot`。行为树游标和旧的 `RollbackLockstep` 仍未接入。Farseer 刚体 ID 与效果 Spec 的 RuntimeId 仍是进程全局的；技能实例 ID 和活跃效果句柄在每个 ASC 上递增 |
+| **预测回滚 / 状态快照** | **`LockstepHost` 可等输入，并按检查点回滚重放**。检查点含 `GasSnapshot`（版本 3）、ECS、随机数和 `BattlePhysicsSnapshot`（内存克隆，不是字节流）。`World.Restore` 之后要 `RebindEntitiesAfterSnapshot`。行为树游标和旧的 `RollbackLockstep` 仍未接入。Farseer 刚体 ID 仍是进程全局的；效果 Spec 的 RuntimeId、技能实例 ID 和活跃效果句柄在每个 ASC 上递增 |
 | **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
 
 详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。
