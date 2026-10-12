@@ -51,7 +51,7 @@ tree.Tick(ctx);
 
 ## 类型化黑板
 
-权威槽：`int` / `bool` / `FP(raw)` / `uint`，无装箱。`SetObject` 进非权威袋，**不进 Clone**。保留 `TryGet<T>`。
+权威槽：`int` / `bool` / `FP(raw)` / `uint` / `string`，无装箱。`SetString` 进权威槽，会进快照和校验和。`SetObject` 仍进非权威袋，**不进 Clone**；如果塞进去的是字符串，会改走 `SetString`。保留 `TryGet<T>`。
 
 ## 配置（版本 2）
 

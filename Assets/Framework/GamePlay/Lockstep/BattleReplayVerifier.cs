@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Framework.FixedMath;
 
 namespace Framework.GamePlay
@@ -61,7 +62,7 @@ namespace Framework.GamePlay
     }
 
     /// <summary>
-    /// 用录像指令驱动影子 Session 重放，不跑 AI 收集，只 Apply 已录命令。
+    /// 用录像指令驱动影子 Session 重放。每步先推进 Agent（意图丢弃），再 Apply 录像里的命令。
     /// </summary>
     public static class BattleReplayVerifier
     {
@@ -90,12 +91,18 @@ namespace Framework.GamePlay
 
             session.FixedDeltaTime = tape.FixedDeltaTime;
             var frames = tape.Frames;
+            var aiScratch = new List<BattleIntentCommand>(8);
             for (var i = 0; i < frames.Count; i++)
             {
                 var recorded = frames[i];
                 session.Step(
                     1,
-                    _ => BattleIntentApplier.ApplyAll(session.Framework, recorded.Commands),
+                    _ =>
+                    {
+                        aiScratch.Clear();
+                        session.Framework.CollectAiIntents(aiScratch, session.FixedDeltaTime);
+                        BattleIntentApplier.ApplyAll(session.Framework, recorded.Commands);
+                    },
                     afterFixedStep);
 
                 var actual = BattleFrameChecksum.Compute(session.Framework);
