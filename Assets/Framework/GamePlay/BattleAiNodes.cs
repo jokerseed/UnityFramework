@@ -80,7 +80,7 @@ namespace Framework.GamePlay
 
             if (!string.IsNullOrEmpty(abilityId))
             {
-                board.SetObject(BattleAiBlackboardKeys.AbilityId, abilityId);
+                board.SetString(BattleAiBlackboardKeys.AbilityId, abilityId);
             }
 
             board.Set(BattleAiBlackboardKeys.MeleeRange, FP.FromFloat(meleeRange));

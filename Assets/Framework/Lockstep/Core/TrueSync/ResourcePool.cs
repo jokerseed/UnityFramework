@@ -12,6 +12,13 @@ namespace Framework.Lockstep
 		protected static List<ResourcePool> resourcePoolReferences = new List<ResourcePool>();
 
         // 全部清空
+        /// <summary>会话结束时从进程级列表摘掉，避免每场锁步各留一份池。</summary>
+        public void DetachFromStaticList()
+        {
+            resourcePoolReferences.Remove(this);
+            fresh = true;
+        }
+
 		public static void CleanUpAll()
 		{
 			int i = 0;

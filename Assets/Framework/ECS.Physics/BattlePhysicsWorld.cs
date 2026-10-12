@@ -6,6 +6,7 @@ using Framework.ECS.Components;
 using Framework.FixedMath;
 using Framework.Lockstep;
 using Framework.Lockstep.Physics2D;
+using Framework.Lockstep.Physics3D;
 using PhysicsBody = Framework.Lockstep.Physics2D.Body;
 using PhysicsWorld = Framework.Lockstep.Physics2D.World;
 
@@ -15,7 +16,7 @@ namespace Framework.ECS
     /// 战斗用 Farseer 2D 物理世界：XZ 平面圆体、无重力。
     /// Actor 为动态刚体（互相挤开）；投射物为运动学传感器（只检测、不推开）。
     /// </summary>
-    public sealed class BattlePhysicsWorld
+    public sealed class BattlePhysicsWorld : IEcsBodyRemover
     {
         const Category ActorCategory = Category.Cat1;
         const Category ProjectileCategory = Category.Cat2;
@@ -317,11 +318,14 @@ namespace Framework.ECS
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
+            // 刚体先进入添加列表，要等 ProcessChanges 才进 BodyList。不先处理的话，第 0 帧克隆是空世界。
+            _world.ProcessChanges();
             snapshot.Clone.Clone(_world, false);
         }
 
         /// <summary>
         /// 用 <see cref="SaveFull"/> 的克隆覆盖当前 Farseer 世界，并丢掉字典里已经不在世界中的刚体。
+        /// 先把待添加列表收进世界，恢复时才会把快照之后才生成的刚体删掉。否则它们会先被字典忘掉，随后又进世界，变成没有实体管理的刚体。
         /// </summary>
         /// <param name="snapshot">同一次保存得到的快照；不可为 null。</param>
         /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> 为 null。</exception>
@@ -332,9 +336,16 @@ namespace Framework.ECS
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
+            _world.ProcessChanges();
             snapshot.Clone.Restore(_world);
             PruneMissingBodies();
         }
+
+        /// <summary>字典里登记、跟着实体走的刚体数。</summary>
+        public int ManagedBodyCount => _bodies.Count;
+
+        /// <summary>已经在 Farseer 世界里、会参与步进的刚体数。</summary>
+        public int WorldBodyCount => _world.BodyList.Count;
 
         /// <summary>清空全部刚体。</summary>
         public void Clear()

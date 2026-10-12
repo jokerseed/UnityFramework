@@ -23,7 +23,7 @@ namespace Framework.ECS.Components
         public Vector3 ToUnityForward() => FPConversions.ToVector3(Forward);
     }
 
-    /// <summary>速度组件，由 <see cref="Systems.PhysicsSimulationSystem"/> 写入 Farseer 刚体。</summary>
+    /// <summary>速度组件，由物理步进系统写入刚体。</summary>
     public struct VelocityComponent : IComponent
     {
         /// <summary>每秒位移向量（世界单位/秒），方向即为移动方向。</summary>
@@ -54,7 +54,7 @@ namespace Framework.ECS.Components
         /// <summary>剩余可穿透次数；0 表示下一次命中后销毁。</summary>
         public int PierceRemaining;
 
-        /// <summary>已经命中过的实体。穿透弹不会对同一个实体每步再结算一次。</summary>
+        /// <summary>已经命中过的 ActorId。穿透弹不会因为实体 ID 被回收而跳过新单位。</summary>
         public List<uint> HitEntityIds;
 
         /// <summary>命中后施加的效果 ID；空则不施加。</summary>
@@ -67,7 +67,7 @@ namespace Framework.ECS.Components
         public BattleDamageType DamageType;
     }
 
-    /// <summary>击退冲量，由 <see cref="Systems.PhysicsSimulationSystem"/> 叠加到刚体速度并衰减。</summary>
+    /// <summary>击退冲量，由物理步进系统叠加到刚体速度并衰减。</summary>
     public struct KnockbackComponent : IComponent
     {
         /// <summary>击退速度（米/秒）。</summary>

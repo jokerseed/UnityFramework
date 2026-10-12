@@ -35,6 +35,10 @@ namespace Framework.Lockstep
 		{
 			playerInfo = null;
             controls.Clear();
+            if (this._dropVotes != null)
+            {
+                this._dropVotes.Clear();
+            }
 
         }
 
@@ -75,6 +79,16 @@ namespace Framework.Lockstep
 			}
 
 			return this._dropVotes.Add(fromPlayerId);
+		}
+
+		/// <summary>数据重新到齐后清掉累计的掉线票和计数。</summary>
+		internal void ClearDropVotes()
+		{
+			this.dropCount = 0;
+			if (this._dropVotes != null)
+			{
+				this._dropVotes.Clear();
+			}
 		}
 
         #region 公共方法

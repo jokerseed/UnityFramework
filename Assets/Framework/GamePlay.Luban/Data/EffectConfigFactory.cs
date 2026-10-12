@@ -16,7 +16,35 @@ namespace Framework.GamePlay.Data
         /// <param name="def">Luban 效果行。</param>
         /// <param name="tables">已加载的表；为 null 时不展开 <c>ApplyEffect</c>。</param>
         /// <returns>效果定义。</returns>
+        /// <exception cref="InvalidOperationException">嵌套效果互相指向，形成环。</exception>
         public static GameplayEffectDef CreateDef(CfgEffectDef def, CfgTables tables)
+        {
+            return CreateDef(def, tables, new HashSet<string>());
+        }
+
+        static GameplayEffectDef CreateDef(CfgEffectDef def, CfgTables tables, HashSet<string> stack)
+        {
+            if (def == null)
+            {
+                throw new ArgumentNullException(nameof(def));
+            }
+
+            if (!stack.Add(def.Id))
+            {
+                throw new InvalidOperationException("Effect nesting cycle at '" + def.Id + "'.");
+            }
+
+            try
+            {
+                return CreateDefUnlocked(def, tables, stack);
+            }
+            finally
+            {
+                stack.Remove(def.Id);
+            }
+        }
+
+        static GameplayEffectDef CreateDefUnlocked(CfgEffectDef def, CfgTables tables, HashSet<string> stack)
         {
             var modifiers = new List<EffectModifier>();
             if (!string.IsNullOrEmpty(def.ModAttribute))
@@ -50,7 +78,7 @@ namespace Framework.GamePlay.Data
                         tables != null &&
                         tables.CfgTbEffect.DataMap.TryGetValue(def.ExecutionEffectId, out var nested))
                     {
-                        executions.Add(new ApplyGameplayEffectExecution(CreateDef(nested, tables)));
+                        executions.Add(new ApplyGameplayEffectExecution(CreateDef(nested, tables, stack)));
                     }
                     break;
             }

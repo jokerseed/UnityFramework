@@ -79,9 +79,9 @@ NetworkManager.Instance.DestroyChannel("Game");
 
 收发包完成回调都在 **主线程** `NetworkManager.Update` 中执行。心跳用的是 `Update` 传入的 `Time.unscaledDeltaTime`，不受 `timeScale` 影响。单个处理器抛异常只跳过这一条消息，后面的频道继续 `Update`。IO 线程只入队，不要在完成回调里发布 `GameEvent` 或取内存池。
 
-重连会递增连接代号。旧 socket 的完成回调如果晚到，会被丢掉，并且要等上一笔 Connect/Receive/Send 结束后才复用 `SocketAsyncEventArgs`。`SendAsync` 只写出一部分时会从剩余偏移继续发，整包发完才增加 `SentPacketCount`。同一消息号再次 `RegisterHandler` 会覆盖并打警告。
+每次 `BeginConnect` 新建一套 socket 和三个 `SocketAsyncEventArgs`，代号记在这套连接上。旧连接的完成回调只看自己的那套，不会改到新连接的缓冲，也不会把新连接关掉。`Close` 会取消还没开始的排队连接；`BeginConnect` 发现代号已经变了就放弃。关闭时，已经不在进行中的接收和发送参数立刻释放；还挂在套接字上的那一次，等它自己的回调结束再释放。连接参数在连接回调结束时释放。接收在这套连接自己的缓冲里原地解析，不为每次接收拷贝整段已积累的字节。`SendAsync` 只写出一部分时会从剩余偏移继续发，整包发完才增加 `SentPacketCount`。同一消息号再次 `RegisterHandler` 会覆盖并打警告。
 
-套接字、接收偏移、发送中标记和连接状态收在频道自己的锁里。完成回调如果已经过期（代数对不上，或连接已关）就丢掉。同一次断线只投递一次 `Closed`。`Close` 会把心跳丢失次数和收发计数清零。内存池的取还已经按类型加锁，但完成回调里仍然不要 `Acquire`。
+套接字、接收偏移、发送中标记、连接状态、排队中的重连地址，以及心跳和收发计数，都在频道自己的 `_sync` 里。解析和反序列化在锁外进行，所以辅助器可以 `Acquire` 内存池；锁顺序是先 `_sync`，再内存池的锁。不要在持有 `_sync` 时调用辅助器或用户回调。同一次断线只投递一次 `Closed`。`Close` 会把心跳丢失次数和收发计数清零。
 
 ## Bootstrap
 

@@ -3,11 +3,15 @@
     "rootNamespace": "Framework.Tests",
     "references": [
         "Framework.Core",
+        "Framework.Battle.Core",
         "Framework.ECS",
+        "Framework.ECS.Physics",
         "Framework.FixedMath",
         "Framework.GAS",
         "Framework.GamePlay",
+        "Framework.GamePlay.Luban",
         "Framework.Lockstep",
+        "Framework.LockstepPhysics",
         "Framework.Editor",
         "Framework.Logging",
         "Framework.Events",
@@ -15,6 +19,7 @@
         "Framework.Bootstrap",
         "Framework.MemoryPool",
         "Framework.Network",
+        "Generated.Luban",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

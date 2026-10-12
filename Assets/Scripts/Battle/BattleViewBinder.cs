@@ -27,8 +27,17 @@ namespace Game
         readonly List<BattleMonsterView> _monsterViews = new List<BattleMonsterView>(12);
         readonly Dictionary<uint, ActorRenderState> _actorRenderStates = new Dictionary<uint, ActorRenderState>(16);
         readonly Dictionary<uint, GameObject> _projectileViews = new Dictionary<uint, GameObject>(16);
+        readonly Dictionary<uint, ProjectileViewStamp> _projectileStamps = new Dictionary<uint, ProjectileViewStamp>(16);
         readonly List<uint> _projectileViewRemoveScratch = new List<uint>(16);
         readonly HashSet<uint> _aliveProjectileIds = new HashSet<uint>();
+
+        struct ProjectileViewStamp
+        {
+            public string AbilityId;
+            public uint Owner;
+            public long RadiusRaw;
+            public long LifetimeRaw;
+        }
 
         /// <summary>英雄与杂兵 View 是否就绪。</summary>
         public bool ViewsReady => _heroInstance != null && _monsterViews.Count > 0;
@@ -163,12 +172,32 @@ namespace Game
                 }
 
                 _aliveProjectileIds.Add(entityId);
-                if (!_projectileViews.TryGetValue(entityId, out var view) || view == null)
+                var projectile = pair.Value;
+                var stamp = new ProjectileViewStamp
                 {
-                    view = CreateFireballView(entityId, pair.Value.Radius.AsFloat());
+                    AbilityId = projectile.AbilityId,
+                    Owner = projectile.Owner.Value,
+                    RadiusRaw = projectile.Radius.RawValue,
+                    LifetimeRaw = projectile.RemainingLifetime.RawValue,
+                };
+                // 寿命变长不再重建。回滚会把同一发投射物的剩余寿命调回去，按寿命重建会闪一下。
+                // 同一帧回收 ID 且技能、主人、半径都相同的新弹，仍可能沿用旧视图。
+                if (!_projectileViews.TryGetValue(entityId, out var view) || view == null ||
+                    !_projectileStamps.TryGetValue(entityId, out var previous) ||
+                    previous.AbilityId != stamp.AbilityId ||
+                    previous.Owner != stamp.Owner ||
+                    previous.RadiusRaw != stamp.RadiusRaw)
+                {
+                    if (view != null)
+                    {
+                        Object.Destroy(view);
+                    }
+
+                    view = CreateFireballView(entityId, projectile.Radius.AsFloat());
                     _projectileViews[entityId] = view;
                 }
 
+                _projectileStamps[entityId] = stamp;
                 view.transform.position = transform.ToUnityPosition();
             }
 
@@ -190,6 +219,7 @@ namespace Game
                 }
 
                 _projectileViews.Remove(id);
+                _projectileStamps.Remove(id);
             }
         }
 
@@ -222,6 +252,7 @@ namespace Game
             }
 
             _projectileViews.Clear();
+            _projectileStamps.Clear();
             _aliveProjectileIds.Clear();
             _projectileViewRemoveScratch.Clear();
         }

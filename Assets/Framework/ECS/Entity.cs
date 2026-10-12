@@ -5,7 +5,7 @@ namespace Framework.ECS
     /// <summary>ECS 实体，持有唯一 ID 及存活状态。自身不存储组件数据，组件由 <see cref="ComponentStorage{T}"/> 统一管理。</summary>
     public sealed class Entity
     {
-        /// <summary>实体的全局唯一数字 ID，由 <see cref="World"/> 分配，不可复用。</summary>
+        /// <summary>实体的数字 ID，由 <see cref="World"/> 分配。销毁后可以复用给新实体，旧的 <see cref="Entity"/> 实例不会复活。</summary>
         public uint Id { get; }
 
         /// <summary>实体是否存活；由 <see cref="World.DestroyEntity(uint)"/> 置为 <c>false</c>。</summary>

@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Framework.BehaviourTree;
 using Framework.Core;
 using Framework.Editor.Determinism;
@@ -72,6 +75,146 @@ namespace Framework.Tests
             var context = new BtContext(new BtBlackboard());
             Assert.AreEqual(BtStatus.Running, tree.Tick(context));
             Assert.AreEqual(BtStatus.Success, tree.Tick(context));
+        }
+
+        [Test]
+        public void FrameworkAssembliesAreAcyclicAndGamePlayDoesNotReferenceLuban()
+        {
+            var assets = FindAssetsFolder();
+            var graph = new Dictionary<string, List<string>>();
+            foreach (var file in Directory.GetFiles(assets, "*.asmdef", SearchOption.AllDirectories))
+            {
+                var text = File.ReadAllText(file);
+                var name = Regex.Match(text, "\"name\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
+                if (!name.StartsWith("Framework.", System.StringComparison.Ordinal) && name != "Game")
+                {
+                    continue;
+                }
+
+                var refs = new List<string>();
+                var block = Regex.Match(text, "\"references\"\\s*:\\s*\\[(.*?)\\]", RegexOptions.Singleline);
+                foreach (Match match in Regex.Matches(block.Groups[1].Value, "\"([^\"]+)\""))
+                {
+                    refs.Add(match.Groups[1].Value);
+                }
+
+                graph[name] = refs;
+            }
+
+            Assert.IsTrue(graph.ContainsKey("Game"));
+            Assert.IsFalse(graph["Framework.Core"].Contains("Framework.Events"));
+            Assert.IsFalse(graph["Framework.GamePlay"].Contains("Generated.Luban"));
+            Assert.IsTrue(graph["Framework.GamePlay.Luban"].Contains("Luban.Runtime"));
+            Assert.IsTrue(graph["Framework.ECS.Physics"].Contains("Framework.LockstepPhysics"));
+            // GUID 形式的引用（例如 Generated.Luban → Luban.Runtime）不解析成程序集名，环检测只覆盖按名字写出的引用。
+            AssertNoCycle(graph);
+            foreach (var pair in graph)
+            {
+                for (var i = 0; i < pair.Value.Count; i++)
+                {
+                    var reference = pair.Value[i];
+                    if (reference.StartsWith("Framework.", System.StringComparison.Ordinal))
+                    {
+                        Assert.IsTrue(graph.ContainsKey(reference), pair.Key + " -> " + reference);
+                    }
+                }
+            }
+        }
+
+        static void AssertNoCycle(Dictionary<string, List<string>> graph)
+        {
+            var state = new Dictionary<string, int>();
+            foreach (var name in graph.Keys)
+            {
+                Visit(name, graph, state);
+            }
+        }
+
+        static void Visit(string name, Dictionary<string, List<string>> graph, Dictionary<string, int> state)
+        {
+            if (!graph.ContainsKey(name))
+            {
+                return;
+            }
+
+            if (state.TryGetValue(name, out var mark))
+            {
+                Assert.AreNotEqual(1, mark, "cycle at " + name);
+                return;
+            }
+
+            state[name] = 1;
+            var refs = graph[name];
+            for (var i = 0; i < refs.Count; i++)
+            {
+                Visit(refs[i], graph, state);
+            }
+
+            state[name] = 2;
+        }
+
+        [Test]
+        public void ScannerRootsCoverSplitSimAssemblies()
+        {
+            var roots = new List<string>(SimDeterminismScanner.ScanRoots);
+            string[] required =
+            {
+                "Framework/ECS",
+                "Framework/ECS.Physics",
+                "Framework/GAS",
+                "Framework/FixedMath",
+                "Framework/GamePlay",
+                "Framework/GamePlay.Luban",
+                "Framework/BehaviourTree",
+                "Framework/Core",
+                "Framework/Battle.Core",
+                "Framework/Lockstep",
+            };
+            for (var i = 0; i < required.Length; i++)
+            {
+                Assert.IsTrue(roots.Contains(required[i]), required[i]);
+            }
+
+            Assert.IsFalse(roots.Contains("Framework/LockstepPhysics"));
+        }
+
+        static string FindAssetsFolder()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(UnityEngine.Application.dataPath) &&
+                    Directory.Exists(UnityEngine.Application.dataPath))
+                {
+                    return UnityEngine.Application.dataPath;
+                }
+            }
+            catch (System.Exception)
+            {
+                // 近似编译里的 Unity 桩可能没有 dataPath。
+            }
+
+            var starts = new List<string>
+            {
+                Directory.GetCurrentDirectory(),
+                Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+            };
+            for (var s = 0; s < starts.Count; s++)
+            {
+                var current = starts[s];
+                for (var i = 0; i < 8 && !string.IsNullOrEmpty(current); i++)
+                {
+                    var candidate = Path.Combine(current, "Assets");
+                    if (File.Exists(Path.Combine(candidate, "Framework", "Core", "Framework.Core.asmdef")))
+                    {
+                        return candidate;
+                    }
+
+                    current = Path.GetDirectoryName(current);
+                }
+            }
+
+            Assert.Inconclusive("找不到含 Framework.Core.asmdef 的 Assets 目录。");
+            return null;
         }
     }
 }

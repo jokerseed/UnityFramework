@@ -36,6 +36,7 @@ namespace Framework.GAS
         readonly List<ActiveGameplayEffect> _expiredEffects = new List<ActiveGameplayEffect>();
         readonly AttributeModifierAggregator _aggregator = new AttributeModifierAggregator();
         FP _appliedShieldBonus;
+        readonly Dictionary<string, FP> _spawnBases = new Dictionary<string, FP>();
         bool _isDead;
         bool _isStunned;
         bool _isRooted;
@@ -515,6 +516,7 @@ namespace Framework.GAS
                 return false;
             }
 
+            // RuntimeId 在 CanApply 之前分配。失败也会消耗编号。同一个 Spec 对象跨 ASC 只拿第一个编号，不要把它当键。
             if (spec.RuntimeId == 0)
             {
                 spec.AssignRuntimeId(_nextEffectRuntimeId++);
@@ -788,6 +790,50 @@ namespace Framework.GAS
             Attributes.GetOrCreate(BattleConstants.CritMultiplier, BattleConstants.DefaultCritMultiplier)
                 .SetBaseValue(BattleConstants.DefaultCritMultiplier);
             Attributes.GetOrCreate(BattleConstants.IncomingDamageMultiplier, (FP)(1f)).SetBaseValue((FP)(1f));
+            RememberExistingSpawnBases();
+        }
+
+        /// <summary>
+        /// 把当前非资源属性的基础值记为出生值。已经记过的属性不覆盖。
+        /// 复活时 <see cref="ResetForReuse"/> 会回到这些值。
+        /// </summary>
+        public void CaptureSpawnBases() => RememberExistingSpawnBases();
+
+        void RememberExistingSpawnBases()
+        {
+            foreach (var pair in Attributes.GetAllAttributes())
+            {
+                RememberSpawnBase(pair.Key, pair.Value.BaseValue);
+            }
+        }
+
+        void RememberSpawnBase(string name, FP baseValue)
+        {
+            if (string.IsNullOrEmpty(name) || BattleConstants.IsResourceAttribute(name))
+            {
+                return;
+            }
+
+            if (!_spawnBases.ContainsKey(name))
+            {
+                _spawnBases[name] = baseValue;
+            }
+        }
+
+        void RestoreSpawnBases()
+        {
+            foreach (var pair in _spawnBases)
+            {
+                if (pair.Key == BattleConstants.MaxHealth)
+                {
+                    continue;
+                }
+
+                if (Attributes.TryGet(pair.Key, out var attribute))
+                {
+                    attribute.SetBaseValue(pair.Value);
+                }
+            }
         }
 
         /// <summary>清空持续效果与控制状态并回满资源，供 Actor 池回收复用。</summary>
@@ -809,6 +855,7 @@ namespace Framework.GAS
             _activeEffects.Clear();
             Tags.Clear();
             InitializeCombatAttributes(maxHealth, BattleConstants.DefaultMaxMana);
+            RestoreSpawnBases();
             RecalculateAttributes(eventBus);
         }
 
@@ -1026,6 +1073,7 @@ namespace Framework.GAS
         {
             var magnitude = modifier.Magnitude.Evaluate(sourceAsc ?? this, this, setByCaller);
             var attribute = Attributes.GetOrCreate(modifier.AttributeName);
+            RememberSpawnBase(modifier.AttributeName, attribute.BaseValue);
             if (!BattleConstants.IsResourceAttribute(modifier.AttributeName))
             {
                 switch (modifier.Operation)

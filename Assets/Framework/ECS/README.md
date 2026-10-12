@@ -1,7 +1,7 @@
 # Framework.ECS
 
 轻量 ECS 层，处理空间、移动、投射物等**热路径模拟**。不持有 GAS 规则数据。  
-位移、挤开、击退与弹道命中由 `BattlePhysicsWorld` 驱动 **Farseer 2D**（`Framework.LockstepPhysics`）；GAS 扇形/半径查询仍走 `SpatialHashGrid`。
+位移、挤开、击退与弹道命中由 `Framework.ECS.Physics` 里的 `BattlePhysicsWorld` 驱动 **Farseer 2D**。ECS 核心只在销毁实体时调用 `IEcsBodyRemover`。GAS 扇形/半径查询仍走 `SpatialHashGrid`。
 
 ## 程序集
 
@@ -9,7 +9,7 @@
 |---|---|
 | 程序集 | `Framework.ECS` |
 | 命名空间 | `Framework.ECS` |
-| 依赖 | `Framework.Core`、`Framework.FixedMath`、`Framework.Lockstep`、`Framework.LockstepPhysics` |
+| 依赖 | `Framework.Core`、`Framework.Battle.Core`、`Framework.FixedMath`。Farseer 在 `Framework.ECS.Physics` |
 
 ## 目录结构
 
@@ -19,15 +19,16 @@ ECS/
 ├── Entity.cs                    实体与按实体 ID 升序的 ComponentStorage（稠密数组）
 ├── ISystem.cs                   IComponent / ISystem / EcsSystemPhase
 ├── EntityQuery.cs               ForEach 组件交集查询
-├── BattlePhysicsWorld.cs        Farseer 2D 包装（XZ 圆体、无重力）
+├── IEcsBodyRemover.cs           销毁实体时卸刚体的接口
 ├── SpatialHashGrid.cs           空间哈希（HashSet 去重）
 ├── SpatialIndexService.cs       Actor 空间索引重建
 ├── Snapshot/                    ISnapshotable：实体与内置组件；物理仅运动学扩展点
 ├── Components/
 │   └── BattleComponents.cs      Transform、Velocity、Projectile 等
 └── Systems/
-    ├── PhysicsSimulationSystem.cs  速度→刚体→Step→回写；投射物命中
     └── BattleSystems.cs            空间索引、投射物寿命
+
+`BattlePhysicsWorld`、`BattlePhysicsSnapshot`、`PhysicsSimulationSystem` 在 `Framework.ECS.Physics`。创建物理世界后要再 `RegisterSingleton<IEcsBodyRemover>`，销毁实体才会卸刚体。
 ```
 
 ## 核心能力
@@ -91,8 +92,9 @@ GamePlayFramework.Tick
 - ECS 通过 `ActorLinkComponent.ActorId` 关联 GAS 的 `AbilitySystemComponent`
 - `ActorRegistry` 目标查询走 `SpatialHashGrid` 格子粗筛（圆的 AABB 所跨格子）+ GAS Tag 窄相位
 - 投射物命中由 Farseer 接触写入 `ApplyDamageCommand` / `ApplyAreaEffectCommand`。同一实体只结算一次，命中名单随 ECS 快照保存
-- 实体 ID 销毁后回收。快照版本 3 同时保存空闲 ID；版本 2 的字节不能再读。投射物校验和包含实体 ID，销毁后再生成时 ID 会和旧录像不同
-- 内置 8 种组件由 World 自己写。其它组件必须 `AddSnapshotExtension`，否则 `Save` 抛错，避免回滚后静默丢失。`World.Restore` 会把空间网格标脏。物理世界和 `ActorRegistry` 由 `BattleLockstepSimulation.RestoreCheckpoint` 一起恢复
+- 实体 ID 销毁后回收。快照版本 3 同时保存空闲 ID；版本 2 的字节不能再读。投射物校验和包含实体 ID，销毁后再生成时 ID 会和旧录像不同。`DestroyEntity(Entity)` / `AddComponent(Entity, …)` 会核对这是不是该 ID 的当前实例，旧引用不会拆掉或写到新实体上
+- 穿透弹的命中名单存的是 `ActorId`，不是实体 ID。名单布局不变，飞行中的旧快照若按实体 ID 解读会对不上新单位
+- 内置 8 种组件由 World 自己写。其它组件必须 `AddSnapshotExtension`。扩展的 `ComponentType` 必填，`Save` 先核对未登记组件再写文件头，对不上就抛错。`World.Restore` 会把空间网格标脏。物理世界和 `ActorRegistry` 由 `BattleLockstepSimulation.RestoreCheckpoint` 一起恢复
 - **不在 ECS 组件中存储生命值/攻击力**，避免双源数据
 
 ## 被谁使用

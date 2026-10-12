@@ -3,16 +3,16 @@
     "rootNamespace": "Framework.GamePlay",
     "references": [
         "Framework.Core",
+        "Framework.Battle.Core",
         "Framework.Events",
         "Framework.GAS",
         "Framework.ECS",
+        "Framework.ECS.Physics",
         "Framework.Logging",
-        "Framework.Config",
         "Framework.BehaviourTree",
         "Framework.FixedMath",
         "Framework.Lockstep",
-        "Framework.Res",
-        "Generated.Luban"
+        "Framework.Res"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

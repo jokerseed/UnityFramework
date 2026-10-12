@@ -245,8 +245,10 @@ namespace Framework.Lockstep.Physics3D {
                 FP penetration;
                 bool result;
 
+                var zeroA = TSVector.InternalZero;
+                var zeroB = TSVector.InternalZero;
                 result = XenoCollide.Detect(myTriangle, otherTriangle, ref TSMatrix.InternalIdentity, ref TSMatrix.InternalIdentity,
-                    ref TSVector.InternalZero, ref TSVector.InternalZero, out point, out normal, out penetration);
+                    ref zeroA, ref zeroB, out point, out normal, out penetration);
 
                 if (result)
                 {
@@ -482,8 +484,9 @@ namespace Framework.Lockstep.Physics3D {
                     {
                         ms.SetCurrentShape(e);
 
+                        var zero = TSVector.InternalZero;
                         result = XenoCollide.Detect(ms, t, ref rigidBody.orientation, ref TSMatrix.InternalIdentity,
-                            ref rigidBody.position, ref TSVector.InternalZero, out point, out normal, out penetration);
+                            ref rigidBody.position, ref zero, out point, out normal, out penetration);
 
                         if (result)
                         {
@@ -512,8 +515,9 @@ namespace Framework.Lockstep.Physics3D {
                     FP penetration;
                     bool result;
 
+                    var zero = TSVector.InternalZero;
                     result = XenoCollide.Detect(rigidBody.Shape, t, ref rigidBody.orientation, ref TSMatrix.InternalIdentity,
-                        ref rigidBody.position, ref TSVector.InternalZero, out point, out normal, out penetration);
+                        ref rigidBody.position, ref zero, out point, out normal, out penetration);
 
                     if (result)
                     {

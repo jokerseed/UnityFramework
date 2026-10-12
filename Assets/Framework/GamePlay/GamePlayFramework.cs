@@ -92,7 +92,9 @@ namespace Framework.GamePlay
             _random = TSRandom.New(randomSeed);
             _battleContext = new BattleContext(_commandBuffer, _presentationBus, new TsRandomAdapter(_random));
             _world = new World { Commands = _commandBuffer };
-            _world.RegisterSingleton(new BattlePhysicsWorld());
+            var physics = new BattlePhysicsWorld();
+            _world.RegisterSingleton(physics);
+            _world.RegisterSingleton<IEcsBodyRemover>(physics);
             _registry = new ActorRegistry(_world);
             _commandProcessor = new BattleCommandProcessor(_world, _registry);
             _cueManager = new EventBusGameplayCueManager(_presentationBus);
@@ -187,6 +189,7 @@ namespace Framework.GamePlay
             asc.InitializeCombatAttributes((FP)maxHealth, BattleConstants.DefaultMaxMana);
             asc.Attributes.GetOrCreate(BattleConstants.Attack, (FP)(10f));
             asc.Attributes.GetOrCreate(BattleConstants.Defense, (FP)(0f));
+            asc.CaptureSpawnBases();
             asc.CueSimPosition = FPConversions.ToFP(position);
             asc.CueSimDirection = TSVector.forward;
             asc.CueManager = _cueManager;

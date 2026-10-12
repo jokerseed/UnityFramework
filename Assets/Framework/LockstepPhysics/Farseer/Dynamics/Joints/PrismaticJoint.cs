@@ -381,7 +381,7 @@ namespace Framework.Lockstep.Physics2D
                 _axis1 = value;
                 LocalXAxis = BodyA.GetLocalVector(_axis1);
                 LocalXAxis.Normalize();
-                _localYAxisA = MathUtils.Cross(1.0f, LocalXAxis);
+                _localYAxisA = MathUtils.Cross(FP.One, LocalXAxis);
             }
         }
 

@@ -100,27 +100,47 @@ namespace Framework.GamePlay
         /// <param name="presentation">表现层事件总线。</param>
         public void FlushOutcomeCommands(BattleCommandBuffer buffer, IEventBus presentation)
         {
-            for (var round = 0; round < 4; round++)
+            var failed = false;
+            try
             {
-                if (buffer.ApplyDamage.Count == 0 &&
-                    buffer.ApplyHeal.Count == 0 &&
-                    buffer.ApplyEffect.Count == 0 &&
-                    buffer.ApplyAreaEffect.Count == 0 &&
-                    buffer.ApplyDisplace.Count == 0)
+                for (var round = 0; round < 4; round++)
                 {
-                    break;
-                }
+                    if (buffer.ApplyDamage.Count == 0 &&
+                        buffer.ApplyHeal.Count == 0 &&
+                        buffer.ApplyEffect.Count == 0 &&
+                        buffer.ApplyAreaEffect.Count == 0 &&
+                        buffer.ApplyDisplace.Count == 0)
+                    {
+                        break;
+                    }
 
-                FlushDamage(buffer, presentation);
-                buffer.ClearApplyDamage();
-                FlushHeal(buffer, presentation);
-                buffer.ClearApplyHeal();
-                FlushEffects(buffer, presentation);
-                buffer.ClearApplyEffect();
-                FlushArea(buffer, presentation);
-                buffer.ClearApplyAreaEffect();
-                FlushDisplace(buffer);
-                buffer.ClearApplyDisplace();
+                    FlushDamage(buffer, presentation);
+                    buffer.ClearApplyDamage();
+                    FlushHeal(buffer, presentation);
+                    buffer.ClearApplyHeal();
+                    FlushEffects(buffer, presentation);
+                    buffer.ClearApplyEffect();
+                    FlushArea(buffer, presentation);
+                    buffer.ClearApplyAreaEffect();
+                    FlushDisplace(buffer);
+                    buffer.ClearApplyDisplace();
+                }
+            }
+            catch
+            {
+                failed = true;
+                throw;
+            }
+            finally
+            {
+                if (failed)
+                {
+                    buffer.ClearApplyDamage();
+                    buffer.ClearApplyHeal();
+                    buffer.ClearApplyEffect();
+                    buffer.ClearApplyAreaEffect();
+                    buffer.ClearApplyDisplace();
+                }
             }
         }
 

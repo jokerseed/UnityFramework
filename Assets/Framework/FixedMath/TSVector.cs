@@ -480,7 +480,7 @@ namespace Framework.FixedMath
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static FP Angle(TSVector from, TSVector to)
         {
-            return TSMath.Acos(TSMath.Clamp(Dot(from.normalized, to.normalized), -FP.ONE, FP.ONE)) * TSMath.Rad2Deg;
+            return TSMath.Acos(TSMath.Clamp(Dot(from.normalized, to.normalized), -FP.One, FP.One)) * TSMath.Rad2Deg;
         }
 
         // The smaller of the two possible angles between the two vectors is returned, therefore the result will never be greater than 180 degrees or smaller than -180 degrees.
@@ -489,7 +489,7 @@ namespace Framework.FixedMath
         public static FP SignedAngle(TSVector from, TSVector to, TSVector axis)
         {
             TSVector fromNorm = from.normalized, toNorm = to.normalized;
-            FP unsignedAngle = TSMath.Acos(TSMath.Clamp(Dot(fromNorm, toNorm), -FP.ONE, FP.ONE)) * TSMath.Rad2Deg;
+            FP unsignedAngle = TSMath.Acos(TSMath.Clamp(Dot(fromNorm, toNorm), -FP.One, FP.One)) * TSMath.Rad2Deg;
             FP sign = TSMath.Sign(Dot(axis, Cross(fromNorm, toNorm)));
             return unsignedAngle * sign;
         }

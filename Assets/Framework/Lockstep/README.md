@@ -5,7 +5,7 @@
 
 > 战斗回滚走 `LockstepHost` + `BattleLockstepSimulation`（GAS、ECS、随机数、Farseer 接触克隆、已绑定 Agent 的行为树）。`RollbackLockstep` / `StateTracker` 已退役：前者只克隆物理世界，后者按引用保存字段，都标了 `[Obsolete]`。单机 Demo 仍走 `LocalLockstepHost`。真实网络未接，测试用 `LoopbackHub`。
 >
-> 旧调度器上的修正：暂停只在 `RUNNING` 时推进；校验和一旦不一致就锁存，不会被后一条消息改回成功。构造时如果传入了物理管理器，会调用 `ChecksumExtractor.Init`。
+> 旧调度器上的修正：暂停只在 `RUNNING` 时推进；校验和一旦不一致就锁存，不会被后一条消息改回成功。构造时如果传入了物理管理器，会调用 `ChecksumExtractor.Init`。本地掉线票对每个来源只记一次，不再每帧加一。某一参考帧上该玩家的输入已经到齐时，会清掉累计的掉线票和 `dropCount`，之后再卡顿从零重计，不会把上一次留下的票直接累到门槛。`Clear` 也会清掉各玩家的票，并把本场输入池从静态列表摘掉。只有玩家 id、没有校验和的 198 包会被拒绝，不会把 tick 0 标成失步。
 
 ## 程序集
 

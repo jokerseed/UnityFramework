@@ -67,11 +67,14 @@
 | 程序集 | 职责 | 文档 |
 |--------|------|------|
 | `Framework.Bootstrap` | 模块启动编排（Host；`IGameModule` 契约在 Core） | [Bootstrap/README.md](Bootstrap/README.md) |
-| `Framework.Core` | CommandBuffer、BattleContext、标识符、`IGameModule` | [Core/README.md](Core/README.md) |
+| `Framework.Core` | `IGameModule`、快照缓冲、Tick 契约、常驻单例 | [Core/README.md](Core/README.md) |
+| `Framework.Battle.Core` | `ActorId`、`BattleContext`、命令缓冲。命名空间仍是 `Framework.Core` | [Battle.Core/README.md](Battle.Core/README.md) |
 | `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
-| `Framework.ECS` | World、System、Farseer 2D 战斗物理、空间哈希 | [ECS/README.md](ECS/README.md) |
-| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口 | [GamePlay/README.md](GamePlay/README.md) |
+| `Framework.ECS` | World、System、空间哈希。销毁实体时只调用 `IEcsBodyRemover` | [ECS/README.md](ECS/README.md) |
+| `Framework.ECS.Physics` | `BattlePhysicsWorld` 与 Farseer 步进 | [ECS.Physics/README.md](ECS.Physics/README.md) |
+| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口。不引用 Luban | [GamePlay/README.md](GamePlay/README.md) |
+| `Framework.GamePlay.Luban` | Luban 表到技能/效果目录的适配，类型仍在 `Framework.GamePlay.Data` | [GamePlay.Luban/README.md](GamePlay.Luban/README.md) |
 | `Framework.Config` | Luban 加载与 Tables 缓存 | [Config/README.md](Config/README.md) |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
 | `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |

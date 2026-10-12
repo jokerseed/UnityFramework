@@ -484,6 +484,12 @@ namespace Framework.UI
                     Destroy(instance);
                 }
 
+                if (_opened.TryGetValue(typeof(TWindow), out var recorded) && ReferenceEquals(recorded, window))
+                {
+                    _opened.Remove(typeof(TWindow));
+                }
+
+                _stack.Remove(window);
                 throw;
             }
         }

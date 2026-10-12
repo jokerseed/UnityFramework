@@ -20,23 +20,45 @@ namespace Framework.Lockstep.Physics2D {
 
         public void Clone(Island island) {
             this.Bodies.Clear();
-            for (int index = 0, length = island.Bodies.Length; index < length; index++) {
-                this.Bodies.Add(island.Bodies[index]);
+            var bodies = island != null ? island.Bodies : null;
+            if (bodies != null) {
+                for (int index = 0, length = bodies.Length; index < length; index++) {
+                    this.Bodies.Add(bodies[index]);
+                }
             }
 
             this._velocities.Clear();
-            for (int index = 0, length = island._velocities.Length; index < length; index++) {
-                this._velocities.Add(island._velocities[index]);
+            var velocities = island != null ? island._velocities : null;
+            if (velocities != null) {
+                for (int index = 0, length = velocities.Length; index < length; index++) {
+                    this._velocities.Add(velocities[index]);
+                }
             }
 
             this._positions.Clear();
-            for (int index = 0, length = island._positions.Length; index < length; index++) {
-                this._positions.Add(island._positions[index]);
+            var positions = island != null ? island._positions : null;
+            if (positions != null) {
+                for (int index = 0, length = positions.Length; index < length; index++) {
+                    this._positions.Add(positions[index]);
+                }
+            }
+
+            if (island == null) {
+                this.BodyCount = 0;
+                this.ContactCount = 0;
+                this.JointCount = 0;
+                this.BodyCapacity = 0;
+                this.ContactCapacity = 0;
+                this.JointCapacity = 0;
+                _contactsKeys.Clear();
+                return;
             }
 
             _contactsKeys.Clear();
-            for (int index = 0; index < island.ContactCount; index++) {
-                _contactsKeys.Add(island._contacts[index].Key);
+            if (island._contacts != null) {
+                for (int index = 0; index < island.ContactCount; index++) {
+                    _contactsKeys.Add(island._contacts[index].Key);
+                }
             }
 
             this.BodyCount = island.BodyCount;

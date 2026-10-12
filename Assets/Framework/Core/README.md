@@ -1,36 +1,26 @@
 # Framework.Core
 
-战斗框架的基础设施层，不依赖 GAS / ECS / 资源管线。提供标识符、命令缓冲、战斗上下文、Tick 契约与模块启动契约。
+战斗框架的基础设施层，不依赖 GAS / ECS / 资源管线。提供模块启动契约、Tick 契约、快照缓冲和常驻单例。战斗标识、命令缓冲和 `BattleContext` 在 `Framework.Battle.Core`，命名空间仍是 `Framework.Core`。`SnapshotReader` 按值传递时仍共享读取位置，嵌套的 `Read*` 会推进同一条字节流。`BeginRead` 复用缓冲上的同一个偏移，同一缓冲同时只应有一个读取器。`default(SnapshotReader)` 的剩余长度是 0，读取会抛异常。
 
 ## 程序集
 
 | 项 | 值 |
 |---|---|
 | 程序集 | `Framework.Core` |
-| 命名空间 | `Framework.Core`（`Commands` / `Tick` 为子命名空间） |
-| 依赖 | `Framework.Events`（`BattleContext.Presentation` 使用 `IEventBus`）、`Framework.FixedMath`（命令标量与 `IDeterministicRandom`） |
+| 命名空间 | `Framework.Core`（`Tick` 为子命名空间）。命令缓冲在 `Framework.Battle.Core`，命名空间仍是 `Framework.Core.Commands` |
+| 依赖 | `Framework.FixedMath` |
 
 ## 目录结构
 
 ```
 Core/
-├── Module/                     启动模块契约（namespace Framework.Core）
-│   ├── IGameModule.cs
-│   ├── ModulePhase.cs
-│   └── ModuleInitMode.cs
-├── Battle/                     战斗标识与上下文
-│   ├── ActorId.cs
-│   ├── BattleContext.cs
-│   ├── BattleConstants.cs
-│   └── IDeterministicRandom.cs
+├── Module/                     启动模块契约
 ├── Singleton/                  常驻单例
-│   └── PersistentSingleton.cs
-├── Commands/                   热路径命令（namespace Framework.Core.Commands）
-│   ├── BattleCommandBuffer.cs
-│   └── BattleCommands.cs
-└── Tick/                       Tick 契约（namespace Framework.Core.Tick）
-    └── ITickable.cs
+├── Snapshot/                   快照缓冲
+└── Tick/                       Tick 契约
 ```
+
+战斗类型在 `Assets/Framework/Battle.Core/`：`ActorId`、`BattleContext`、`BattleConstants`、`BattleDamageType`、`IDeterministicRandom`、`BattleCommandBuffer`。调用方的 `using` 不用改。
 
 根目录仅保留 `Framework.Core.asmdef` 与本 README。
 
@@ -72,7 +62,7 @@ AudioManager.ResetStaticState();
 - **随机**：战斗模拟使用 `IDeterministicRandom.Next01()`（返回 `FP`；由 GamePlay 注入 `TSRandom`），禁止 `UnityEngine.Random`
 - **命令标量与位姿**：`SpawnProjectile` / `ApplyAreaEffect` 的位置与朝向为 `TSVector`；速度、半径、伤害、半角等为 `FP`；位移 `Offset` 为 `TSVector`
 - **物理常量**：`BattleConstants` 中击退时长、碰撞半径、空间格子、默认法力/暴击倍率为 `FP`
-- **零上层依赖**：Core 不引用 GAS、ECS、Config、Res、Bootstrap；事件契约与实现均在 `Framework.Events`
+- **零上层依赖**：Core 不引用 Events、GAS、ECS、Config、Res、Bootstrap。事件契约与实现在 `Framework.Events`，战斗上下文在 `Framework.Battle.Core`
 
 ## 被谁使用
 

@@ -15,10 +15,11 @@ namespace Framework.BehaviourTree
         readonly Dictionary<string, bool> _bools = new Dictionary<string, bool>();
         readonly Dictionary<string, long> _fps = new Dictionary<string, long>();
         readonly Dictionary<string, uint> _ids = new Dictionary<string, uint>();
+        readonly Dictionary<string, string> _strings = new Dictionary<string, string>();
         readonly Dictionary<string, object> _objects = new Dictionary<string, object>();
 
-        /// <summary>权威条目数量（不含 object 袋）。</summary>
-        public int Count => _ints.Count + _bools.Count + _fps.Count + _ids.Count;
+        /// <summary>权威条目数量（不含 object 袋，含字符串槽）。</summary>
+        public int Count => _ints.Count + _bools.Count + _fps.Count + _ids.Count + _strings.Count;
 
         /// <summary>是否包含指定键。</summary>
         /// <param name="key">键；不可为 null 或空。</param>
@@ -30,6 +31,7 @@ namespace Framework.BehaviourTree
                    _bools.ContainsKey(key) ||
                    _fps.ContainsKey(key) ||
                    _ids.ContainsKey(key) ||
+                   _strings.ContainsKey(key) ||
                    _objects.ContainsKey(key);
         }
 
@@ -73,12 +75,35 @@ namespace Framework.BehaviourTree
             _ids[key] = value;
         }
 
-        /// <summary>写入非权威引用；不进入快照。</summary>
+        /// <summary>写入权威字符串。技能 ID 这类要进快照和校验和的文本用这个，不要放进 object 袋。</summary>
         /// <param name="key">键。</param>
-        /// <param name="value">引用；可为 null。</param>
+        /// <param name="value">字符串；不可为 null。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="value"/> 为 null。</exception>
+        public void SetString(string key, string value)
+        {
+            ValidateKey(key);
+            if (value == null)
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
+            RemoveFromOtherStores(key, keepStrings: true);
+            _strings[key] = value;
+        }
+
+        /// <summary>写入非权威引用；不进入快照。字符串会改走 <see cref="SetString"/>，并清掉同名的其它槽。</summary>
+        /// <param name="key">键。</param>
+        /// <param name="value">引用；字符串进权威槽，其余可为 null。</param>
         public void SetObject(string key, object value)
         {
             ValidateKey(key);
+            if (value is string text)
+            {
+                SetString(key, text);
+                return;
+            }
+
+            RemoveFromOtherStores(key);
             _objects[key] = value;
         }
 
@@ -108,6 +133,12 @@ namespace Framework.BehaviourTree
             if (value is uint id)
             {
                 SetId(key, id);
+                return;
+            }
+
+            if (value is string text)
+            {
+                SetString(key, text);
                 return;
             }
 
@@ -161,6 +192,16 @@ namespace Framework.BehaviourTree
             return false;
         }
 
+        /// <summary>尝试读取权威字符串。</summary>
+        /// <param name="key">键。</param>
+        /// <param name="value">输出。</param>
+        /// <returns>命中则为 true。</returns>
+        public bool TryGetString(string key, out string value)
+        {
+            ValidateKey(key);
+            return _strings.TryGetValue(key, out value);
+        }
+
         /// <summary>尝试读取指定类型的值。</summary>
         /// <typeparam name="T">目标类型。</typeparam>
         /// <param name="key">键。</param>
@@ -190,6 +231,12 @@ namespace Framework.BehaviourTree
             if (typeof(T) == typeof(uint) && _ids.TryGetValue(key, out var id))
             {
                 value = (T)(object)id;
+                return true;
+            }
+
+            if (typeof(T) == typeof(string) && _strings.TryGetValue(key, out var text))
+            {
+                value = (T)(object)text;
                 return true;
             }
 
@@ -223,6 +270,7 @@ namespace Framework.BehaviourTree
             removed |= _bools.Remove(key);
             removed |= _fps.Remove(key);
             removed |= _ids.Remove(key);
+            removed |= _strings.Remove(key);
             removed |= _objects.Remove(key);
             return removed;
         }
@@ -234,6 +282,7 @@ namespace Framework.BehaviourTree
             _bools.Clear();
             _fps.Clear();
             _ids.Clear();
+            _strings.Clear();
             _objects.Clear();
         }
 
@@ -259,6 +308,7 @@ namespace Framework.BehaviourTree
             _bools.Clear();
             _fps.Clear();
             _ids.Clear();
+            _strings.Clear();
             _objects.Clear();
             foreach (var pair in source._ints)
             {
@@ -278,6 +328,11 @@ namespace Framework.BehaviourTree
             foreach (var pair in source._ids)
             {
                 _ids[pair.Key] = pair.Value;
+            }
+
+            foreach (var pair in source._strings)
+            {
+                _strings[pair.Key] = pair.Value;
             }
         }
 
@@ -311,6 +366,14 @@ namespace Framework.BehaviourTree
         public void CopyIds(List<KeyValuePair<string, uint>> destination)
         {
             CopyPairs(_ids, destination);
+        }
+
+        /// <summary>拷贝字符串槽。顺序不稳定，调用方需要排序后再做校验。</summary>
+        /// <param name="destination">输出；不可为 null，调用前会被清空。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="destination"/> 为 null。</exception>
+        public void CopyStrings(List<KeyValuePair<string, string>> destination)
+        {
+            CopyPairs(_strings, destination);
         }
 
         static void CopyPairs<T>(Dictionary<string, T> source, List<KeyValuePair<string, T>> destination)
@@ -358,7 +421,13 @@ namespace Framework.BehaviourTree
             }
         }
 
-        void RemoveFromOtherStores(string key, bool keepInts = false, bool keepBools = false, bool keepFps = false, bool keepIds = false)
+        void RemoveFromOtherStores(
+            string key,
+            bool keepInts = false,
+            bool keepBools = false,
+            bool keepFps = false,
+            bool keepIds = false,
+            bool keepStrings = false)
         {
             if (!keepInts)
             {
@@ -379,6 +448,13 @@ namespace Framework.BehaviourTree
             {
                 _ids.Remove(key);
             }
+
+            if (!keepStrings)
+            {
+                _strings.Remove(key);
+            }
+
+            _objects.Remove(key);
         }
 
         static void ValidateKey(string key)

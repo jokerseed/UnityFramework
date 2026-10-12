@@ -15,7 +15,7 @@
 | 程序集 | `Game` |
 | 命名空间 | `Game` |
 | 角色 | 业务入口、场景流程、UI 入口、战斗演示装配 |
-| 依赖 | `Framework.Bootstrap`、`Framework.Config`、`Framework.Core`、`Framework.Coroutine`、`Framework.ECS`、`Framework.Events`、`Framework.GamePlay`、`Framework.GAS`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.ObjectPool`、`Framework.Res`、`Framework.UI`、`Generated.Luban` |
+| 依赖 | `Framework.Bootstrap`、`Framework.Config`、`Framework.Core`、`Framework.Battle.Core`、`Framework.Coroutine`、`Framework.ECS`、`Framework.ECS.Physics`、`Framework.Events`、`Framework.GamePlay`、`Framework.GamePlay.Luban`、`Framework.GAS`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.ObjectPool`、`Framework.Res`、`Framework.UI`、`Generated.Luban` |
 
 ## 目录结构
 
@@ -191,14 +191,14 @@ Launch 场景
 - 通过 `BattleMonsterView` 对象池批量生成 12 个杂兵视图。
 - 创建英雄 Actor、怪物 Actor。
 - 给英雄注册 `Fireball / Slash / Slash2 / Slash3 / Dodge`。
-- 给怪物注册 `MobSlash` 并挂上 `BattleAiNodes.CreateMeleeChaserAgent(...)`。
+- 给怪物注册 `MobSlash` 并挂上 `BattleAiNodes.CreateMeleeChaserAgent(...)`。不传入共享会话随机源，每个怪物用 `DeriveSeed(session.RandomSeed, actorId)`。
 - 创建 `BattleWaveDirector` 驱动后续刷波。
 
 这里最重要的边界是：
 
 - **资源加载与实例创建放在 Setup**
 - **逻辑 Actor 创建也放在 Setup**
-- **但每帧同步显示不放在 Setup，而交给 ViewBinder**
+- **但每帧同步显示不放在 Setup，而交给 ViewBinder**。投射物视图除了实体 ID，还看技能、主人、半径。回滚会让剩余寿命变大，这时不重建视图，避免闪一下。ID 回收后如果技能、主人、半径都相同，视图可能沿用上一个弹，这是已知限制
 
 这样就避免“初始化”和“运行中表现”搅在一起。
 

@@ -164,6 +164,8 @@ namespace Framework.Lockstep.Physics2D
             //Magic
             FP l2 = l * l;
             FP area = _2radius * (FP)((TSMath.Asin((l / Radius)) + TSMath.PiOver2) + l * TSMath.Sqrt(_2radius - l2));
+            // 不在战斗 Tick 上：淹没面积只给浮力控制器用，战斗世界没有启用它。
+            // Math.Pow 走 float，结果不确定。不要在模拟路径调用 ComputeSubmergedArea。
             // TODO - PORT
             //FP com = -2.0f / 3.0f * (FP)Math.Pow(_2radius - l2, 1.5f) / area;
             FP com = new FP(-2) / new FP(3) * (FP)Math.Pow((_2radius - l2).AsFloat(), 1.5f) / area;

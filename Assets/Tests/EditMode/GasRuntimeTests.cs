@@ -74,5 +74,30 @@ namespace Framework.Tests
             Assert.AreNotSame(template, first);
             Assert.AreNotSame(first, second);
         }
+
+        [Test]
+        public void ResetForReuseRestoresSpawnAttack()
+        {
+            var asc = new AbilitySystemComponent(new ActorId(3));
+            asc.InitializeCombatAttributes((FP)40, (FP)10);
+            asc.Attributes.GetOrCreate(BattleConstants.Attack, (FP)10);
+            asc.CaptureSpawnBases();
+            var bus = new ZeroGcEventBus();
+            var instant = new GameplayEffectDef(
+                "instant-atk",
+                EffectDurationPolicy.Instant,
+                FP.Zero,
+                new[]
+                {
+                    new EffectModifier(BattleConstants.Attack, EffectModifierOperation.Add, 4f)
+                });
+            Assert.IsTrue(asc.ApplyEffect(instant, new ActorId(3), bus));
+            Assert.AreEqual((FP)14, asc.Attributes.GetBaseValue(BattleConstants.Attack));
+
+            asc.ResetForReuse(bus, (FP)55);
+            Assert.AreEqual((FP)10, asc.Attributes.GetBaseValue(BattleConstants.Attack));
+            Assert.AreEqual((FP)55, asc.Attributes.GetBaseValue(BattleConstants.MaxHealth));
+            Assert.AreEqual((FP)55, asc.Attributes.GetCurrentValue(BattleConstants.Health));
+        }
     }
 }

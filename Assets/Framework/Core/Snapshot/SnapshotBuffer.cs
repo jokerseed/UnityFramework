@@ -24,6 +24,7 @@ namespace Framework.Core.Snapshot
     {
         byte[] _bytes = new byte[256];
         int _length;
+        readonly SnapshotReader.Cursor _readCursor = new SnapshotReader.Cursor();
 
         /// <summary>当前有效字节数。</summary>
         public int Length => _length;
@@ -39,9 +40,13 @@ namespace Framework.Core.Snapshot
             return new SnapshotWriter(this);
         }
 
-        /// <summary>从当前内容开始读取。</summary>
+        /// <summary>从当前内容开始读取。同一缓冲同时只应有一个读取器，再次调用会把偏移拨回开头。</summary>
         /// <returns>读取器。</returns>
-        public SnapshotReader BeginRead() => new SnapshotReader(_bytes, _length);
+        public SnapshotReader BeginRead()
+        {
+            _readCursor.Offset = 0;
+            return new SnapshotReader(_bytes, _length, _readCursor);
+        }
 
         internal byte[] Bytes => _bytes;
 
@@ -142,25 +147,51 @@ namespace Framework.Core.Snapshot
         }
     }
 
-    /// <summary>小端读取。</summary>
+    /// <summary>
+    /// 小端读取。按值传递仍共享读取位置，嵌套方法读完后外层会从下一个字节继续。
+    /// </summary>
     public struct SnapshotReader
     {
         readonly byte[] _bytes;
         readonly int _length;
-        int _offset;
+        readonly Cursor _cursor;
 
-        /// <summary>绑定一段已有字节。</summary>
+        /// <summary>同一缓冲上的读取偏移。按值复制读取器时共享它。</summary>
+        internal sealed class Cursor
+        {
+            /// <summary>下一个要读的字节下标。</summary>
+            public int Offset;
+        }
+
+        /// <summary>绑定一段已有字节。这次调用会单独分配偏移。</summary>
         /// <param name="bytes">字节数组。</param>
         /// <param name="length">有效长度。</param>
         public SnapshotReader(byte[] bytes, int length)
+            : this(bytes, length, new Cursor())
+        {
+        }
+
+        /// <summary>绑定一段已有字节，并复用调用方持有的偏移。</summary>
+        /// <param name="bytes">字节数组。</param>
+        /// <param name="length">有效长度。</param>
+        /// <param name="cursor">读取偏移；由 <see cref="SnapshotBuffer"/> 复用。</param>
+        internal SnapshotReader(byte[] bytes, int length, Cursor cursor)
         {
             _bytes = bytes ?? throw new ArgumentNullException(nameof(bytes));
             _length = length;
-            _offset = 0;
+            _cursor = cursor ?? throw new ArgumentNullException(nameof(cursor));
         }
 
-        /// <summary>尚未读取的字节数。</summary>
-        public int Remaining => _length - _offset;
+        /// <summary>尚未读取的字节数。未初始化的读取器返回 0。</summary>
+        public int Remaining => _cursor == null ? 0 : _length - _cursor.Offset;
+
+        void EnsureReady()
+        {
+            if (_cursor == null || _bytes == null)
+            {
+                throw new InvalidOperationException("SnapshotReader is not initialized.");
+            }
+        }
 
         /// <summary>读取 32 位整数。</summary>
         /// <returns>值。</returns>
@@ -171,17 +202,19 @@ namespace Framework.Core.Snapshot
         /// <exception cref="InvalidOperationException">缓冲被截断。</exception>
         public uint ReadUInt()
         {
-            if (_offset + 4 > _length)
+            EnsureReady();
+            if (4 > _length - _cursor.Offset)
             {
                 throw new InvalidOperationException("Snapshot truncated.");
             }
 
             var bytes = _bytes;
-            var value = (uint)bytes[_offset]
-                        | ((uint)bytes[_offset + 1] << 8)
-                        | ((uint)bytes[_offset + 2] << 16)
-                        | ((uint)bytes[_offset + 3] << 24);
-            _offset += 4;
+            var offset = _cursor.Offset;
+            var value = (uint)bytes[offset]
+                        | ((uint)bytes[offset + 1] << 8)
+                        | ((uint)bytes[offset + 2] << 16)
+                        | ((uint)bytes[offset + 3] << 24);
+            _cursor.Offset = offset + 4;
             return value;
         }
 
@@ -199,13 +232,14 @@ namespace Framework.Core.Snapshot
         /// <exception cref="InvalidOperationException">缓冲被截断。</exception>
         public bool ReadBool()
         {
-            if (_offset >= _length)
+            EnsureReady();
+            if (_cursor.Offset >= _length)
             {
                 throw new InvalidOperationException("Snapshot truncated.");
             }
 
-            var value = _bytes[_offset] != 0;
-            _offset++;
+            var value = _bytes[_cursor.Offset] != 0;
+            _cursor.Offset++;
             return value;
         }
 
@@ -218,6 +252,7 @@ namespace Framework.Core.Snapshot
         /// <exception cref="InvalidOperationException">缓冲被截断。</exception>
         public string ReadString()
         {
+            EnsureReady();
             var count = ReadInt();
             if (count < 0)
             {
@@ -229,13 +264,13 @@ namespace Framework.Core.Snapshot
                 return string.Empty;
             }
 
-            if (_offset + count > _length)
+            if (count > _length - _cursor.Offset)
             {
                 throw new InvalidOperationException("Snapshot truncated.");
             }
 
-            var value = Encoding.UTF8.GetString(_bytes, _offset, count);
-            _offset += count;
+            var value = Encoding.UTF8.GetString(_bytes, _cursor.Offset, count);
+            _cursor.Offset += count;
             return value;
         }
     }

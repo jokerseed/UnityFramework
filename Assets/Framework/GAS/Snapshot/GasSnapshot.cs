@@ -50,6 +50,7 @@ namespace Framework.GAS.Snapshot
             SortComponents();
             writer.WriteInt(Magic);
             writer.WriteInt(Version);
+            // 这一格是已经不再递增的静态 Spec 计数，留着只为字节布局。不要把它当身份。
             writer.WriteInt(GameplayEffectSpec.PeekNextRuntimeId());
             writer.WriteInt(ActiveGameplayEffect.PeekNextHandle());
             writer.WriteInt(ActiveAbilityInstance.PeekNextInstanceId());

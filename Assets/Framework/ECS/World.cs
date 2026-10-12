@@ -108,7 +108,7 @@ namespace Framework.ECS
                 return;
             }
 
-            GetSingleton<BattlePhysicsWorld>()?.RemoveBody(entityId);
+            GetSingleton<IEcsBodyRemover>()?.RemoveBody(entityId);
             entity.IsAlive = false;
             _entities.Remove(entityId);
             _freeEntityIds.Add(entityId);
@@ -123,10 +123,23 @@ namespace Framework.ECS
         /// <param name="entity">要销毁的实体；若为 null 则静默忽略。</param>
         public void DestroyEntity(Entity entity)
         {
-            if (entity != null)
+            if (!IsCurrent(entity))
             {
-                DestroyEntity(entity.Id);
+                return;
             }
+
+            DestroyEntity(entity.Id);
+        }
+
+        /// <summary>实体仍是这个 ID 上的当前实例。</summary>
+        /// <param name="entity">待检查的实体。</param>
+        /// <returns>非 null、仍存活，且世界里该 ID 指向同一实例时返回 true。</returns>
+        public bool IsCurrent(Entity entity)
+        {
+            return entity != null &&
+                   entity.IsAlive &&
+                   _entities.TryGetValue(entity.Id, out var current) &&
+                   ReferenceEquals(current, entity);
         }
 
         /// <summary>获取指定组件类型的存储，不存在时自动创建。</summary>
@@ -150,6 +163,11 @@ namespace Framework.ECS
         /// <param name="component">要写入的组件值；以 in 传递避免拷贝开销。</param>
         public void AddComponent<T>(Entity entity, in T component) where T : struct, IComponent
         {
+            if (!IsCurrent(entity))
+            {
+                return;
+            }
+
             GetStorage<T>().Add(entity.Id, component);
         }
 

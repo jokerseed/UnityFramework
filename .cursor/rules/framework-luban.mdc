@@ -1,6 +1,6 @@
 ---
 description: Assets/Generated/Luban 配置生成代码的统一可配置类名/文件名前缀
-globs: Config/Luban/**/*,Assets/Generated/Luban/**/*.cs,Assets/Framework/Config/**/*.cs,Assets/Framework/Editor/**/*Luban*,Assets/Framework/GamePlay/Data/**/*.cs
+globs: Config/Luban/**/*,Assets/Generated/Luban/**/*.cs,Assets/Framework/Config/**/*.cs,Assets/Framework/Editor/**/*Luban*,Assets/Framework/GamePlay/Data/**/*.cs,Assets/Framework/GamePlay.Luban/**/*.cs
 alwaysApply: false
 ---
 
