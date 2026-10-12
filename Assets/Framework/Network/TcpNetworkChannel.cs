@@ -1167,7 +1167,7 @@ namespace Framework.Network
                 return size;
             }
 
-            /// <summary>关掉套接字。还没提交的异步参数在这里释放，已经提交的等各自的回调释放。</summary>
+            /// <summary>关掉套接字。不在进行中的接收和发送参数立刻释放；还在套接字里的那一次，等回调结束再释放。连接参数在连接回调里释放。</summary>
             public void Release()
             {
                 if (Interlocked.Exchange(ref _released, 1) != 0)
@@ -1198,12 +1198,12 @@ namespace Framework.Network
                     DisposeConnectArgs();
                 }
 
-                if (!ReceivePosted)
+                if (!ReceiveInFlight)
                 {
                     DisposeReceiveArgs();
                 }
 
-                if (!SendPosted)
+                if (!Sending)
                 {
                     DisposeSendArgs();
                 }
