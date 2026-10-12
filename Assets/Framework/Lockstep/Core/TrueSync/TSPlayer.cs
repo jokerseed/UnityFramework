@@ -20,6 +20,12 @@ namespace Framework.Lockstep
 		[NonSerialized]
 		public bool sentSyncedStart;
 
+		[NonSerialized]
+		internal ResourcePoolSyncedData dataPool;
+
+		[NonSerialized]
+		HashSet<byte> _dropVotes;
+
 		[SerializeField]
 		internal SerializableDictionaryIntSyncedData controls;
 
@@ -40,12 +46,35 @@ namespace Framework.Lockstep
 			}
 		}
 
-		internal TSPlayer(byte id, string name)
+		internal TSPlayer(byte id, string name) : this(id, name, null)
+		{
+		}
+
+		internal TSPlayer(byte id, string name, ResourcePoolSyncedData dataPool)
 		{
 			this.playerInfo = new TSPlayerInfo(id, name);
 			this.dropCount = 0;
 			this.dropped = false;
+			this.dataPool = dataPool;
 			this.controls = new SerializableDictionaryIntSyncedData();
+		}
+
+		ResourcePoolSyncedData Pool
+		{
+			get { return this.dataPool ?? SyncedData.pool; }
+		}
+
+		/// <summary>同一来源只计一次掉线票。</summary>
+		/// <param name="fromPlayerId">发起掉线的玩家。</param>
+		/// <returns>第一次投票返回 true。</returns>
+		internal bool RegisterDropVote(byte fromPlayerId)
+		{
+			if (this._dropVotes == null)
+			{
+				this._dropVotes = new HashSet<byte>();
+			}
+
+			return this._dropVotes.Add(fromPlayerId);
 		}
 
         #region 公共方法
@@ -73,12 +102,12 @@ namespace Framework.Lockstep
 				SyncedData syncedData;
 				if (flag2) // 有数据,把前一个数据复制为当前数据
 				{
-					syncedData = this.controls[tick - 1].clone();
+					syncedData = this.controls[tick - 1].CloneTo(Pool);
 					syncedData.tick = tick;
 				}
 				else // 没有数据,获取一个新的数据
 				{
-					syncedData = SyncedData.pool.GetNew();
+					syncedData = Pool.GetNew();
 					syncedData.Init(this.ID, tick);
 				}
 				syncedData.fake = true; // 设置为假数据
@@ -99,7 +128,7 @@ namespace Framework.Lockstep
 			bool flag = this.controls.ContainsKey(tick);
 			if (flag) // 数据已存在，把数据对象回收到池中
 			{
-				SyncedData.pool.GiveBack(data);
+				Pool.GiveBack(data);
 			}
 			else // 未有数据
 			{
@@ -123,7 +152,7 @@ namespace Framework.Lockstep
 			bool flag = this.controls.ContainsKey(refTick);
 			if (flag)
 			{
-				SyncedData.pool.GiveBack(this.controls[refTick]);
+				Pool.GiveBack(this.controls[refTick]);
 				this.controls.Remove(refTick);
 			}
 		}
@@ -138,13 +167,13 @@ namespace Framework.Lockstep
 				bool fake = data.fake;
 				if (fake)
 				{
-					SyncedData syncedData2 = syncedData.clone();
+					SyncedData syncedData2 = syncedData.CloneTo(Pool);
 					syncedData2.fake = true;
 					syncedData2.tick = refTick + i;
 					bool flag = this.controls.ContainsKey(syncedData2.tick);
 					if (flag)
 					{
-						SyncedData.pool.GiveBack(this.controls[syncedData2.tick]);
+						Pool.GiveBack(this.controls[syncedData2.tick]);
 					}
 					this.controls[syncedData2.tick] = syncedData2;
 				}
@@ -173,14 +202,14 @@ namespace Framework.Lockstep
 					if (!flag) // 两个数据不想等
 					{
 						data[i].dirty = true; // 设置为脏数据
-						SyncedData.pool.GiveBack(this.controls[data[i].tick]); // 回收该位置的数据
+						Pool.GiveBack(this.controls[data[i].tick]); // 回收该位置的数据
 						this.controls[data[i].tick] = data[i]; // 放入新数据
 						break; // 中断，没有下一个数据要处理？
 					}
 					data2.fake = false;
 					data2.dirty = false;
 				}
-				SyncedData.pool.GiveBack(data[i]);
+				Pool.GiveBack(data[i]);
 			}
 		}
 
@@ -195,7 +224,7 @@ namespace Framework.Lockstep
 			else
 			{
 				this.GetDataFromTick(this.lastTick, sendWindowArray);
-				sendWindowArray[0] = sendWindowArray[0].clone();
+				sendWindowArray[0] = sendWindowArray[0].CloneTo(Pool);
 				sendWindowArray[0].dropFromPlayerId = fromPlayerId;
 				sendWindowArray[0].dropPlayer = true;
 				result = true;

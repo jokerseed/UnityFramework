@@ -4,6 +4,11 @@ using UnityEngine;
 
 namespace Framework.Lockstep
 {
+	/// <summary>
+	/// 已退役。只克隆物理世界，<c>StateTracker</c> 调用仍是注释，不能还原 GAS、ECS 或行为树。
+	/// 战斗回滚用 <c>Framework.GamePlay.LockstepHost</c>。
+	/// </summary>
+	[Obsolete("只回滚物理克隆。战斗回滚用 LockstepHost。")]
 	internal class RollbackLockstep : AbstractLockstep
 	{
 		private GenericBufferWindow<IWorldClone> bufferWorldClone;

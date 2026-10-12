@@ -4,7 +4,10 @@ using System.Reflection;
 
 namespace Framework.Lockstep
 {
-    // 状态追踪类
+    /// <summary>
+    /// 已退役。非数组字段按引用保存，不能当战斗快照。战斗回滚用 <c>LockstepHost</c>。
+    /// </summary>
+	[Obsolete("按引用保存字段，不能还原战斗。请用 LockstepHost。")]
 	public class StateTracker
     {
         #region 状态类

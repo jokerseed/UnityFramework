@@ -88,30 +88,69 @@ namespace Framework.Lockstep
 
 		private static ReplayRecord FromReplayBytes(byte[] replayBytes)
 		{
+			if (replayBytes == null)
+			{
+				throw new ArgumentNullException(nameof(replayBytes));
+			}
+
 			ReplayRecord replayRecord = new ReplayRecord();
 			int i = 0;
 			while (i < replayBytes.Length)
 			{
+				Need(replayBytes, i, 1);
 				byte b = replayBytes[i++];
+				Need(replayBytes, i, 4);
 				int num = BitConverter.ToInt32(replayBytes, i);
 				i += 4;
+				if (num < 0)
+				{
+					throw new ArgumentException("Replay player name length is invalid.");
+				}
+
+				Need(replayBytes, i, num);
 				string @string = Encoding.ASCII.GetString(replayBytes, i, num);
 				i += num;
 				TSPlayer tSPlayer = new TSPlayer(b, @string);
 				replayRecord.players.Add(b, tSPlayer);
+				Need(replayBytes, i, 4);
 				int num2 = BitConverter.ToInt32(replayBytes, i);
 				i += 4;
+				if (num2 < 0)
+				{
+					throw new ArgumentException("Replay input count is invalid.");
+				}
+
 				for (int j = 0; j < num2; j++)
 				{
+					Need(replayBytes, i, 4);
 					SyncedData @new = SyncedData.pool.GetNew();
 					@new.tick = BitConverter.ToInt32(replayBytes, i);
 					i += 4;
+					if (@new.inputData == null)
+					{
+						throw new InvalidOperationException("Input provider is missing.");
+					}
+
+					int before = i;
 					@new.inputData.Deserialize(replayBytes, ref i);
+					if (i < before || i > replayBytes.Length)
+					{
+						throw new ArgumentException("Replay input walked out of range.");
+					}
+
 					@new.inputData.ownerID = b;
 					tSPlayer.controls.Add(@new.tick, @new);
 				}
 			}
 			return replayRecord;
+		}
+
+		static void Need(byte[] bytes, int index, int count)
+		{
+			if (count < 0 || index < 0 || index > bytes.Length - count)
+			{
+				throw new ArgumentException("Replay bytes are truncated.");
+			}
 		}
 
 		internal void ApplyRecord(AbstractLockstep lockStep)
