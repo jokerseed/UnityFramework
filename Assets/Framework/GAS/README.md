@@ -64,7 +64,9 @@ ActiveAbility Task → Effects（Duration / Periodic，Source 为施法者 ASC�
 
 效果 Spec 的 RuntimeId 在 `ApplyEffect` 时由该 ASC 分配，并随 ASC 状态回写。版本 2 的 GAS 快照字节不能再读。直接 `new ActiveGameplayEffect(spec, source)` 仍会走静态句柄，战斗路径不会这么做。`GameplayAbilityDef(GameplayAbility)` 每次授予调用 `CreateInstance()`（默认浅拷贝），不再把同一个对象交给所有 ASC。恢复不会重放 Cue，也不会再次调用 `Activate`。
 
-非资源属性的即时修改写进基础值，之后的聚合从基础值重算，不会把这次修改抹掉。Health / Mana / Shield 的即时修改仍只改当前值。持续效果上的 Health / Mana 修改器改的是 MaxHealth / MaxMana，不覆盖当前生命或法力。
+非资源属性的即时修改写进基础值，之后的聚合从基础值重算，不会把这次修改抹掉。Health / Mana / Shield 的即时修改仍只改当前值。持续效果上的 Health / Mana 修改器改的是 MaxHealth / MaxMana，不覆盖当前生命或法力。`CreateActor` 在写完出生属性后调用 `CaptureSpawnBases`。`ResetForReuse` 先按参数写回 MaxHealth 并回满生命和法力，再把其余非资源基础值恢复成出生值后重算，复活不会留下即时增减益，波次传入的新最大生命也不会被第一次出生值盖掉。出生值留在 ASC 上，不进 GAS 快照，版本仍是 3。
+
+`RuntimeId` 在 `CanApplyEffect` 之前分配。应用失败也会消耗编号。同一个 Spec 对象交给多个 ASC 时只有第一个编号，不要把它当键。快照头里仍写着静态 `GameplayEffectSpec` 计数，只为保持字节布局，运行时不再用它区分效果。
 
 ## 典型用法
 

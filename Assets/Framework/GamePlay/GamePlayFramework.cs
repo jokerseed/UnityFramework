@@ -189,6 +189,7 @@ namespace Framework.GamePlay
             asc.InitializeCombatAttributes((FP)maxHealth, BattleConstants.DefaultMaxMana);
             asc.Attributes.GetOrCreate(BattleConstants.Attack, (FP)(10f));
             asc.Attributes.GetOrCreate(BattleConstants.Defense, (FP)(0f));
+            asc.CaptureSpawnBases();
             asc.CueSimPosition = FPConversions.ToFP(position);
             asc.CueSimDirection = TSVector.forward;
             asc.CueManager = _cueManager;
