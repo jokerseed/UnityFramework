@@ -11,7 +11,7 @@ namespace Framework.ECS
     public sealed partial class World : ISnapshotable
     {
         const int SnapshotMagic = 0x31534345;
-        const int SnapshotVersion = 2;
+        const int SnapshotVersion = 3;
         const int TypeTransform = 1;
         const int TypeVelocity = 2;
         const int TypeKnockback = 3;
@@ -60,7 +60,13 @@ namespace Framework.ECS
         {
             writer.WriteInt(SnapshotMagic);
             writer.WriteInt(SnapshotVersion);
+            EnsureCustomComponentsAreRegistered();
             writer.WriteUInt(_nextEntityId);
+            writer.WriteInt(_freeEntityIds.Count);
+            for (var freeIndex = 0; freeIndex < _freeEntityIds.Count; freeIndex++)
+            {
+                writer.WriteUInt(_freeEntityIds[freeIndex]);
+            }
 
             _snapshotIds.Clear();
             foreach (var pair in _entities)
@@ -114,6 +120,13 @@ namespace Framework.ECS
             }
 
             var nextEntityId = reader.ReadUInt();
+            var freeCount = reader.ReadInt();
+            _freeEntityIds.Clear();
+            for (var freeIndex = 0; freeIndex < freeCount; freeIndex++)
+            {
+                _freeEntityIds.Add(reader.ReadUInt());
+            }
+
             var entityCount = reader.ReadInt();
             _snapshotIds.Clear();
             for (var i = 0; i < entityCount; i++)
@@ -154,6 +167,47 @@ namespace Framework.ECS
 
                 _snapshotExtensions[i].Restore(this, reader);
             }
+
+            GetSingleton<SpatialHashGrid>()?.MarkStructuralDirty();
+        }
+
+        void EnsureCustomComponentsAreRegistered()
+        {
+            foreach (var pair in _storages)
+            {
+                if (pair.Value.Count == 0 || IsBuiltinComponent(pair.Key))
+                {
+                    continue;
+                }
+
+                var covered = false;
+                for (var i = 0; i < _snapshotExtensions.Count; i++)
+                {
+                    if (_snapshotExtensions[i].ComponentType == pair.Key)
+                    {
+                        covered = true;
+                        break;
+                    }
+                }
+
+                if (!covered)
+                {
+                    throw new InvalidOperationException(
+                        "Component " + pair.Key.FullName + " has no IEcsSnapshotExtension.");
+                }
+            }
+        }
+
+        static bool IsBuiltinComponent(Type type)
+        {
+            return type == typeof(TransformComponent)
+                || type == typeof(VelocityComponent)
+                || type == typeof(KnockbackComponent)
+                || type == typeof(CombatStateComponent)
+                || type == typeof(TeamComponent)
+                || type == typeof(ActorLinkComponent)
+                || type == typeof(CollisionComponent)
+                || type == typeof(ProjectileComponent);
         }
 
         void ClearEntitiesAndComponents()
