@@ -34,10 +34,13 @@ namespace Framework.Bootstrap
         /// 将模块列表按依赖关系拓扑排序，返回可并发执行的波次列表。
         /// 同一波次内的模块互无依赖，可并发初始化。
         /// </summary>
-        /// <param name="modules">待排序的模块列表，不可含重复类型；可为 null 或空。模块的 <see cref="IGameModule.Dependencies"/> 为 null 时视为无依赖，重复类型只计一次。</param>
+        /// <param name="modules">待排序的模块列表，不可含重复类型；可为 null 或空。模块的 <see cref="IGameModule.Dependencies"/> 为 null 时视为无依赖，重复类型只计一次。依赖可以是具体类型或接口；同一个依赖匹配到多个模块时失败。</param>
+        /// <param name="alreadyAvailable">其它组里已经就绪的模块。它们能满足依赖，但不会出现在返回的波次里。可为 null。</param>
         /// <returns>波次列表，每个波次为可并发执行的模块子集；输入为空时返回空数组。</returns>
-        /// <exception cref="InvalidOperationException">存在循环依赖、重复注册、依赖为 null，或依赖模块未注册。</exception>
-        public static IReadOnlyList<IReadOnlyList<IGameModule>> SortIntoWaves(IReadOnlyList<IGameModule> modules)
+        /// <exception cref="InvalidOperationException">存在循环依赖、重复注册、依赖为 null、依赖匹配到多个模块，或依赖模块未注册。</exception>
+        public static IReadOnlyList<IReadOnlyList<IGameModule>> SortIntoWaves(
+            IReadOnlyList<IGameModule> modules,
+            IReadOnlyList<IGameModule> alreadyAvailable = null)
         {
             if (modules == null || modules.Count == 0)
             {
@@ -45,7 +48,8 @@ namespace Framework.Bootstrap
             }
 
             var moduleByType = BuildModuleMap(modules);
-            var inDegree = BuildInDegree(modules, moduleByType);
+            var external = BuildExternalMap(alreadyAvailable, moduleByType);
+            var inDegree = BuildInDegree(modules, moduleByType, external);
 
             var ready = CollectZeroInDegree(inDegree);
             var waves = new List<IReadOnlyList<IGameModule>>();
@@ -71,7 +75,7 @@ namespace Framework.Bootstrap
                     for (var j = 0; j < modules.Count; j++)
                     {
                         var candidate = modules[j];
-                        if (!ContainsDependency(candidate.Dependencies, type))
+                        if (!DependsOn(candidate.Dependencies, type))
                         {
                             continue;
                         }
@@ -122,9 +126,45 @@ namespace Framework.Bootstrap
             return moduleByType;
         }
 
+        static Dictionary<Type, IGameModule> BuildExternalMap(
+            IReadOnlyList<IGameModule> alreadyAvailable,
+            Dictionary<Type, IGameModule> local)
+        {
+            var external = new Dictionary<Type, IGameModule>();
+            if (alreadyAvailable == null)
+            {
+                return external;
+            }
+
+            for (var i = 0; i < alreadyAvailable.Count; i++)
+            {
+                var module = alreadyAvailable[i];
+                if (module == null)
+                {
+                    continue;
+                }
+
+                var type = module.GetType();
+                if (local.ContainsKey(type))
+                {
+                    continue;
+                }
+
+                if (external.ContainsKey(type))
+                {
+                    throw new InvalidOperationException($"Duplicate module registered: {type.Name}");
+                }
+
+                external[type] = module;
+            }
+
+            return external;
+        }
+
         static Dictionary<Type, int> BuildInDegree(
             IReadOnlyList<IGameModule> modules,
-            Dictionary<Type, IGameModule> moduleByType)
+            Dictionary<Type, IGameModule> moduleByType,
+            Dictionary<Type, IGameModule> external)
         {
             var inDegree = new Dictionary<Type, int>(modules.Count);
             foreach (var pair in moduleByType)
@@ -136,7 +176,7 @@ namespace Framework.Bootstrap
             {
                 var module = modules[i];
                 var dependencies = module.Dependencies;
-                inDegree[module.GetType()] = CountDependencies(module, dependencies, moduleByType);
+                inDegree[module.GetType()] = CountDependencies(module, dependencies, moduleByType, external);
             }
 
             return inDegree;
@@ -156,7 +196,7 @@ namespace Framework.Bootstrap
             return ready;
         }
 
-        static bool ContainsDependency(IReadOnlyList<Type> dependencies, Type dependency)
+        static bool DependsOn(IReadOnlyList<Type> dependencies, Type completedType)
         {
             if (dependencies == null)
             {
@@ -165,7 +205,8 @@ namespace Framework.Bootstrap
 
             for (var i = 0; i < dependencies.Count; i++)
             {
-                if (dependencies[i] == dependency)
+                var dependency = dependencies[i];
+                if (dependency == completedType || dependency.IsAssignableFrom(completedType))
                 {
                     return true;
                 }
@@ -177,7 +218,8 @@ namespace Framework.Bootstrap
         static int CountDependencies(
             IGameModule module,
             IReadOnlyList<Type> dependencies,
-            Dictionary<Type, IGameModule> moduleByType)
+            Dictionary<Type, IGameModule> moduleByType,
+            Dictionary<Type, IGameModule> external)
         {
             if (dependencies == null)
             {
@@ -193,16 +235,16 @@ namespace Framework.Bootstrap
                     throw new InvalidOperationException($"Module '{module.Name}' has a null dependency.");
                 }
 
-                if (!moduleByType.ContainsKey(dependency))
+                var resolved = ResolveDependency(module, dependency, moduleByType, external, out var satisfiedOutside);
+                if (satisfiedOutside)
                 {
-                    throw new InvalidOperationException(
-                        $"Module '{module.Name}' depends on '{dependency.Name}', but it is not registered.");
+                    continue;
                 }
 
                 var duplicate = false;
                 for (var j = 0; j < seen.Count; j++)
                 {
-                    if (seen[j] == dependency)
+                    if (seen[j] == resolved)
                     {
                         duplicate = true;
                         break;
@@ -211,11 +253,78 @@ namespace Framework.Bootstrap
 
                 if (!duplicate)
                 {
-                    seen.Add(dependency);
+                    seen.Add(resolved);
                 }
             }
 
             return seen.Count;
+        }
+
+        static Type ResolveDependency(
+            IGameModule module,
+            Type dependency,
+            Dictionary<Type, IGameModule> moduleByType,
+            Dictionary<Type, IGameModule> external,
+            out bool satisfiedOutside)
+        {
+            if (moduleByType.ContainsKey(dependency))
+            {
+                satisfiedOutside = false;
+                return dependency;
+            }
+
+            if (external != null && external.ContainsKey(dependency))
+            {
+                satisfiedOutside = true;
+                return dependency;
+            }
+
+            Type localMatch = null;
+            var localCount = 0;
+            foreach (var pair in moduleByType)
+            {
+                if (dependency.IsAssignableFrom(pair.Key))
+                {
+                    localCount++;
+                    localMatch = pair.Key;
+                }
+            }
+
+            Type externalMatch = null;
+            var externalCount = 0;
+            if (external != null)
+            {
+                foreach (var pair in external)
+                {
+                    if (dependency.IsAssignableFrom(pair.Key))
+                    {
+                        externalCount++;
+                        externalMatch = pair.Key;
+                    }
+                }
+            }
+
+            var total = localCount + externalCount;
+            if (total > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Module '{module.Name}' depends on '{dependency.Name}', which matches {total} modules.");
+            }
+
+            if (localCount == 1)
+            {
+                satisfiedOutside = false;
+                return localMatch;
+            }
+
+            if (externalCount == 1)
+            {
+                satisfiedOutside = true;
+                return externalMatch;
+            }
+
+            throw new InvalidOperationException(
+                $"Module '{module.Name}' depends on '{dependency.Name}', but it is not registered.");
         }
 
         static int CompareModules(IGameModule left, IGameModule right)

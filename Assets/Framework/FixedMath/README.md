@@ -35,8 +35,8 @@
    - 字面量如 `(FP)0.5f` 在迁移代码里存在（与 Client 相同）；新代码优先写 `FP.Half` / `FP.EN*` / `FromRaw`
    - `float` / `double` → `FP` 只能显式转换（`(FP)x` 或 `FP.FromFloat` / `FPConversions.ToFP`）。公式仍是截断 `(long)(value * ONE)`，与以前的隐式转换逐位相同。`int` / `long` → `FP` 仍是隐式的。
 2. **`FPConversions` 只用于渲染 / 调试**，结果不得写回模拟状态
-3. **`TSRandom` 只用 `TSRandom.New(seed)` / `Init()`**  
-   - 无参构造内部用 `DateTime.Now`，**非确定性**，禁止用于同步逻辑
+3. **`TSRandom` 只用 `TSRandom.New(seed)`**  
+   - `Init()` 是 `internal`，业务代码调不到。无参构造内部用 `DateTime.Now`，**非确定性**，禁止用于同步逻辑
 4. **大数值战斗结算不要用 FP**（Q31.32 整数大约 ±2³¹）  
    - Client 已用 `SafeMath`+`long` 处理伤害/HP；物理（坐标/速度）才用 FP
    - 向量模长在分量绝对值大约超过 46340 时，平方和会超出 `long`。`TSVector` / `TSVector2` / `TSVector4` 的平方和以及四元数 `Normalize` 改用 `OverflowAdd`：不溢出时与原来的 `+` 逐位相同；溢出时饱和，不再变成负数后让 `Sqrt` 抛异常

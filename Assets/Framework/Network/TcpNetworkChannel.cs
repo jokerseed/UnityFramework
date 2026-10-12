@@ -66,10 +66,29 @@ namespace Framework.Network
         public NetworkChannelState State { get; private set; } = NetworkChannelState.Disconnected;
 
         /// <inheritdoc />
-        public bool Connected => State == NetworkChannelState.Connected && _socket != null && _socket.Connected;
+        public bool Connected
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    var socket = _socket;
+                    return State == NetworkChannelState.Connected && socket != null && socket.Connected;
+                }
+            }
+        }
 
         /// <inheritdoc />
-        public Socket Socket => _socket;
+        public Socket Socket
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _socket;
+                }
+            }
+        }
 
         /// <inheritdoc />
         public NetworkServiceType ServiceType => NetworkServiceType.Tcp;
@@ -130,7 +149,13 @@ namespace Framework.Network
                 return;
             }
 
-            if (State == NetworkChannelState.Connecting || State == NetworkChannelState.Connected)
+            var busy = false;
+            lock (_sync)
+            {
+                busy = State == NetworkChannelState.Connecting || State == NetworkChannelState.Connected;
+            }
+
+            if (busy)
             {
                 EnqueueError(NetworkErrorCode.ConnectError, SocketError.IsConnected, "Channel is already connecting or connected.");
                 return;
@@ -146,9 +171,7 @@ namespace Framework.Network
         /// <inheritdoc />
         public void Close()
         {
-            var wasConnected = State == NetworkChannelState.Connected || State == NetworkChannelState.Connecting;
-            CloseSocket();
-            if (wasConnected)
+            if (CloseSocket())
             {
                 Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
             }
@@ -417,20 +440,36 @@ namespace Framework.Network
                 return;
             }
 
-            State = NetworkChannelState.Connected;
+            var current = false;
+            lock (_sync)
+            {
+                current = !_closed && e.UserToken is int token && token == _generation;
+                if (current)
+                {
+                    State = NetworkChannelState.Connected;
+                }
+            }
+
+            if (!current)
+            {
+                TryStartQueuedConnect();
+                return;
+            }
+
             Enqueue(new PendingDispatch { Kind = PendingKind.Connected });
             BeginReceive();
         }
 
         void BeginReceive()
         {
-            if (_closed || _socket == null || _receiveArgsBusy)
+            Socket socket;
+            lock (_sync)
             {
-                return;
-            }
+                if (_closed || _socket == null || _receiveArgsBusy)
+                {
+                    return;
+                }
 
-            try
-            {
                 var remaining = _receiveBuffer.Length - _receiveOffset;
                 if (remaining <= 0)
                 {
@@ -441,49 +480,84 @@ namespace Framework.Network
                 _receiveArgs.UserToken = _generation;
                 _receiveArgs.SetBuffer(_receiveBuffer, _receiveOffset, remaining);
                 _receiveArgsBusy = true;
-                if (!_socket.ReceiveAsync(_receiveArgs))
+                socket = _socket;
+            }
+
+            try
+            {
+                if (!socket.ReceiveAsync(_receiveArgs))
                 {
                     OnReceiveCompleted(_receiveArgs);
                 }
             }
             catch (Exception ex)
             {
-                _receiveArgsBusy = false;
+                lock (_sync)
+                {
+                    _receiveArgsBusy = false;
+                }
+
                 EnqueueError(NetworkErrorCode.ReceiveError, SocketError.SocketError, ex.Message);
-                CloseSocket();
-                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                if (CloseSocket())
+                {
+                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                }
             }
         }
 
         void OnReceiveCompleted(SocketAsyncEventArgs e)
         {
-            _receiveArgsBusy = false;
-            if (!IsCurrentOperation(e))
+            var current = false;
+            var fatal = false;
+            var reportError = false;
+            SocketError socketError = SocketError.Success;
+            lock (_sync)
+            {
+                _receiveArgsBusy = false;
+                current = !_closed && e.UserToken is int token && token == _generation;
+                if (current)
+                {
+                    if (e.SocketError != SocketError.Success)
+                    {
+                        fatal = true;
+                        reportError = true;
+                        socketError = e.SocketError;
+                    }
+                    else if (e.BytesTransferred <= 0)
+                    {
+                        fatal = true;
+                    }
+                    else
+                    {
+                        _receiveOffset += e.BytesTransferred;
+                        if (!TryExtractPackets())
+                        {
+                            fatal = true;
+                            reportError = true;
+                            socketError = SocketError.SocketError;
+                        }
+                    }
+                }
+            }
+
+            if (!current)
             {
                 TryStartQueuedConnect();
                 return;
             }
 
-            if (e.SocketError != SocketError.Success)
+            if (fatal)
             {
-                EnqueueError(NetworkErrorCode.ReceiveError, e.SocketError, e.SocketError.ToString());
-                CloseSocket();
-                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
-                return;
-            }
+                if (reportError)
+                {
+                    EnqueueError(NetworkErrorCode.ReceiveError, socketError, socketError.ToString());
+                }
 
-            if (e.BytesTransferred <= 0)
-            {
-                CloseSocket();
-                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
-                return;
-            }
+                if (CloseSocket())
+                {
+                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                }
 
-            _receiveOffset += e.BytesTransferred;
-            if (!TryExtractPackets())
-            {
-                CloseSocket();
-                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
                 return;
             }
 
@@ -547,6 +621,7 @@ namespace Framework.Network
 
         void TrySend()
         {
+            Socket socket;
             lock (_sync)
             {
                 if (_sending || _sendQueue.Count == 0 || _socket == null || _closed)
@@ -558,12 +633,13 @@ namespace Framework.Network
                 _sending = true;
                 _sendArgs.UserToken = _generation;
                 _sendArgs.SetBuffer(data, 0, data.Length);
+                socket = _socket;
             }
 
             try
             {
                 _sendArgsBusy = true;
-                if (!_socket.SendAsync(_sendArgs))
+                if (!socket.SendAsync(_sendArgs))
                 {
                     OnSendCompleted(_sendArgs);
                 }
@@ -571,10 +647,16 @@ namespace Framework.Network
             catch (Exception ex)
             {
                 _sendArgsBusy = false;
-                _sending = false;
+                lock (_sync)
+                {
+                    _sending = false;
+                }
+
                 EnqueueError(NetworkErrorCode.SendError, SocketError.SocketError, ex.Message);
-                CloseSocket();
-                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                if (CloseSocket())
+                {
+                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                }
             }
         }
 
@@ -601,8 +683,11 @@ namespace Framework.Network
 
                 var error = e.SocketError != SocketError.Success ? e.SocketError : SocketError.ConnectionReset;
                 EnqueueError(NetworkErrorCode.SendError, error, error.ToString());
-                CloseSocket();
-                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                if (CloseSocket())
+                {
+                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                }
+
                 return;
             }
 
@@ -610,12 +695,24 @@ namespace Framework.Network
             {
                 var offset = e.Offset + e.BytesTransferred;
                 var remain = e.Count - e.BytesTransferred;
-                try
+                Socket socket;
+                lock (_sync)
                 {
+                    if (_closed || _socket == null || !(e.UserToken is int token) || token != _generation)
+                    {
+                        _sending = false;
+                        return;
+                    }
+
                     _sendArgs.UserToken = _generation;
                     _sendArgs.SetBuffer(offset, remain);
                     _sendArgsBusy = true;
-                    if (!_socket.SendAsync(_sendArgs))
+                    socket = _socket;
+                }
+
+                try
+                {
+                    if (!socket.SendAsync(_sendArgs))
                     {
                         OnSendCompleted(_sendArgs);
                     }
@@ -629,8 +726,10 @@ namespace Framework.Network
                     }
 
                     EnqueueError(NetworkErrorCode.SendError, SocketError.SocketError, ex.Message);
-                    CloseSocket();
-                    Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                    if (CloseSocket())
+                    {
+                        Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+                    }
                 }
 
                 return;
@@ -672,29 +771,38 @@ namespace Framework.Network
             _receiveBuffer = next;
         }
 
-        void CloseSocket()
+        /// <summary>关闭套接字。同一场连接只算一次，避免收发两条错误各报一次 Closed。</summary>
+        /// <returns>这次调用确实关掉了一场连接或一次正在进行的连接时返回 true。</returns>
+        bool CloseSocket()
         {
-            _generation++;
-            _closed = true;
-            State = NetworkChannelState.Disconnected;
-            _sending = false;
-            _receiveOffset = 0;
-            _packetBodyLength = -1;
-            _heartBeatElapse = 0f;
-
+            Socket socket;
+            bool closedNow;
             lock (_sync)
             {
+                closedNow = _socket != null || State != NetworkChannelState.Disconnected;
+                _generation++;
+                _closed = true;
+                State = NetworkChannelState.Disconnected;
+                _sending = false;
+                _receiveOffset = 0;
+                _packetBodyLength = -1;
+                _heartBeatElapse = 0f;
+                MissHeartBeatCount = 0;
+                SentPacketCount = 0;
+                ReceivedPacketCount = 0;
                 _sendQueue.Clear();
+                socket = _socket;
+                _socket = null;
             }
 
-            if (_socket == null)
+            if (socket == null)
             {
-                return;
+                return closedNow;
             }
 
             try
             {
-                _socket.Shutdown(SocketShutdown.Both);
+                socket.Shutdown(SocketShutdown.Both);
             }
             catch (Exception)
             {
@@ -703,14 +811,14 @@ namespace Framework.Network
 
             try
             {
-                _socket.Close();
+                socket.Close();
             }
             catch (Exception)
             {
                 // ignored
             }
 
-            _socket = null;
+            return closedNow;
         }
 
         void SetHandler(ushort messageId, Action<INetworkChannel, NetworkPacket> handler)
@@ -741,21 +849,28 @@ namespace Framework.Network
 
         void BeginConnect(IPAddress address, int port)
         {
-            _closed = false;
-            State = NetworkChannelState.Connecting;
-            _socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+            Socket socket;
+            lock (_sync)
             {
-                NoDelay = true,
-            };
+                _closed = false;
+                State = NetworkChannelState.Connecting;
+                _receiveOffset = 0;
+                _packetBodyLength = -1;
+                _socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+                {
+                    NoDelay = true,
+                };
+                _connectArgs.UserToken = _generation;
+                _receiveArgs.UserToken = _generation;
+                _sendArgs.UserToken = _generation;
+                _connectArgs.RemoteEndPoint = new IPEndPoint(address, port);
+                socket = _socket;
+            }
 
-            _connectArgs.UserToken = _generation;
-            _receiveArgs.UserToken = _generation;
-            _sendArgs.UserToken = _generation;
-            _connectArgs.RemoteEndPoint = new IPEndPoint(address, port);
             try
             {
                 _connectArgsBusy = true;
-                if (!_socket.ConnectAsync(_connectArgs))
+                if (!socket.ConnectAsync(_connectArgs))
                 {
                     OnConnectCompleted(_connectArgs);
                 }
@@ -770,7 +885,10 @@ namespace Framework.Network
 
         bool IsCurrentOperation(SocketAsyncEventArgs args)
         {
-            return !_closed && args.UserToken is int token && token == _generation;
+            lock (_sync)
+            {
+                return !_closed && args.UserToken is int token && token == _generation;
+            }
         }
 
         void EnqueueError(NetworkErrorCode errorCode, SocketError socketError, string message)

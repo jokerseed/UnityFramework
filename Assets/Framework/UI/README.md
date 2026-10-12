@@ -106,7 +106,7 @@ MainUIWindow → bundles/ui/mainuiwindow.unity3d
 | `Cached` | 移出栈并缓存 | `TryReviveCached` 快速复用 | `IsOpen` false；`IsCached` true |
 | `HideAndDelayUnload` | 先缓存；超时未再打开则 Destroy + Dispose | 超时前 `TryReviveCached`；超时后重新 Load | 等待中 `IsCached` true |
 
-`ForceDestroy<T>()` 可无视策略立即销毁（含缓存）。`Shutdown()` 销毁全部窗口与缓存。`OnCreate` 抛异常时会销毁已经实例化的对象并释放加载句柄；`InternalDestroy` 抛异常时仍然 `Destroy` 对象并 `Dispose` 句柄。
+`ForceDestroy<T>()` 可无视策略立即销毁（含缓存）。`Shutdown()` 销毁全部窗口与缓存。`OnCreate` 抛异常时会先 `InternalDestroy`（清掉已经注册的事件），再销毁已经实例化的对象并释放加载句柄。句柄不延后一帧释放，避免和下一轮加载抢引用计数。`InternalDestroy` 抛异常时仍然 `Destroy` 对象并 `Dispose` 句柄。
 
 ## Bootstrap
 

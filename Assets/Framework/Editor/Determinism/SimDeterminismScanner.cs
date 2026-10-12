@@ -119,6 +119,31 @@ namespace Framework.Editor.Determinism
             }
         }
 
+        /// <summary>
+        /// 批处理入口：<c>Unity -batchmode -executeMethod Framework.Editor.Determinism.SimDeterminismScanner.ScanBatch</c>。
+        /// 有违规时退出码为 1。
+        /// </summary>
+        public static void ScanBatch()
+        {
+            var violations = Scan();
+            if (violations.Count == 0)
+            {
+                Debug.Log("Determinism scan passed.");
+            }
+            else
+            {
+                for (var i = 0; i < violations.Count; i++)
+                {
+                    Debug.LogError(violations[i]);
+                }
+            }
+
+            if (Application.isBatchMode)
+            {
+                EditorApplication.Exit(violations.Count == 0 ? 0 : 1);
+            }
+        }
+
         /// <summary>菜单：Tools/Determinism/Scan Battle Sim。</summary>
         [MenuItem("Tools/Determinism/Scan Battle Sim")]
         public static void ScanFromMenu()

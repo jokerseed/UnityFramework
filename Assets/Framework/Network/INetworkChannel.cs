@@ -50,7 +50,10 @@ namespace Framework.Network
         /// <summary>关闭连接。</summary>
         void Close();
 
-        /// <summary>发送消息包；内部会归还 <paramref name="packet"/> 到内存池。</summary>
+        /// <summary>
+        /// 发送消息包。本方法接管 <paramref name="packet"/>，成功和失败都会归还到内存池。
+        /// 调用之后不要再使用这个包，也不要再次 <c>Send</c>。
+        /// </summary>
         /// <param name="packet">消息包，不可为 null。</param>
         void Send(NetworkPacket packet);
 

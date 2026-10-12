@@ -470,6 +470,15 @@ namespace Framework.UI
             catch (Exception ex)
             {
                 GameLog.Exception(LogCategories.UI, ex, $"Create window failed: {typeof(TWindow).Name}");
+                try
+                {
+                    window.InternalDestroy();
+                }
+                catch (Exception inner)
+                {
+                    GameLog.Exception(LogCategories.UI, inner, $"Destroy window after create failure: {typeof(TWindow).Name}");
+                }
+
                 if (instance != null)
                 {
                     Destroy(instance);
@@ -630,6 +639,7 @@ namespace Framework.UI
                     Destroy(gameObject);
                 }
 
+                // 句柄立即释放。延后一帧会和下一轮加载的引用计数抢同一份资源。
                 if (assetHandle.IsValid)
                 {
                     assetHandle.Dispose();

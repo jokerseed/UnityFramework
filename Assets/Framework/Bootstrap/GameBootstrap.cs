@@ -84,6 +84,7 @@ namespace Framework.Bootstrap
         /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public void Run(string groupName)
         {
+            GetGroup(groupName);
             StartCoroutine(RunAsync(groupName));
         }
 
@@ -164,6 +165,26 @@ namespace Framework.Bootstrap
             }
         }
 
+        List<IGameModule> CollectReadyModules(string exceptGroup)
+        {
+            var ready = new List<IGameModule>();
+            foreach (var pair in _groups)
+            {
+                if (pair.Key == exceptGroup || pair.Value.State != ModuleGroupState.Ready)
+                {
+                    continue;
+                }
+
+                var modules = pair.Value.Modules;
+                for (var i = 0; i < modules.Count; i++)
+                {
+                    ready.Add(modules[i]);
+                }
+            }
+
+            return ready;
+        }
+
         IEnumerator RunGroupInternal(ModuleGroup group, int serial)
         {
             if (group.Modules.Count == 0)
@@ -173,7 +194,7 @@ namespace Framework.Bootstrap
                 yield break;
             }
 
-            var waves = ModuleSorter.SortIntoWaves(group.Modules);
+            var waves = ModuleSorter.SortIntoWaves(group.Modules, CollectReadyModules(group.Name));
             var progress = new InitProgress();
             var totalModules = group.Modules.Count;
 

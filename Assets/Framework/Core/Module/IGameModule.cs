@@ -16,7 +16,11 @@ namespace Framework.Core
         /// <summary>获取模块的启动阶段，影响同波次内的排序。</summary>
         ModulePhase Phase { get; }
 
-        /// <summary>获取该模块直接依赖的模块类型列表；拓扑排序据此决定初始化顺序。</summary>
+        /// <summary>
+        /// 获取该模块直接依赖的模块类型列表；拓扑排序据此决定初始化顺序。
+        /// 可以写具体类型或接口。同一个依赖能匹配到多个模块时排序失败。
+        /// 其它已经 Ready 的组里的模块也算已满足。
+        /// </summary>
         IReadOnlyList<Type> Dependencies { get; }
 
         /// <summary>同步初始化；仅在 <see cref="InitMode"/> 为 <see cref="ModuleInitMode.Synchronous"/> 时由 Bootstrap 调用。</summary>
