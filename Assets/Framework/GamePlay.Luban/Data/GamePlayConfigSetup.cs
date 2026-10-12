@@ -31,6 +31,7 @@ namespace Framework.GamePlay.Data
                 throw new InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables() first.");
             }
 
+            framework.EffectCatalog ??= new LubanEffectCatalog(tables);
             var catalog = new LubanAbilityCatalog(
                 tables,
                 framework.QueryNearestEnemy,
