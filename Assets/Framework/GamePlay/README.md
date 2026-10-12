@@ -120,6 +120,8 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `InputDelayFrames` 为 0 时入队后立即出队，已有单机录像不变；大于 0 时队列里多于这个帧数才出队。联网时同一队列可改为等远端帧到齐再出队。逻辑步不受 `Time.timeScale` 影响。意图、AI、位姿查询、命令缓冲位姿与物理常量均为定点（`FP` / `TSVector`）；Actor 挤开 / 位移 / 弹道命中走 `BattlePhysicsWorld`（Farseer 2D）。表现事件与 `BattleActor.Position` 仍为 float / `Vector3`。超大数值结算不要用 Q31.32。`InputDelayFrames` 大于 0 时，Host 每个逻辑步都会推进 Agent，但录像只记下真正出队的帧，`BattleReplayVerifier` 对不上，不要用它校验这种录像。
 
+这一组修正会让旧录像和旧校验和对不上，需要重新录制，不能拿以前存下来的逐步校验和当金标：刚体按给定坐标生成，不再堆在原点；扇形夹角不再恒为 90°；第 0 帧物理快照会先收进待添加的刚体；AI 和技能任务进入校验和；实体 ID 回收后穿透名单记的是 `ActorId`。快照字节布局没有变。ECS / GAS 快照版本仍是 3。
+
 战斗中按 **F8** 会用当前录像在影子 Session 上重放。每步先 `CollectAiIntents`（结果丢弃，只为推进 Agent），再 Apply 录像里的命令，逐帧比对 `BattleFrameChecksum`。
 
 `BattleFrameChecksum` 覆盖：随机状态、Actor 生命/法力/护盾/死亡、标签计数、活跃效果与冷却剩余时间及层数、激活技能 ID 与状态、有任务时再加实例 ID 和任务进度、已绑定 Agent 的私有随机数、权威黑板（含字符串，按键排序）和行为树槽位、定点位姿与速度、击退、投射物队伍/穿透/爆炸半径/伤害类型/寿命/位置。不覆盖 Farseer 接触缓存、黑板 object 袋和表现层 float。没有激活技能实例、也没有 Agent 时，哈希输入与加入这些字段之前相同。激活实例没有任务时，仍只写技能 ID 和状态。字符串按字符序哈希，不用 `string.GetHashCode`。`BattleAgent` 未传入随机源时，用 `DeriveSeed(sessionSeed, actorValue)`，不再固定种子 1。生产里的近战杂兵走这条派生，不再共用会话随机源。
