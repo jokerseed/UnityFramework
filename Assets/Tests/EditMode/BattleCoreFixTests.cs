@@ -71,6 +71,23 @@ namespace Framework.Tests
         }
 
         [Test]
+        public void RestoreFullDropsBodiesStillWaitingToBeAdded()
+        {
+            var physics = new BattlePhysicsWorld();
+            physics.AddActorBody(1, new ActorId(1), 0, new TSVector(FP.One, FP.Zero, FP.Zero), FP.Half);
+            physics.Step(FP.EN2);
+            var snapshot = new BattlePhysicsSnapshot();
+            physics.SaveFull(snapshot);
+            physics.AddProjectileBody(2, new ActorId(1), 0, new TSVector((FP)3, FP.Zero, FP.Zero), FP.EN1);
+            physics.RestoreFull(snapshot);
+
+            Assert.AreEqual(1, physics.ManagedBodyCount);
+            Assert.AreEqual(physics.ManagedBodyCount, physics.WorldBodyCount);
+            Assert.DoesNotThrow(() => physics.Step(FP.EN2));
+            Assert.AreEqual(physics.ManagedBodyCount, physics.WorldBodyCount);
+        }
+
+        [Test]
         public void DestroyEntityRemovesBodyThroughIEcsBodyRemover()
         {
             var world = new World();

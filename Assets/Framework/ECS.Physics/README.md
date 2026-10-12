@@ -20,7 +20,7 @@
 
 `GamePlayFramework` 创建物理世界后会 `RegisterSingleton<BattlePhysicsWorld>`，并再注册成 `IEcsBodyRemover`。销毁实体时 ECS 只调这个接口。自己组 World 时也要注册，否则刚体不会跟着实体卸掉。
 
-`SaveFull` 会先 `ProcessChanges`，把还在添加列表里的刚体收进世界再克隆。`RestoreFull` 结束时再处理一次，把恢复时删掉的刚体真正移出宽相。
+`SaveFull` 会先 `ProcessChanges`，把还在添加列表里的刚体收进世界再克隆。`RestoreFull` 也先 `ProcessChanges`，再恢复、再丢掉字典里已经不在世界上的刚体。这样快照之后才生成、还没步进的投射物会被恢复逻辑删掉，而不是留在世界上却没有实体管理。
 
 ## 不负责
 
