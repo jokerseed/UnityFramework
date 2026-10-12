@@ -103,7 +103,7 @@ namespace Framework.Lockstep.Physics2D
             return CreatePolygon(world, vertices, density, TSVector2.zero, userData);
         }
 
-        public static Body CreatePolygon(World world, Vertices vertices, FP density, TSVector2 position, object userData)
+        public static Body CreatePolygon(World world, Vertices vertices, FP density, TSVector2 position, object userData = null)
         {
             Body body = CreateBody(world, position);
             FixtureFactory.AttachPolygon(vertices, density, body, userData);

@@ -88,6 +88,21 @@ namespace Framework.Tests
         }
 
         [Test]
+        public void CreatePolygonAtPositionDoesNotBoxThePositionAsUserData()
+        {
+            var world = new Framework.Lockstep.Physics2D.World(TSVector2.zero);
+            var verts = new Framework.Lockstep.Physics2D.Vertices
+            {
+                new TSVector2(FP.Zero, FP.Zero),
+                new TSVector2(FP.One, FP.Zero),
+                new TSVector2(FP.Zero, FP.One),
+            };
+            var body = Framework.Lockstep.Physics2D.BodyFactory.CreatePolygon(world, verts, FP.One, new TSVector2((FP)3, (FP)4));
+            Assert.AreEqual((FP)3, body.Position.x);
+            Assert.AreEqual((FP)4, body.Position.y);
+        }
+
+        [Test]
         public void DestroyEntityRemovesBodyThroughIEcsBodyRemover()
         {
             var world = new World();

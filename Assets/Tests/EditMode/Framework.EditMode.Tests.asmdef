@@ -11,6 +11,7 @@
         "Framework.GamePlay",
         "Framework.GamePlay.Luban",
         "Framework.Lockstep",
+        "Framework.LockstepPhysics",
         "Framework.Editor",
         "Framework.Logging",
         "Framework.Events",
