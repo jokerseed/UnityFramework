@@ -113,6 +113,13 @@ namespace Framework.Lockstep
 
         internal static AbstractLockstep instance;
 
+        readonly ResourcePoolSyncedData _dataPool = new ResourcePoolSyncedData();
+
+        readonly ResourcePoolListSyncedData _listPool = new ResourcePoolListSyncedData();
+
+        /// <summary>被拒绝的网络输入次数。畸形包、未知玩家和不完整校验和都计入。</summary>
+        public int RejectedNetworkInputs { get; private set; }
+
         private SyncedData[] _syncedDataCacheDrop = new SyncedData[1];
 
         private SyncedData[] _syncedDataCacheUpdateData = new SyncedData[1];
@@ -244,7 +251,9 @@ namespace Framework.Lockstep
             }
             else
             {
+#pragma warning disable 618
                 result = new RollbackLockstep(deltaTime, communicator, physicsManager, syncWindow, panicWindow, rollbackWindow, OnGameStarted, OnGamePaused, OnGameUnPaused, OnGameEnded, OnPlayerDisconnection, OnStepUpdate, GetLocalData, InputDataProvider);
+#pragma warning restore 618
             }
             return result;
         }
@@ -265,6 +274,7 @@ namespace Framework.Lockstep
             this.OnPlayerDisconnection = OnPlayerDisconnection;
             this.GetLocalData = GetLocalData;
             this.InputDataProvider = InputDataProvider;
+            this._dataPool.Provider = InputDataProvider;
             this.ticks = 0;
             this.players = new Dictionary<byte, TSPlayer>(4);
             this.activePlayers = new List<TSPlayer>(4);
@@ -475,7 +485,7 @@ namespace Framework.Lockstep
                 if (flag3)
                 {
                     this.RunSimulation(false);
-                    SyncedData.pool.FillStack(this.activePlayers.Count * (this.syncWindow + this.rollbackWindow));
+                    this._dataPool.FillStack(this.activePlayers.Count * (this.syncWindow + this.rollbackWindow));
                 }
                 else
                 {
@@ -666,7 +676,7 @@ namespace Framework.Lockstep
                 if (sendDataForDrop)
                 {
                     this.communicator.OpRaiseEvent(199, SyncedData.Encode(this._syncedDataCacheDrop), true, null);
-                    SyncedData.pool.GiveBack(this._syncedDataCacheDrop[0]);
+                    this._dataPool.GiveBack(this._syncedDataCacheDrop[0]);
                 }
                 j++;
             }
@@ -682,7 +692,7 @@ namespace Framework.Lockstep
             }
             else // 非加载回放模式
             {
-                SyncedData @new = SyncedData.pool.GetNew(); // 从池中获取
+                SyncedData @new = this._dataPool.GetNew(); // 从本场池中获取
                 @new.Init(this.localPlayer.ID, this.ticks);
                 this.GetLocalData(@new.inputData); // 把玩家操作数据放入SyncedData实例中
                 this.localPlayer.AddData(@new); // 把SyncedData实例放入本地玩家的操作数据字典中
@@ -733,89 +743,120 @@ namespace Framework.Lockstep
 
         private void OnEventDataReceived(byte eventCode, object content)
         {
-            bool flag = eventCode == 199;
-            if (flag) // 接收操作数据
+            if (eventCode == 199)
             {
-                byte[] data = content as byte[];
-                List<SyncedData> list = SyncedData.Decode(data); // 解码
-                bool flag2 = list.Count > 0;
-                if (flag2) // 有数据
+                List<SyncedData> list;
+                if (!SyncedData.TryDecode(content as byte[], this._dataPool, this._listPool, out list))
                 {
-                    TSPlayer tSPlayer = this.players[list[0].inputData.ownerID]; // 找到对应的玩家
-                    bool flag3 = !tSPlayer.dropped;
-                    if (flag3) // 该玩家没有掉线
-                    {
-                        this.OnSyncedDataReceived(tSPlayer, list); // 处理同步数据
-                        bool flag4 = list[0].dropPlayer && tSPlayer.ID != this.localPlayer.ID && !this.players[list[0].dropFromPlayerId].dropped;
-                        if (flag4)
-                        {
-                            tSPlayer.dropCount++; // 统计掉线玩家数量
-                        }
-                    }
-                    else // 该玩家掉线了,回收数据对象
-                    {
-                        int i = 0;
-                        int count = list.Count;
-                        while (i < count)
-                        {
-                            SyncedData.pool.GiveBack(list[i]);
-                            i++;
-                        }
-                    }
-                    SyncedData.poolList.GiveBack(list);
+                    this.RejectedNetworkInputs++;
+                    return;
                 }
-            }
-            else
-            {
-                bool flag5 = eventCode == 198;
-                if (flag5)
+
+                if (list.Count == 0)
                 {
-                    byte[] infoBytes = content as byte[];
-                    this.OnChecksumReceived(SyncedInfo.Decode(infoBytes));
+                    this._listPool.GiveBack(list);
+                    return;
+                }
+
+                byte ownerId = list[0].inputData.ownerID;
+                TSPlayer owner;
+                if (!this.players.TryGetValue(ownerId, out owner))
+                {
+                    this.ReleaseSynced(list);
+                    this.RejectedNetworkInputs++;
+                    return;
+                }
+
+                if (!owner.dropped)
+                {
+                    this.OnSyncedDataReceived(owner, list);
+                    if (list[0].dropPlayer && owner.ID != this.localPlayer.ID)
+                    {
+                        TSPlayer from;
+                        if (this.players.TryGetValue(list[0].dropFromPlayerId, out from) && !from.dropped)
+                        {
+                            if (owner.RegisterDropVote(list[0].dropFromPlayerId))
+                            {
+                                owner.dropCount++;
+                            }
+                        }
+                        else
+                        {
+                            this.RejectedNetworkInputs++;
+                        }
+                    }
                 }
                 else
                 {
-                    bool flag6 = eventCode == 197;
-                    if (flag6)
-                    {
-                        byte[] array = content as byte[];
-                        bool flag7 = array.Length != 0;
-                        if (flag7)
-                        {
-                            bool flag8 = array[0] == 0;
-                            if (flag8)
-                            {
-                                this.Pause();
-                            }
-                            else
-                            {
-                                bool flag9 = array[0] == 1;
-                                if (flag9)
-                                {
-                                    this.Run();
-                                }
-                                else
-                                {
-                                    bool flag10 = array[0] == 3;
-                                    if (flag10)
-                                    {
-                                        this.End();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        bool flag11 = eventCode == 196;
-                        if (flag11)
-                        {
-                            byte[] infoBytes2 = content as byte[];
-                            SyncedInfo syncedInfo = SyncedInfo.Decode(infoBytes2);
-                            this.players[syncedInfo.playerId].sentSyncedStart = true;
-                        }
-                    }
+                    this.ReleaseSyncedItems(list);
                 }
+
+                this._listPool.GiveBack(list);
+                return;
+            }
+
+            if (eventCode == 198)
+            {
+                SyncedInfo info;
+                if (!SyncedInfo.TryDecode(content as byte[], out info) || !this.players.ContainsKey(info.playerId))
+                {
+                    this.RejectedNetworkInputs++;
+                    return;
+                }
+
+                this.OnChecksumReceived(info);
+                return;
+            }
+
+            if (eventCode == 197)
+            {
+                byte[] array = content as byte[];
+                if (array == null || array.Length == 0)
+                {
+                    this.RejectedNetworkInputs++;
+                    return;
+                }
+
+                if (array[0] == 0)
+                {
+                    this.Pause();
+                }
+                else if (array[0] == 1)
+                {
+                    this.Run();
+                }
+                else if (array[0] == 3)
+                {
+                    this.End();
+                }
+
+                return;
+            }
+
+            if (eventCode == 196)
+            {
+                SyncedInfo syncedInfo;
+                if (!SyncedInfo.TryDecode(content as byte[], out syncedInfo) || !this.players.ContainsKey(syncedInfo.playerId))
+                {
+                    this.RejectedNetworkInputs++;
+                    return;
+                }
+
+                this.players[syncedInfo.playerId].sentSyncedStart = true;
+            }
+        }
+
+        void ReleaseSynced(List<SyncedData> list)
+        {
+            this.ReleaseSyncedItems(list);
+            this._listPool.GiveBack(list);
+        }
+
+        void ReleaseSyncedItems(List<SyncedData> list)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                this._dataPool.GiveBack(list[i]);
             }
         }
 
@@ -864,7 +905,7 @@ namespace Framework.Lockstep
         // 添加玩家
         public void AddPlayer(byte playerId, string playerName, bool isLocal)
         {
-            TSPlayer tSPlayer = new TSPlayer(playerId, playerName);
+            TSPlayer tSPlayer = new TSPlayer(playerId, playerName, this._dataPool);
             this.players.Add(tSPlayer.ID, tSPlayer);
             this.activePlayers.Add(tSPlayer);
             if (isLocal) // 本地玩家
