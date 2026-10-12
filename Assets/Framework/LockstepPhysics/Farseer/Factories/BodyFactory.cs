@@ -12,8 +12,8 @@ namespace Framework.Lockstep.Physics2D
             return body;
         }
 
-        // TS - public static Body CreateBody(World world, Vector2 position, FP rotation = 0, object userData = null)
-        public static Body CreateBody(World world, TSVector2 position, FP rotation, object userData = null)
+        // rotation 必须有默认值。否则 CreateBody(world, position) 会绑到 (World, object)，把坐标装箱成 userData，刚体落在原点。
+        public static Body CreateBody(World world, TSVector2 position, FP rotation = default(FP), object userData = null)
         {
             Body body = new Body(world, position, rotation, userData);
             return body;
