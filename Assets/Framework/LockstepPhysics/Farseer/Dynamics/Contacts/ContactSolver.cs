@@ -249,7 +249,7 @@ namespace Framework.Lockstep.Physics2D
 
                     vcp.normalMass = kNormal > (FP)(0.0f) ? (FP)(1.0f) / kNormal : (FP)(0.0f);
 
-                    TSVector2 tangent = MathUtils.Cross(vc.normal, 1.0f);
+                    TSVector2 tangent = MathUtils.Cross(vc.normal, FP.One);
 
                     FP rtA = MathUtils.Cross(vcp.rA, tangent);
                     FP rtB = MathUtils.Cross(vcp.rB, tangent);
@@ -322,7 +322,7 @@ namespace Framework.Lockstep.Physics2D
                 FP wB = _velocities[indexB].w;
 
                 TSVector2 normal = vc.normal;
-                TSVector2 tangent = MathUtils.Cross(normal, 1.0f);
+                TSVector2 tangent = MathUtils.Cross(normal, FP.One);
 
                 for (int j = 0; j < pointCount; ++j)
                 {
@@ -361,7 +361,7 @@ namespace Framework.Lockstep.Physics2D
                 FP wB = _velocities[indexB].w;
 
                 TSVector2 normal = vc.normal;
-                TSVector2 tangent = MathUtils.Cross(normal, 1.0f);
+                TSVector2 tangent = MathUtils.Cross(normal, FP.One);
                 FP friction = vc.friction;
 
                 Debug.Assert(pointCount == 1 || pointCount == 2);
