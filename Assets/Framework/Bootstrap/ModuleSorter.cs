@@ -48,8 +48,9 @@ namespace Framework.Bootstrap
             }
 
             var moduleByType = BuildModuleMap(modules);
-            var external = BuildExternalMap(alreadyAvailable, moduleByType);
-            var inDegree = BuildInDegree(modules, moduleByType, external);
+            var external = BuildExternalMap(alreadyAvailable, moduleByType, out var duplicatedExternal);
+            var resolved = BuildResolvedLocalDependencies(modules, moduleByType, external, duplicatedExternal);
+            var inDegree = BuildInDegree(modules, resolved);
 
             var ready = CollectZeroInDegree(inDegree);
             var waves = new List<IReadOnlyList<IGameModule>>();
@@ -75,7 +76,9 @@ namespace Framework.Bootstrap
                     for (var j = 0; j < modules.Count; j++)
                     {
                         var candidate = modules[j];
-                        if (!DependsOn(candidate.Dependencies, type))
+                        HashSet<Type> dependencies;
+                        if (!resolved.TryGetValue(candidate.GetType(), out dependencies) ||
+                            !dependencies.Contains(type))
                         {
                             continue;
                         }
@@ -128,9 +131,11 @@ namespace Framework.Bootstrap
 
         static Dictionary<Type, IGameModule> BuildExternalMap(
             IReadOnlyList<IGameModule> alreadyAvailable,
-            Dictionary<Type, IGameModule> local)
+            Dictionary<Type, IGameModule> local,
+            out HashSet<Type> duplicated)
         {
             var external = new Dictionary<Type, IGameModule>();
+            duplicated = new HashSet<Type>();
             if (alreadyAvailable == null)
             {
                 return external;
@@ -152,7 +157,8 @@ namespace Framework.Bootstrap
 
                 if (external.ContainsKey(type))
                 {
-                    throw new InvalidOperationException($"Duplicate module registered: {type.Name}");
+                    duplicated.Add(type);
+                    continue;
                 }
 
                 external[type] = module;
@@ -161,22 +167,37 @@ namespace Framework.Bootstrap
             return external;
         }
 
-        static Dictionary<Type, int> BuildInDegree(
+        static Dictionary<Type, HashSet<Type>> BuildResolvedLocalDependencies(
             IReadOnlyList<IGameModule> modules,
             Dictionary<Type, IGameModule> moduleByType,
-            Dictionary<Type, IGameModule> external)
+            Dictionary<Type, IGameModule> external,
+            HashSet<Type> duplicatedExternal)
         {
-            var inDegree = new Dictionary<Type, int>(modules.Count);
-            foreach (var pair in moduleByType)
-            {
-                inDegree[pair.Key] = 0;
-            }
-
+            var resolved = new Dictionary<Type, HashSet<Type>>(modules.Count);
             for (var i = 0; i < modules.Count; i++)
             {
                 var module = modules[i];
-                var dependencies = module.Dependencies;
-                inDegree[module.GetType()] = CountDependencies(module, dependencies, moduleByType, external);
+                resolved[module.GetType()] = ResolveLocalDependencySet(
+                    module,
+                    module.Dependencies,
+                    moduleByType,
+                    external,
+                    duplicatedExternal);
+            }
+
+            return resolved;
+        }
+
+        static Dictionary<Type, int> BuildInDegree(
+            IReadOnlyList<IGameModule> modules,
+            Dictionary<Type, HashSet<Type>> resolved)
+        {
+            var inDegree = new Dictionary<Type, int>(modules.Count);
+            for (var i = 0; i < modules.Count; i++)
+            {
+                var type = modules[i].GetType();
+                HashSet<Type> dependencies;
+                inDegree[type] = resolved.TryGetValue(type, out dependencies) ? dependencies.Count : 0;
             }
 
             return inDegree;
@@ -196,37 +217,19 @@ namespace Framework.Bootstrap
             return ready;
         }
 
-        static bool DependsOn(IReadOnlyList<Type> dependencies, Type completedType)
-        {
-            if (dependencies == null)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < dependencies.Count; i++)
-            {
-                var dependency = dependencies[i];
-                if (dependency == completedType || dependency.IsAssignableFrom(completedType))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        static int CountDependencies(
+        static HashSet<Type> ResolveLocalDependencySet(
             IGameModule module,
             IReadOnlyList<Type> dependencies,
             Dictionary<Type, IGameModule> moduleByType,
-            Dictionary<Type, IGameModule> external)
+            Dictionary<Type, IGameModule> external,
+            HashSet<Type> duplicatedExternal)
         {
+            var seen = new HashSet<Type>();
             if (dependencies == null)
             {
-                return 0;
+                return seen;
             }
 
-            var seen = new List<Type>(dependencies.Count);
             for (var i = 0; i < dependencies.Count; i++)
             {
                 var dependency = dependencies[i];
@@ -235,29 +238,22 @@ namespace Framework.Bootstrap
                     throw new InvalidOperationException($"Module '{module.Name}' has a null dependency.");
                 }
 
-                var resolved = ResolveDependency(module, dependency, moduleByType, external, out var satisfiedOutside);
+                var resolved = ResolveDependency(
+                    module,
+                    dependency,
+                    moduleByType,
+                    external,
+                    duplicatedExternal,
+                    out var satisfiedOutside);
                 if (satisfiedOutside)
                 {
                     continue;
                 }
 
-                var duplicate = false;
-                for (var j = 0; j < seen.Count; j++)
-                {
-                    if (seen[j] == resolved)
-                    {
-                        duplicate = true;
-                        break;
-                    }
-                }
-
-                if (!duplicate)
-                {
-                    seen.Add(resolved);
-                }
+                seen.Add(resolved);
             }
 
-            return seen.Count;
+            return seen;
         }
 
         static Type ResolveDependency(
@@ -265,6 +261,7 @@ namespace Framework.Bootstrap
             Type dependency,
             Dictionary<Type, IGameModule> moduleByType,
             Dictionary<Type, IGameModule> external,
+            HashSet<Type> duplicatedExternal,
             out bool satisfiedOutside)
         {
             if (moduleByType.ContainsKey(dependency))
@@ -275,6 +272,12 @@ namespace Framework.Bootstrap
 
             if (external != null && external.ContainsKey(dependency))
             {
+                if (duplicatedExternal != null && duplicatedExternal.Contains(dependency))
+                {
+                    throw new InvalidOperationException(
+                        $"Module '{module.Name}' depends on '{dependency.Name}', which matches 2 modules.");
+                }
+
                 satisfiedOutside = true;
                 return dependency;
             }
@@ -298,7 +301,7 @@ namespace Framework.Bootstrap
                 {
                     if (dependency.IsAssignableFrom(pair.Key))
                     {
-                        externalCount++;
+                        externalCount += duplicatedExternal != null && duplicatedExternal.Contains(pair.Key) ? 2 : 1;
                         externalMatch = pair.Key;
                     }
                 }
