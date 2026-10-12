@@ -180,12 +180,13 @@ namespace Game
                     RadiusRaw = projectile.Radius.RawValue,
                     LifetimeRaw = projectile.RemainingLifetime.RawValue,
                 };
+                // 寿命变长不再重建。回滚会把同一发投射物的剩余寿命调回去，按寿命重建会闪一下。
+                // 同一帧回收 ID 且技能、主人、半径都相同的新弹，仍可能沿用旧视图。
                 if (!_projectileViews.TryGetValue(entityId, out var view) || view == null ||
                     !_projectileStamps.TryGetValue(entityId, out var previous) ||
                     previous.AbilityId != stamp.AbilityId ||
                     previous.Owner != stamp.Owner ||
-                    previous.RadiusRaw != stamp.RadiusRaw ||
-                    stamp.LifetimeRaw > previous.LifetimeRaw)
+                    previous.RadiusRaw != stamp.RadiusRaw)
                 {
                     if (view != null)
                     {

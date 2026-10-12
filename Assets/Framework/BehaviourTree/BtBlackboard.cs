@@ -91,12 +91,19 @@ namespace Framework.BehaviourTree
             _strings[key] = value;
         }
 
-        /// <summary>写入非权威引用；不进入快照。</summary>
+        /// <summary>写入非权威引用；不进入快照。字符串会改走 <see cref="SetString"/>，并清掉同名的其它槽。</summary>
         /// <param name="key">键。</param>
-        /// <param name="value">引用；可为 null。</param>
+        /// <param name="value">引用；字符串进权威槽，其余可为 null。</param>
         public void SetObject(string key, object value)
         {
             ValidateKey(key);
+            if (value is string text)
+            {
+                SetString(key, text);
+                return;
+            }
+
+            RemoveFromOtherStores(key);
             _objects[key] = value;
         }
 

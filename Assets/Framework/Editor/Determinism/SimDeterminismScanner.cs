@@ -19,7 +19,11 @@ namespace Framework.Editor.Determinism
     /// </summary>
     public static class SimDeterminismScanner
     {
-        static readonly string[] ScanRoots =
+        /// <summary>
+        /// 相对 <c>Assets</c> 的扫描根。
+        /// 不含 <c>Framework/LockstepPhysics</c>：那里仍有不参与战斗 Tick 的 float 路径，纳入后当前扫描无法通过。
+        /// </summary>
+        public static readonly string[] ScanRoots =
         {
             "Framework/ECS",
             "Framework/ECS.Physics",

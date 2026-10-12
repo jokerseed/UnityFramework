@@ -36,10 +36,10 @@ namespace Framework.Tests
             var snapshot = tree.CaptureSnapshot(context);
             var expected = random.Next();
             random.Next();
-            board.SetObject("marker", "later");
+            board.SetObject("marker", new object());
             tree.RestoreSnapshot(snapshot, context);
             Assert.AreEqual(expected, random.Next());
-            Assert.IsFalse(board.TryGet("marker", out string _));
+            Assert.IsFalse(board.TryGet("marker", out object _));
         }
 
         [Test]
@@ -72,17 +72,31 @@ namespace Framework.Tests
             var tree = new BtTree(BtTreeBuilder.Action(_ => BtStatus.Success));
             var board = new BtBlackboard();
             board.SetString(BattleAiBlackboardKeys.AbilityId, "MobSlash");
-            board.SetObject("marker", "before");
+            board.SetObject("marker", new object());
             var agent = new BattleAgent(tree, board, sessionSeed: 4, actorValue: 9);
             var snapshot = agent.CaptureTree();
             board.SetString(BattleAiBlackboardKeys.AbilityId, "Other");
-            board.SetObject("marker", "after");
+            board.SetObject("marker", new object());
             agent.Random.Next();
             agent.RestoreTree(snapshot);
 
             Assert.IsTrue(board.TryGet(BattleAiBlackboardKeys.AbilityId, out string ability));
             Assert.AreEqual("MobSlash", ability);
-            Assert.IsFalse(board.TryGet("marker", out string _));
+            Assert.IsFalse(board.TryGet("marker", out object _));
+        }
+
+        [Test]
+        public void SetObjectRoutesStringsAndClearsTheStringSlot()
+        {
+            var board = new BtBlackboard();
+            board.SetString("k", "a");
+            board.SetObject("k", "b");
+            Assert.IsTrue(board.TryGet("k", out string text));
+            Assert.AreEqual("b", text);
+
+            board.SetObject("k", new object());
+            Assert.IsFalse(board.TryGet("k", out string _));
+            Assert.IsTrue(board.TryGet("k", out object _));
         }
 
         [Test]

@@ -23,6 +23,7 @@ using Framework.FixedMath;
 //#define USE_ACTIVE_CONTACT_SET
 //#define USE_AWAKE_BODY_SET
 //#define USE_ISLAND_SET
+// OPTIMIZE_TOI 默认关闭。打开后的分支是 float 路径，不参与战斗 Tick，而且当前也编不过。
 //#define OPTIMIZE_TOI
 //#define USE_IGNORE_CCD_CATEGORIES
 

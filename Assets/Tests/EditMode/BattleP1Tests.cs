@@ -31,9 +31,9 @@ namespace Framework.Tests
         {
             var source = new BtBlackboard();
             var target = new BtBlackboard();
-            target.SetObject("marker", "future");
+            target.SetObject("marker", new object());
             target.CopyAuthoritativeFrom(source);
-            Assert.IsFalse(target.TryGet("marker", out string _));
+            Assert.IsFalse(target.TryGet("marker", out object _));
         }
 
         static FP EvaluateMultiply(FP magnitude, int stacks)

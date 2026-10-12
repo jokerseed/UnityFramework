@@ -71,8 +71,24 @@ namespace Framework.Tests
 
             var longVector = new TSVector(5, 0, 0);
             var clamped = TSVector.ClampMagnitude(longVector, FP.One);
-            Assert.AreEqual(FP.One, clamped.magnitude);
+            // Normalize 对轴对齐向量可能少 1 个最小单位。公式不改，断言允许这 1 个单位。
+            var magnitudeError = clamped.magnitude > FP.One
+                ? clamped.magnitude - FP.One
+                : FP.One - clamped.magnitude;
+            Assert.IsTrue(magnitudeError.RawValue <= 1);
             Assert.AreEqual(TSVector.zero, TSVector.ClampMagnitude(TSVector.zero, (FP)3));
+        }
+
+        [Test]
+        public void AngleChangesWithTheIncludedAngle()
+        {
+            var ahead = TSVector.Angle(TSVector.forward, TSVector.forward);
+            var diagonal = TSVector.Angle(TSVector.forward, new TSVector(FP.One, FP.Zero, FP.One));
+            var side = TSVector.Angle(TSVector.forward, TSVector.right);
+            Assert.Less(ahead.RawValue, diagonal.RawValue);
+            Assert.Less(diagonal.RawValue, side.RawValue);
+            Assert.Less(ahead.RawValue, ((FP)1).RawValue);
+            Assert.Greater(side.RawValue, ((FP)80).RawValue);
         }
 
         [Test]

@@ -1,6 +1,6 @@
 # Framework.Core
 
-战斗框架的基础设施层，不依赖 GAS / ECS / 资源管线。提供模块启动契约、Tick 契约、快照缓冲和常驻单例。战斗标识、命令缓冲和 `BattleContext` 在 `Framework.Battle.Core`，命名空间仍是 `Framework.Core`。`SnapshotReader` 按值传递时仍共享读取位置，嵌套的 `Read*` 会推进同一条字节流。
+战斗框架的基础设施层，不依赖 GAS / ECS / 资源管线。提供模块启动契约、Tick 契约、快照缓冲和常驻单例。战斗标识、命令缓冲和 `BattleContext` 在 `Framework.Battle.Core`，命名空间仍是 `Framework.Core`。`SnapshotReader` 按值传递时仍共享读取位置，嵌套的 `Read*` 会推进同一条字节流。`BeginRead` 复用缓冲上的同一个偏移，同一缓冲同时只应有一个读取器。`default(SnapshotReader)` 的剩余长度是 0，读取会抛异常。
 
 ## 程序集
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Snapshot;
@@ -353,6 +354,34 @@ namespace Framework.Tests
 
                 return hash;
             }
+        }
+
+        [Test]
+        public void DefaultReaderHasNoBytesAndRejectsReads()
+        {
+            var reader = default(SnapshotReader);
+            Assert.AreEqual(0, reader.Remaining);
+            Assert.Throws<InvalidOperationException>(() => reader.ReadInt());
+        }
+
+        [Test]
+        public void BeginReadRestartsAndOversizedStringLengthThrows()
+        {
+            var buffer = new SnapshotBuffer();
+            var writer = buffer.BeginWrite();
+            writer.WriteString("ab");
+            var first = buffer.BeginRead();
+            Assert.AreEqual("ab", first.ReadString());
+            var second = buffer.BeginRead();
+            Assert.AreEqual("ab", second.ReadString());
+
+            var bytes = new byte[8];
+            bytes[0] = 0xFF;
+            bytes[1] = 0xFF;
+            bytes[2] = 0xFF;
+            bytes[3] = 0x7F;
+            var crafted = new SnapshotReader(bytes, bytes.Length);
+            Assert.Throws<InvalidOperationException>(() => crafted.ReadString());
         }
     }
 }

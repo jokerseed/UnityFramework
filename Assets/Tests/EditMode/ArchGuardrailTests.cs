@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Framework.BehaviourTree;
 using Framework.Core;
@@ -85,7 +86,7 @@ namespace Framework.Tests
             {
                 var text = File.ReadAllText(file);
                 var name = Regex.Match(text, "\"name\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
-                if (!name.StartsWith("Framework.", System.StringComparison.Ordinal))
+                if (!name.StartsWith("Framework.", System.StringComparison.Ordinal) && name != "Game")
                 {
                     continue;
                 }
@@ -100,9 +101,12 @@ namespace Framework.Tests
                 graph[name] = refs;
             }
 
+            Assert.IsTrue(graph.ContainsKey("Game"));
             Assert.IsFalse(graph["Framework.Core"].Contains("Framework.Events"));
             Assert.IsFalse(graph["Framework.GamePlay"].Contains("Generated.Luban"));
+            Assert.IsTrue(graph["Framework.GamePlay.Luban"].Contains("Luban.Runtime"));
             Assert.IsTrue(graph["Framework.ECS.Physics"].Contains("Framework.LockstepPhysics"));
+            // GUID 形式的引用（例如 Generated.Luban → Luban.Runtime）不解析成程序集名，环检测只覆盖按名字写出的引用。
             AssertNoCycle(graph);
             foreach (var pair in graph)
             {
@@ -149,6 +153,31 @@ namespace Framework.Tests
             state[name] = 2;
         }
 
+        [Test]
+        public void ScannerRootsCoverSplitSimAssemblies()
+        {
+            var roots = new List<string>(SimDeterminismScanner.ScanRoots);
+            string[] required =
+            {
+                "Framework/ECS",
+                "Framework/ECS.Physics",
+                "Framework/GAS",
+                "Framework/FixedMath",
+                "Framework/GamePlay",
+                "Framework/GamePlay.Luban",
+                "Framework/BehaviourTree",
+                "Framework/Core",
+                "Framework/Battle.Core",
+                "Framework/Lockstep",
+            };
+            for (var i = 0; i < required.Length; i++)
+            {
+                Assert.IsTrue(roots.Contains(required[i]), required[i]);
+            }
+
+            Assert.IsFalse(roots.Contains("Framework/LockstepPhysics"));
+        }
+
         static string FindAssetsFolder()
         {
             try
@@ -164,19 +193,28 @@ namespace Framework.Tests
                 // 近似编译里的 Unity 桩可能没有 dataPath。
             }
 
-            var current = Directory.GetCurrentDirectory();
-            for (var i = 0; i < 6 && !string.IsNullOrEmpty(current); i++)
+            var starts = new List<string>
             {
-                var candidate = Path.Combine(current, "Assets");
-                if (Directory.Exists(candidate))
+                Directory.GetCurrentDirectory(),
+                Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+            };
+            for (var s = 0; s < starts.Count; s++)
+            {
+                var current = starts[s];
+                for (var i = 0; i < 8 && !string.IsNullOrEmpty(current); i++)
                 {
-                    return candidate;
-                }
+                    var candidate = Path.Combine(current, "Assets");
+                    if (File.Exists(Path.Combine(candidate, "Framework", "Core", "Framework.Core.asmdef")))
+                    {
+                        return candidate;
+                    }
 
-                current = Path.GetDirectoryName(current);
+                    current = Path.GetDirectoryName(current);
+                }
             }
 
-            return "/workspace/Assets";
+            Assert.Inconclusive("找不到含 Framework.Core.asmdef 的 Assets 目录。");
+            return null;
         }
     }
 }

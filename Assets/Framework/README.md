@@ -72,9 +72,9 @@
 | `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
 | `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
 | `Framework.ECS` | World、System、空间哈希。销毁实体时只调用 `IEcsBodyRemover` | [ECS/README.md](ECS/README.md) |
-| `Framework.ECS.Physics` | `BattlePhysicsWorld` 与 Farseer 步进 | [ECS/README.md](ECS/README.md) |
+| `Framework.ECS.Physics` | `BattlePhysicsWorld` 与 Farseer 步进 | [ECS.Physics/README.md](ECS.Physics/README.md) |
 | `Framework.GamePlay` | `GamePlayFramework` 玩法主入口。不引用 Luban | [GamePlay/README.md](GamePlay/README.md) |
-| `Framework.GamePlay.Luban` | Luban 表到技能/效果目录的适配，类型仍在 `Framework.GamePlay.Data` | [GamePlay/README.md](GamePlay/README.md) |
+| `Framework.GamePlay.Luban` | Luban 表到技能/效果目录的适配，类型仍在 `Framework.GamePlay.Data` | [GamePlay.Luban/README.md](GamePlay.Luban/README.md) |
 | `Framework.Config` | Luban 加载与 Tables 缓存 | [Config/README.md](Config/README.md) |
 | `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
 | `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |

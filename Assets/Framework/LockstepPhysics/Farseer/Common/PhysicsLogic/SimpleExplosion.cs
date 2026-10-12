@@ -81,6 +81,8 @@ namespace Framework.Lockstep.Physics2D
         private FP GetPercent(FP distance, FP radius)
         {
             //(1-(distance/radius))^power-1
+            // 不在战斗 Tick 上。BattlePhysicsWorld 不调用 SimpleExplosion。
+            // Math.Pow 走 float；真要进模拟前要换成定点幂。
             // TODO - PORT
             // FP percent = (FP)Math.Pow(1 - ((distance - radius) / radius), Power) - 1;
             FP percent = (FP)Math.Pow((1 - ((distance - radius) / radius)).AsFloat(), Power.AsFloat()) - 1;

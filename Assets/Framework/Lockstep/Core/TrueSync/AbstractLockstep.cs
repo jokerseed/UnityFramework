@@ -674,6 +674,11 @@ namespace Framework.Lockstep
 
                         list.Add(tSPlayer);
                     }
+                    else
+                    {
+                        tSPlayer.ClearDropVotes();
+                    }
+
                     i++;
                 }
             }
