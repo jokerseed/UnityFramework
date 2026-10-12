@@ -70,6 +70,15 @@ namespace Framework.Editor.YooAsset
                 return;
             }
 
+            if (!EditorUtility.DisplayDialog(
+                "YooAsset Collector",
+                "将清空现有 Collector 配置，并按 Bundles 目录重新生成。手工调整的规则会丢失。",
+                "生成",
+                "取消"))
+            {
+                return;
+            }
+
             BundleCollectorSettingData.ClearAll();
             BundleCollectorSettingData.ModifyUniqueBundleName(false);
             BundleCollectorSettingData.ModifyShowPackageView(true);

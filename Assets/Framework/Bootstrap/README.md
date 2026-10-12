@@ -74,7 +74,9 @@ var manager = ResourceManager.Instance;
 ## 并发规则
 
 - 组内按依赖波次串行；同波次且 `AllowConcurrentInitialization = true` 可并发
-- **组与组之间**互不影响，可先后或分别 `Run`
+- 依赖可以是具体类型或接口。同一个依赖匹配到多个模块时直接失败，不会随便挑一个
+- 已经 `Ready` 的其它组可以满足当前组的依赖。还没就绪的组不算
+- **组与组之间**互不影响，可先后或分别 `Run`。`Run` 在启动协程之前就检查组名，找不到组会立刻抛 `KeyNotFoundException`
 
 ## 生命周期
 

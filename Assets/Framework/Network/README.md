@@ -73,7 +73,7 @@ NetworkManager.Instance.DestroyChannel("Game");
 | 事件 | 时机 |
 |------|------|
 | `NetworkConnectedEvent` | 连接成功 |
-| `NetworkClosedEvent` | 主动关闭或对端断开 |
+| `NetworkClosedEvent` | 主动关闭、对端断开，或收发错误把连接关掉。同一次断线只发一次 |
 | `NetworkErrorEvent` | 连接/收发/解析失败 |
 | `NetworkMissHeartBeatEvent` | 心跳间隔内未收到任何包 |
 
@@ -81,7 +81,7 @@ NetworkManager.Instance.DestroyChannel("Game");
 
 重连会递增连接代号。旧 socket 的完成回调如果晚到，会被丢掉，并且要等上一笔 Connect/Receive/Send 结束后才复用 `SocketAsyncEventArgs`。`SendAsync` 只写出一部分时会从剩余偏移继续发，整包发完才增加 `SentPacketCount`。同一消息号再次 `RegisterHandler` 会覆盖并打警告。
 
-IO 线程和主线程仍然会同时碰到 `_socket`、接收偏移这些字段。连接状态还没有收成一把锁。内存池的取还已经按类型加锁，但完成回调里仍然不要 `Acquire`。
+套接字、接收偏移、发送中标记和连接状态收在频道自己的锁里。完成回调如果已经过期（代数对不上，或连接已关）就丢掉。同一次断线只投递一次 `Closed`。`Close` 会把心跳丢失次数和收发计数清零。内存池的取还已经按类型加锁，但完成回调里仍然不要 `Acquire`。
 
 ## Bootstrap
 
