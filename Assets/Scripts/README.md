@@ -90,7 +90,7 @@ Launch 场景
 
 ### `MainUIWindow`
 
-`MainUIWindow` 是 Launch 阶段展示的首页窗口，资源地址来自 `ResourceAddresses.MainPrefab`。它当前只做一件事：
+`MainUIWindow` 是 Launch 阶段展示的首页窗口，资源地址来自 `GameAddresses.MainPrefab`。它当前只做一件事：
 
 - 点击“进入游戏”按钮后关闭自己，然后调用 `GameSceneFlow.Instance.EnterBattle()`。
 

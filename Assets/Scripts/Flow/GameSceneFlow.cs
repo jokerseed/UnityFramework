@@ -107,7 +107,7 @@ namespace Game
 
                 CurrentBattleFlow = new BattleFlow();
                 GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
-                await ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene, this.GetCancellationTokenOnDestroy());
+                await ResourceManager.Instance.LoadMainSceneAsync(GameAddresses.BattleScene, this.GetCancellationTokenOnDestroy());
                 GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
             }
             catch (Exception ex)

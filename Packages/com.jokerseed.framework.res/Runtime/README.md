@@ -90,7 +90,7 @@ Enqueue → Pending（同 location + Type 挂到已有组）
 var res = ResourceManager.Instance;
 
 // 同步（旁路调度）
-using var handle = res.LoadAssetSync<GameObject>(ResourceAddresses.MainPrefab);
+using var handle = res.LoadAssetSync<GameObject>("bundles/prefabs/ui/main.unity3d");
 
 // 异步（UniTask，内部入队）；ct 取消时撤销排队请求、释放已完成的句柄并抛 OperationCanceledException
 var ct = this.GetCancellationTokenOnDestroy();
@@ -107,7 +107,7 @@ var instance = await res.InstantiateAsync(prefab, parent, priority: 10, cancella
 res.RequestUnloadUnusedAssets();
 
 // 主场景（Single：自动 Dispose 旧主场景 + 全部 Additive 句柄）
-await res.LoadMainSceneAsync(ResourceAddresses.BattleScene, ct);
+await res.LoadMainSceneAsync(ResourceAddresses.Scene("Battle"), ct);
 
 // Additive 子场景（天气 / 房间等）
 var weather = await res.LoadAdditiveSceneAsync(ResourceAddresses.Scene("Weather"), ct);
@@ -123,7 +123,7 @@ var main = res.CurrentMainScene;
 using var battle = ResourceScope.Create("Battle");
 
 // 同步 / 异步加载会自动登记句柄
-var heroPrefab = battle.LoadSync<GameObject>(ResourceAddresses.MaleSword01Prefab);
+var heroPrefab = battle.LoadSync<GameObject>(heroLocation);
 var clip = await battle.LoadAsync<AudioClip>(location, cancellationToken: ct);
 
 var instance = heroPrefab.InstantiateSync(); // Instance 由业务 / Pool 管理

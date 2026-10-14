@@ -158,7 +158,10 @@ namespace Framework.Res
             }
         }
 
-        /// <summary>同步加载指定寻址的资源，返回封装句柄。</summary>
+        /// <summary>
+        /// 同步加载指定寻址的资源，返回封装句柄。
+        /// WebGL / 小游戏只能同步读取已下载并加载的 Bundle；其余情况请用 <see cref="LoadAssetAsync{T}"/> 或先异步预热。
+        /// </summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串，建议通过 <see cref="ResourceAddresses"/> 生成。</param>
         /// <returns>资源句柄；使用完毕须调用 <see cref="ResourceAssetHandle.Dispose"/> 或通过 using 释放。</returns>
@@ -166,8 +169,16 @@ namespace Framework.Res
         public ResourceAssetHandle LoadAssetSync<T>(string location) where T : UnityEngine.Object
         {
             EnsureInitialized();
-            var handle = _package.LoadAssetSync<T>(location);
-            return new ResourceAssetHandle(handle);
+            var handle = new ResourceAssetHandle(_package.LoadAssetSync<T>(location));
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!handle.Succeeded)
+            {
+                GameLog.Error(
+                    LogCategories.Resource,
+                    $"LoadAssetSync failed on WebGL: {LogStyle.Value(location)} error={handle.Error}. WebGL 不能同步下载 Bundle，请改用 LoadAssetAsync 或先预热（配置表见 ConfigManager.PreloadTableAssetsAsync）。");
+            }
+#endif
+            return handle;
         }
 
         /// <summary>

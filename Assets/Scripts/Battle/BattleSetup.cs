@@ -68,14 +68,14 @@ namespace Game
             var scope = ResourceScope.Create($"BattleViews_{session.SessionId}");
             session.AttachResource(scope);
 
-            var heroHandle = await scope.LoadAsync<GameObject>(ResourceAddresses.MaleSword01Prefab, 10, cancellationToken);
+            var heroHandle = await scope.LoadAsync<GameObject>(GameAddresses.MaleSword01Prefab, 10, cancellationToken);
             if (!heroHandle.IsValid || !heroHandle.Succeeded)
             {
                 GameLog.Error(LogCategories.GamePlay, $"Load model failed: {LogStyle.Name("Hero")} error={heroHandle.Error}");
                 return;
             }
 
-            var monsterHandle = await scope.LoadAsync<GameObject>(ResourceAddresses.AxeKnightPrefab, 10, cancellationToken);
+            var monsterHandle = await scope.LoadAsync<GameObject>(GameAddresses.AxeKnightPrefab, 10, cancellationToken);
             if (!monsterHandle.IsValid || !monsterHandle.Succeeded)
             {
                 GameLog.Error(LogCategories.GamePlay, $"Load model failed: {LogStyle.Name("Monster")} error={monsterHandle.Error}");

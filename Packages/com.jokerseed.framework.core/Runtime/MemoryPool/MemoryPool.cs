@@ -35,7 +35,10 @@ namespace Framework.MemoryPool
             return GetOrCreate(typeof(T)).Acquire<T>();
         }
 
-        /// <summary>从池中获取指定类型对象。</summary>
+        /// <summary>
+        /// 从池中获取指定类型对象；池空时用反射创建。
+        /// IL2CPP 裁剪：只经本重载创建的类型，其无参构造须用 <c>[UnityEngine.Scripting.Preserve]</c> 或 link.xml 保留；优先用 <see cref="Acquire{T}"/>。
+        /// </summary>
         /// <param name="memoryType">目标类型，必须实现 <see cref="IMemory"/> 且不可为 null。</param>
         /// <returns>可复用的内存对象实例。</returns>
         /// <exception cref="ArgumentNullException"><paramref name="memoryType"/> 为 null。</exception>

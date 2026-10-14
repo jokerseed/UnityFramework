@@ -38,14 +38,14 @@ using Framework.Res;
 using Framework.UI;
 using UnityEngine.UI;
 
-[UIWindow(UILayer.UI, fullScreen: true, location: ResourceAddresses.MainPrefab)]
+[UIWindow(UILayer.UI, fullScreen: true, location: "bundles/prefabs/ui/main.unity3d")]
 public sealed class SettingsUIWindow : UIWindow { }
 
 // 主界面：关后隐藏 60s，期间再开直接复用；超时自动卸资源
 [UIWindow(
     UILayer.UI,
     fullScreen: true,
-    location: ResourceAddresses.MainPrefab,
+    location: "bundles/prefabs/ui/main.unity3d",
     releasePolicy: UIReleasePolicy.HideAndDelayUnload,
     delayUnloadSeconds: 60f)]
 public sealed class MainUIWindow : UIWindow
