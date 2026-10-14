@@ -31,11 +31,6 @@ namespace Framework.ECS
         /// <summary>创建无重力的 2D 物理世界。</summary>
         public BattlePhysicsWorld()
         {
-            if (ContactManager.physicsManager == null)
-            {
-                ContactManager.physicsManager = new NullPhysicsManager();
-            }
-
             _world = new PhysicsWorld(TSVector2.zero);
             _world.ContactManager.ContactFilter = FilterContact;
         }

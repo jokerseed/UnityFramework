@@ -86,8 +86,6 @@ namespace Framework.Lockstep.Physics2D
     /// </summary>
     public class Fixture : IDisposable
     {
-        [ThreadStatic]
-        internal static int _fixtureIdCounter;
         private bool _isSensor;
         private FP _friction;
         private FP _restitution;
@@ -125,10 +123,17 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public OnSeparationEventHandler OnSeparation;
 
+        /// <summary>挂到 Body 的 Fixture 从所属世界取 ID。</summary>
+        internal Fixture(Body body)
+            : this()
+        {
+            Body = body;
+            FixtureId = body._world._fixtureIdCounter++;
+        }
+
+        /// <summary>不属于任何世界的模板（反序列化原型），不占用世界 ID；须经 <see cref="CloneOnto"/> 挂到 Body 后使用。</summary>
         internal Fixture()
         {
-            FixtureId = _fixtureIdCounter++;
-
             _collisionCategories = Settings.DefaultFixtureCollisionCategories;
             _collidesWith = Settings.DefaultFixtureCollidesWith;
             _collisionGroup = 0;
@@ -142,14 +147,13 @@ namespace Framework.Lockstep.Physics2D
         }
 
         internal Fixture(Body body, Shape shape, object userData = null)
-            : this()
+            : this(body)
         {
 #if DEBUG
             if (shape.ShapeType == ShapeType.Polygon)
                 ((PolygonShape)shape).Vertices.AttachedToBody = true;
 #endif
 
-            Body = body;
             UserData = userData;
             Shape = shape.Clone();
 
@@ -591,8 +595,7 @@ namespace Framework.Lockstep.Physics2D
         /// <returns>The cloned fixture.</returns>
         public Fixture CloneOnto(Body body)
         {
-            Fixture fixture = new Fixture();
-            fixture.Body = body;
+            Fixture fixture = new Fixture(body);
             fixture.Shape = Shape.Clone();
             fixture.UserData = UserData;
             fixture.Restitution = Restitution;

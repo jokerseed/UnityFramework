@@ -56,8 +56,6 @@ namespace Framework.Lockstep.Physics2D
 
     public class Body : IDisposable, IBody2D
     {
-        [ThreadStatic]
-        internal static int _bodyIdCounter;
 
         internal BodySpecialSensor _specialSensor = BodySpecialSensor.None;
         public int SpecialSensorMask = -1;
@@ -116,7 +114,7 @@ namespace Framework.Lockstep.Physics2D
         {
             FixtureList = new List<Fixture>();
             bodyConstraints = new List<IBodyConstraint>();
-            BodyId = _bodyIdCounter++;
+            BodyId = world._bodyIdCounter++;
             _world = world;
 
             UserData = userdata;

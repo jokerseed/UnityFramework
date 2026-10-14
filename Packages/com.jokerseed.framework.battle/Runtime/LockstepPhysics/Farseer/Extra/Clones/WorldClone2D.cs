@@ -151,8 +151,8 @@ namespace Framework.Lockstep.Physics2D {
 
             this._worldHasNewFixture = world._worldHasNewFixture;
 
-            bodyCounter = Physics2D.Body._bodyIdCounter;
-            fixtureCounter = Physics2D.Fixture._fixtureIdCounter;
+            bodyCounter = world._bodyIdCounter;
+            fixtureCounter = world._fixtureIdCounter;
         }
 
         public void Restore(IWorld iWorld) {
@@ -266,8 +266,8 @@ namespace Framework.Lockstep.Physics2D {
 
             world._worldHasNewFixture = this._worldHasNewFixture;
 
-            Body._bodyIdCounter = bodyCounter;
-            Fixture._fixtureIdCounter = fixtureCounter;
+            world._bodyIdCounter = bodyCounter;
+            world._fixtureIdCounter = fixtureCounter;
         }
 
     }

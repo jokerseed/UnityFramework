@@ -143,7 +143,7 @@ namespace Framework.Lockstep.Physics2D {
             body.disabled = this.disabled;
 
             if (lastDisabled && !body.disabled) {
-                Physics2D.ContactManager.physicsManager?.OnBodyRestoredEnabled(body);
+                body._world.ContactManager.PhysicsManager.OnBodyRestoredEnabled(body);
             }
 
             body.GravityScale = this.GravityScale;

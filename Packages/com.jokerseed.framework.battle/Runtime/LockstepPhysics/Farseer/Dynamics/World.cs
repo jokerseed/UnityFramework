@@ -59,6 +59,11 @@ namespace Framework.Lockstep.Physics2D
         internal Queue<Contact> _contactPool = new Queue<Contact>(256);
         internal bool _worldHasNewFixture;
 
+        /// <summary>本世界内下一个 Body / Fixture 的 ID；按世界独立计数，同进程多世界或回放互不干扰。</summary>
+        internal int _bodyIdCounter;
+
+        internal int _fixtureIdCounter;
+
         /// <summary>
         /// Fires whenever a body has been added
         /// </summary>

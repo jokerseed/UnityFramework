@@ -79,7 +79,8 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public PreSolveDelegate PreSolve;
 
-        public static IPhysicsManager physicsManager;
+        /// <summary>碰撞层与启用判定；每个世界一份，默认 <see cref="Framework.Lockstep.NullPhysicsManager"/>。</summary>
+        public IPhysicsManager PhysicsManager = new NullPhysicsManager();
 
         internal ContactManager(IBroadPhase broadPhase)
         {
@@ -399,6 +400,7 @@ namespace Framework.Lockstep.Physics2D
         public static bool CheckCollisionConditions(Fixture fixtureA, Fixture fixtureB) {
             Body body1 = fixtureA.Body;
             Body body2 = fixtureB.Body;
+            IPhysicsManager physicsManager = body1._world.ContactManager.PhysicsManager;
 
             if (body1.disabled || body2.disabled || !physicsManager.IsCollisionEnabled(body1, body2)) {
                 return false;
