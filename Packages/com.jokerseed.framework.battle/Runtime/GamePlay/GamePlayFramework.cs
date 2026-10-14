@@ -13,7 +13,6 @@ using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
 using Framework.GamePlay.Data;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -174,27 +173,27 @@ namespace Framework.GamePlay
         /// 创建一个战斗 Actor，同时初始化其 GAS 属性并在 ECS 世界中注册对应实体。
         /// </summary>
         /// <param name="actorId">Actor 的唯一 ID；同一 ID 不可重复创建。</param>
-        /// <param name="position">Actor 的初始世界坐标。</param>
-        /// <param name="maxHealth">最大生命值，默认 100。</param>
+        /// <param name="position">Actor 的初始仿真坐标。Unity 侧传 <c>Vector3</c> 请用 <c>Framework.GamePlay.Unity</c> 的扩展重载。</param>
+        /// <param name="maxHealth">最大生命值。</param>
         /// <param name="teamId">所属队伍编号，默认 0。</param>
         /// <returns>已初始化的 <see cref="AbilitySystemComponent"/>；可用于注册技能或读取属性。</returns>
         public AbilitySystemComponent CreateActor(
             ActorId actorId,
-            Vector3 position,
-            float maxHealth = 100f,
+            TSVector position,
+            FP maxHealth,
             int teamId = 0)
         {
             var asc = new AbilitySystemComponent(actorId);
-            asc.InitializeCombatAttributes((FP)maxHealth, BattleConstants.DefaultMaxMana);
+            asc.InitializeCombatAttributes(maxHealth, BattleConstants.DefaultMaxMana);
             asc.Attributes.GetOrCreate(BattleConstants.Attack, (FP)(10f));
             asc.Attributes.GetOrCreate(BattleConstants.Defense, (FP)(0f));
             asc.CaptureSpawnBases();
-            asc.CueSimPosition = FPConversions.ToFP(position);
+            asc.CueSimPosition = position;
             asc.CueSimDirection = TSVector.forward;
             asc.CueManager = _cueManager;
             asc.Random = _battleContext.Random;
 
-            _registry.Create(actorId, FPConversions.ToFP(position), (FP)maxHealth, teamId, asc);
+            _registry.Create(actorId, position, maxHealth, teamId, asc);
             return asc;
         }
 

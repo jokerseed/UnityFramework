@@ -3,7 +3,6 @@ using Framework.Core;
 using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -13,41 +12,46 @@ namespace Framework.GamePlay
         /// <summary>近战追击树资源 id（对应 <c>Assets/Bundles/BehaviourTrees/MeleeChaser.bt.json</c>）。</summary>
         public const string MeleeChaserTreeId = "MeleeChaser";
 
-        const float DefaultMoveSpeed = 2.2f;
-        const float DefaultMeleeRange = 2f;
+        /// <summary>近战追击的默认移动速度。</summary>
+        public static readonly FP DefaultMoveSpeed = FP.FromFloat(2.2f);
+
+        /// <summary>近战追击的默认近战距离。</summary>
+        public static readonly FP DefaultMeleeRange = FP.FromFloat(2f);
+
         static readonly FP ArriveSlotRange = (FP)0.28f;
         static readonly FP ArriveSlotRangeSqr = ArriveSlotRange * ArriveSlotRange;
 
         /// <summary>
-        /// 从热更资源加载近战追击树拓扑（参数请用 <see cref="ApplyMeleeChaserBlackboard"/> 写入 Agent 黑板）。
+        /// 用已解析好的近战追击树模板创建 Agent（参数写入独立黑板）。
+        /// 模拟层不加载资源；Unity 侧按资源 id 加载模板见 <c>Framework.GamePlay.Unity</c> 的 <c>BattleAiAssets</c>。
         /// </summary>
-        /// <returns>独立 Runtime 的行为树实例。</returns>
-        public static Framework.BehaviourTree.BehaviourTree CreateMeleeChaser()
-        {
-            BattleAiNodeRegistry.EnsureRegistered();
-            return BtTreeResource.LoadTree(MeleeChaserTreeId);
-        }
-
-        /// <summary>创建近战追击 Agent（资源树 + 独立黑板）。</summary>
+        /// <param name="template">近战追击树模板；不可为 null。</param>
         /// <param name="abilityId">技能 ID。</param>
         /// <param name="targetId">追击目标。</param>
-        /// <param name="meleeRange">近战距离；默认 2。</param>
+        /// <param name="meleeRange">近战距离；为 null 时取 <see cref="DefaultMeleeRange"/>。</param>
         /// <param name="random">确定性随机源；为 null 时按会话种子和 Agent 的 Actor 派生，不再固定为 1。</param>
         /// <param name="agentId">该 Agent 所属 Actor；只在 <paramref name="random"/> 为 null 时参与派生。</param>
         /// <param name="sessionSeed">会话种子；只在 <paramref name="random"/> 为 null 时参与派生。</param>
         /// <returns>可交给 <see cref="GamePlayFramework.SetBattleAgent"/> 的 Agent。</returns>
+        /// <exception cref="System.ArgumentNullException"><paramref name="template"/> 为 null。</exception>
         public static BattleAgent CreateMeleeChaserAgent(
+            BtTreeTemplate template,
             string abilityId,
             ActorId targetId,
-            float meleeRange = DefaultMeleeRange,
+            FP? meleeRange = null,
             TSRandom random = null,
             ActorId agentId = default,
             int sessionSeed = 1)
         {
+            if (template == null)
+            {
+                throw new System.ArgumentNullException(nameof(template));
+            }
+
             BattleAiNodeRegistry.EnsureRegistered();
-            var tree = BtTreeResource.LoadTree(MeleeChaserTreeId);
+            var tree = new Framework.BehaviourTree.BehaviourTree(template);
             var board = new BtBlackboard();
-            ApplyMeleeChaserBlackboard(board, abilityId, targetId, meleeRange);
+            ApplyMeleeChaserBlackboard(board, abilityId, targetId, meleeRange ?? DefaultMeleeRange);
             return new BattleAgent(
                 tree,
                 board,
@@ -66,7 +70,7 @@ namespace Framework.GamePlay
             BtBlackboard board,
             string abilityId,
             ActorId targetId,
-            float meleeRange = DefaultMeleeRange)
+            FP meleeRange)
         {
             if (board == null)
             {
@@ -83,8 +87,8 @@ namespace Framework.GamePlay
                 board.SetString(BattleAiBlackboardKeys.AbilityId, abilityId);
             }
 
-            board.Set(BattleAiBlackboardKeys.MeleeRange, FP.FromFloat(meleeRange));
-            board.Set(BattleAiBlackboardKeys.MoveSpeed, FP.FromFloat(DefaultMoveSpeed));
+            board.Set(BattleAiBlackboardKeys.MeleeRange, meleeRange);
+            board.Set(BattleAiBlackboardKeys.MoveSpeed, DefaultMoveSpeed);
         }
 
         /// <summary>条件：持有指定 Tag（支持层级前缀匹配）。</summary>
@@ -103,11 +107,11 @@ namespace Framework.GamePlay
         /// <param name="targetId">目标 Actor。</param>
         /// <param name="range">距离。</param>
         /// <returns>条件节点。</returns>
-        public static BtCondition InRange(ActorId targetId, float range) =>
+        public static BtCondition InRange(ActorId targetId, FP range) =>
             BtTreeBuilder.Condition(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
-                var rangeFp = (FP)range;
+                var rangeFp = range;
                 if (owner.Framework == null ||
                     !owner.Framework.Registry.TryGet(owner.ActorId, out var self) ||
                     !owner.Framework.Registry.TryGet(targetId, out var target))
@@ -144,12 +148,12 @@ namespace Framework.GamePlay
         /// <param name="speed">速度。</param>
         /// <param name="stopRange">无槽位时的停下距离。</param>
         /// <returns>动作节点。</returns>
-        public static BtAction MoveTo(ActorId targetId, float speed, float stopRange) =>
+        public static BtAction MoveTo(ActorId targetId, FP speed, FP stopRange) =>
             BtTreeBuilder.Action(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
-                var speedFp = (FP)speed;
-                var arrive = (FP)stopRange;
+                var speedFp = speed;
+                var arrive = stopRange;
                 if (owner.Framework == null ||
                     !owner.Framework.Registry.TryGet(owner.ActorId, out var self) ||
                     !owner.Framework.Registry.TryGet(targetId, out var target))

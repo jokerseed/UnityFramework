@@ -111,20 +111,6 @@ namespace Framework.GamePlay
             }
         }
 
-        /// <summary>从热更资源加载并替换当前树。</summary>
-        /// <param name="treeId">树 id（与 Bundles 中资产名一致）。</param>
-        /// <param name="clearBlackboard">是否清空黑板。</param>
-        /// <param name="customRegistry">自定义节点注册表；可为 null。</param>
-        /// <param name="subtrees">子树解析；可为 null。</param>
-        public void ReplaceFromResource(
-            string treeId,
-            bool clearBlackboard = false,
-            IBtNodeRegistry customRegistry = null,
-            IBtSubtreeResolver subtrees = null)
-        {
-            var tree = BtTreeResource.LoadTree(treeId, customRegistry, subtrees);
-            ReplaceTree(tree, clearBlackboard);
-        }
     }
 
     /// <summary>行为树自定义节点使用的宿主包装。</summary>

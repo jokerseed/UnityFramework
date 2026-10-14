@@ -8,7 +8,6 @@ using Framework.FixedMath;
 using Framework.GAS;
 using Framework.GAS.Snapshot;
 using Framework.Lockstep;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -46,7 +45,7 @@ namespace Framework.GamePlay
             {
                 var id = _session.AllocateActorId();
                 _actors[i] = id;
-                var asc = _session.Framework.CreateActor(id, new Vector3(i * 4f, 0f, 0f), 100f, teamId: i);
+                var asc = _session.Framework.CreateActor(id, new TSVector((FP)(i * 4f), FP.Zero, FP.Zero), (FP)100f, teamId: i);
                 _components.Add(asc);
             }
 

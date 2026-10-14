@@ -3,7 +3,6 @@ using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Abilities.Builtin;
 using Framework.GAS.Targeting;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -46,8 +45,8 @@ namespace Framework.GamePlay
                 var framework = session.Framework;
                 var hero = session.AllocateActorId();
                 var enemy = session.AllocateActorId();
-                framework.CreateActor(hero, new Vector3(0f, 0f, 0f), 120f, teamId: 0);
-                framework.CreateActor(enemy, new Vector3(1.6f, 0f, 0f), 80f, teamId: 1);
+                framework.CreateActor(hero, TSVector.zero, (FP)120f, teamId: 0);
+                framework.CreateActor(enemy, new TSVector((FP)1.6f, FP.Zero, FP.Zero), (FP)80f, teamId: 1);
                 framework.GiveAbility(
                     hero,
                     new GameplayAbilityDef(new ProjectileAbility(

@@ -2,7 +2,6 @@
     "name": "Framework.GamePlay",
     "rootNamespace": "Framework.GamePlay",
     "references": [
-        "Framework.Core",
         "Framework.Battle.Core",
         "Framework.Events",
         "Framework.GAS",
@@ -10,11 +9,8 @@
         "Framework.ECS.Physics",
         "Framework.Logging",
         "Framework.BehaviourTree",
-        "Framework.BehaviourTree.Unity",
         "Framework.FixedMath",
-        "Framework.FixedMath.Unity",
-        "Framework.Lockstep",
-        "Framework.Res"
+        "Framework.Lockstep"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -24,5 +20,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": true
 }

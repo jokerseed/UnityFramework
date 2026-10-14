@@ -61,9 +61,12 @@ namespace Game
                 yield break;
             }
 
+            var scope = ResourceScope.Create($"BattleViews_{session.SessionId}");
+            session.AttachResource(scope);
+
             ResourceAssetHandle heroHandle = default;
             ResourceAssetHandle monsterHandle = default;
-            yield return session.Scope.LoadAsync<GameObject>(
+            yield return scope.LoadAsync<GameObject>(
                 ResourceAddresses.MaleSword01Prefab, h => heroHandle = h, priority: 10);
             if (!heroHandle.IsValid || !heroHandle.Succeeded)
             {
@@ -71,7 +74,7 @@ namespace Game
                 yield break;
             }
 
-            yield return session.Scope.LoadAsync<GameObject>(
+            yield return scope.LoadAsync<GameObject>(
                 ResourceAddresses.AxeKnightPrefab, h => monsterHandle = h, priority: 10);
             if (!monsterHandle.IsValid || !monsterHandle.Succeeded)
             {
@@ -150,14 +153,14 @@ namespace Game
                     framework.RegisterActorAbilities(monsterId, teamId: MonsterTeamId, abilityIds: new[] { "MobSlash" }, tables);
                     framework.SetBattleAgent(
                         monsterId,
-                        BattleAiNodes.CreateMeleeChaserAgent(
+                        BattleAiAssets.CreateMeleeChaserAgent(
                             "MobSlash",
                             HeroId,
                             agentId: monsterId,
                             sessionSeed: session.RandomSeed));
                 }
 
-                _waveDirector = new BattleWaveDirector(_monsterIds, HeroId, MonsterBaseHealth, "MobSlash");
+                _waveDirector = new BattleWaveDirector(_monsterIds, HeroId, (FP)MonsterBaseHealth, "MobSlash");
                 return true;
             }
             catch (Exception ex)

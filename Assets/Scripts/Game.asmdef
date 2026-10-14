@@ -11,6 +11,7 @@
         "Framework.ECS",
         "Framework.Events",
         "Framework.GamePlay",
+        "Framework.GamePlay.Unity",
         "Framework.GamePlay.Luban",
         "Framework.ECS.Physics",
         "Framework.GAS",

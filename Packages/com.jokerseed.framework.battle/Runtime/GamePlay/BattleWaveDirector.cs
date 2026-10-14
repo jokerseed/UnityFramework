@@ -26,19 +26,19 @@ namespace Framework.GamePlay
         /// <param name="heroId">追击的英雄 ID。</param>
         /// <param name="baseHealth">第 1 波生命。</param>
         /// <param name="abilityId">近战技能 ID。</param>
-        /// <param name="waveDelay">全灭后到下一波的秒数。</param>
+        /// <param name="waveDelay">全灭后到下一波的秒数；为 null 或不大于 0 时取 2 秒。</param>
         public BattleWaveDirector(
             List<ActorId> slots,
             ActorId heroId,
-            float baseHealth,
+            FP baseHealth,
             string abilityId,
-            float waveDelay = 2f)
+            FP? waveDelay = null)
         {
             _slots = slots;
             _heroId = heroId;
-            _baseHealth = (FP)(baseHealth);
+            _baseHealth = baseHealth;
             _abilityId = abilityId;
-            _waveDelay = waveDelay > 0f ? (FP)(waveDelay) : (FP)2;
+            _waveDelay = waveDelay.HasValue && waveDelay.Value > FP.Zero ? waveDelay.Value : (FP)2;
         }
 
         /// <summary>若本波全灭则计时，到点后把槽位复活到英雄周围。</summary>
