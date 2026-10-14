@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.Network` |
 | 命名空间 | `Framework.Network` |
-| 依赖 | `Framework.Core`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.Events` |
+| 依赖 | `UniTask`、`Framework.Core`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.Events` |
 
 ## 核心类型
 
@@ -17,6 +17,9 @@
 | `NetworkManager` | 创建/销毁命名频道，`Update` 驱动分发与心跳 |
 | `INetworkChannel` | 连接、发送、注册消息处理 |
 | `TcpNetworkChannel` | TCP 异步收发（`SocketAsyncEventArgs`） |
+| `WebSocketNetworkChannel` | WebSocket 二进制帧收发，一帧一包；WebGL 走浏览器 WebSocket |
+| `IWebSocketTransport` | WebSocket 底层传输，可替换为平台 SDK 实现 |
+| `NetworkRpcClient` | 请求-响应 RPC：请求号匹配、超时、取消、断线失败 |
 | `INetworkChannelHelper` | 协议：包头长度、序列化、反序列化、心跳 |
 | `DefaultNetworkChannelHelper` | 默认二进制协议 |
 | `NetworkPacket` | 可池化消息包（`IMemory`） |
@@ -66,6 +69,31 @@ channel.Close();
 NetworkManager.Instance.DestroyChannel("Game");
 ```
 
+## WebSocket
+
+```csharp
+var ws = NetworkManager.Instance.CreateWebSocketChannel("Game");
+ws.Connect(new Uri("wss://example.com/game"));   // 或 ws.Connect("127.0.0.1", 9000) → ws://127.0.0.1:9000/
+```
+
+- 每条二进制消息就是一个完整包（包头 + 包体），格式与 TCP 频道相同，服务端可共用编解码；文本帧、长度对不上的帧都按协议错误处理：先发 `NetworkErrorEvent`，再关闭连接
+- 默认传输：非 WebGL 用 `ClientWebSocket`（线程池收发），WebGL 用 `FrameworkWebSocket.jslib`（浏览器 WebSocket，主线程回调）
+- 微信小游戏等平台需要用 SDK 的 socket 时，实现 `IWebSocketTransport`，再用 `new WebSocketNetworkChannel(name, helper, listener => new MyTransport(listener))` 创建频道
+- 事件、心跳、主线程分发规则与 TCP 频道一致；传输回调只入队，`Update` 时才分发
+
+## RPC
+
+```csharp
+var rpc = new NetworkRpcClient(channel, defaultTimeoutSeconds: 10f);
+byte[] reply = await rpc.CallAsync(requestMessageId: 2001, responseMessageId: 2002, payload, cancellationToken: token);
+rpc.Dispose();
+```
+
+- 线上格式：请求载荷前加 4 字节小端请求号；服务端在响应载荷前原样带回这个请求号
+- 超时抛 `TimeoutException`，取消抛 `OperationCanceledException`，频道未连接或等待期间关闭抛 `InvalidOperationException`
+- 首次使用某个响应消息号时会在频道上注册处理器（覆盖已有的同号处理器）；`Dispose` 时注销
+- 超时计时用 `UniTask.Delay(Realtime)`，WebGL 下同样可用
+
 ## 事件
 
 通过 `GameEvent` 订阅（均为 `struct`）：
@@ -94,6 +122,6 @@ new NetworkModule(), // Dependencies: Logging + MemoryPool
 ## 设计说明
 
 - 不绑定具体业务协议，只提供 Channel + Helper
-- IO 用 `SocketAsyncEventArgs`，不用 `Task` / 显式 `Thread`
+- TCP 的 IO 用 `SocketAsyncEventArgs`，不用 `Task` / 显式 `Thread`；`Socket` 只在 `TcpNetworkChannel` 上暴露，`INetworkChannel` 不绑定具体传输
 - 消息包走 `MemoryPool`，热路径避免额外 `IDisposable`
 - 心跳默认关闭（`HeartBeatInterval <= 0`）；有服务端再打开

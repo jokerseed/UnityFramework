@@ -10,7 +10,7 @@ using Framework.Logging;
 namespace Framework.Network
 {
     /// <summary>TCP 异步频道：IO 完成端口收发，主线程分发消息与事件。</summary>
-    public sealed class TcpNetworkChannel : INetworkChannel
+    public sealed class TcpNetworkChannel : INetworkChannel, INetworkChannelDriver
     {
         const int ReceiveBufferSize = 8192;
         const int MaxPacketSize = 1024 * 1024;
@@ -64,7 +64,7 @@ namespace Framework.Network
             }
         }
 
-        /// <inheritdoc />
+        /// <summary>底层 Socket；未连接时为 null。</summary>
         public Socket Socket
         {
             get

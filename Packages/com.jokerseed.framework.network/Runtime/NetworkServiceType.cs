@@ -5,5 +5,8 @@ namespace Framework.Network
     {
         /// <summary>TCP 异步收发（SocketAsyncEventArgs）。</summary>
         Tcp = 0,
+
+        /// <summary>WebSocket 二进制帧，一帧一包；WebGL / 小游戏走浏览器 WebSocket。</summary>
+        WebSocket = 1,
     }
 }

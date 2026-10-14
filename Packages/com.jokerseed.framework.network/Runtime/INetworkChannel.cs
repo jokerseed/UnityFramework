@@ -1,6 +1,5 @@
 using System;
 using System.Net;
-using System.Net.Sockets;
 
 namespace Framework.Network
 {
@@ -15,9 +14,6 @@ namespace Framework.Network
 
         /// <summary>是否已连接。</summary>
         bool Connected { get; }
-
-        /// <summary>底层 Socket；未连接时为 null。</summary>
-        Socket Socket { get; }
 
         /// <summary>服务类型。</summary>
         NetworkServiceType ServiceType { get; }

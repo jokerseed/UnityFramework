@@ -12,9 +12,9 @@ namespace Framework.Network
     /// </summary>
     public sealed class NetworkManager : PersistentSingleton<NetworkManager>
     {
-        readonly Dictionary<string, TcpNetworkChannel> _channels =
-            new Dictionary<string, TcpNetworkChannel>(StringComparer.Ordinal);
-        readonly List<TcpNetworkChannel> _tickScratch = new List<TcpNetworkChannel>(8);
+        readonly Dictionary<string, INetworkChannelDriver> _channels =
+            new Dictionary<string, INetworkChannelDriver>(StringComparer.Ordinal);
+        readonly List<INetworkChannelDriver> _tickScratch = new List<INetworkChannelDriver>(8);
 
         /// <summary>当前频道数量。</summary>
         public int ChannelCount => _channels.Count;
@@ -72,6 +72,15 @@ namespace Framework.Network
             return CreateChannel(name, NetworkServiceType.Tcp, new DefaultNetworkChannelHelper());
         }
 
+        /// <summary>使用默认二进制协议创建 WebSocket 频道；连接用 <see cref="WebSocketNetworkChannel.Connect(System.Uri)"/>。</summary>
+        /// <param name="name">频道名称；为 null 时使用空字符串。</param>
+        /// <returns>新建频道。</returns>
+        /// <exception cref="InvalidOperationException">同名频道已存在。</exception>
+        public WebSocketNetworkChannel CreateWebSocketChannel(string name = "Default")
+        {
+            return (WebSocketNetworkChannel)CreateChannel(name, NetworkServiceType.WebSocket, new DefaultNetworkChannelHelper());
+        }
+
         /// <summary>创建网络频道。</summary>
         /// <param name="name">频道名称；为 null 时使用空字符串。</param>
         /// <param name="serviceType">服务类型。</param>
@@ -91,11 +100,14 @@ namespace Framework.Network
             }
 
             helper = helper ?? new DefaultNetworkChannelHelper();
-            TcpNetworkChannel channel;
+            INetworkChannelDriver channel;
             switch (serviceType)
             {
                 case NetworkServiceType.Tcp:
                     channel = new TcpNetworkChannel(name, helper);
+                    break;
+                case NetworkServiceType.WebSocket:
+                    channel = new WebSocketNetworkChannel(name, helper);
                     break;
                 default:
                     throw new NotSupportedException($"Unsupported network service type: {serviceType}");
