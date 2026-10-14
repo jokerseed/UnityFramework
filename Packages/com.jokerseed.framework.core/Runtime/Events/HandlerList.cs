@@ -6,21 +6,24 @@ namespace Framework.Events
 {
     /// <summary>
     /// 单个事件类型的监听列表。
-    /// 分发过程中延迟增删，避免遍历时修改列表（参考 TEngine EventDelegateData）。
+    /// 分发过程中的增删按调用顺序记入操作队列，分发结束后依次回放，
+    /// 因此同一回调在分发中先 Remove 再 Add 的最终结果是"仍在列表中"。
     /// </summary>
     internal sealed class HandlerList<T> : IEventChannel where T : struct
     {
+        struct PendingOp
+        {
+            public Action<T> Handler;
+            public bool IsAdd;
+        }
+
         readonly List<Action<T>> _handlers = new List<Action<T>>(4);
-        readonly List<Action<T>> _pendingAdds = new List<Action<T>>(2);
-        readonly List<Action<T>> _pendingRemoves = new List<Action<T>>(2);
+        readonly List<PendingOp> _pending = new List<PendingOp>(4);
         int _invokeDepth;
-        bool _invoking;
-        bool _dirty;
 
         public void Invoke(in T evt)
         {
             _invokeDepth++;
-            _invoking = true;
             try
             {
                 for (var i = 0; i < _handlers.Count; i++)
@@ -43,14 +46,9 @@ namespace Framework.Events
             }
             finally
             {
-                if (_invokeDepth > 0)
-                {
-                    _invokeDepth--;
-                }
-
+                _invokeDepth--;
                 if (_invokeDepth == 0)
                 {
-                    _invoking = false;
                     ApplyPendingChanges();
                 }
             }
@@ -63,10 +61,9 @@ namespace Framework.Events
                 throw new ArgumentNullException(nameof(handler));
             }
 
-            if (_invoking)
+            if (_invokeDepth > 0)
             {
-                _dirty = true;
-                _pendingAdds.Add(handler);
+                _pending.Add(new PendingOp { Handler = handler, IsAdd = true });
                 return;
             }
 
@@ -83,10 +80,9 @@ namespace Framework.Events
                 return;
             }
 
-            if (_invoking)
+            if (_invokeDepth > 0)
             {
-                _dirty = true;
-                _pendingRemoves.Add(handler);
+                _pending.Add(new PendingOp { Handler = handler, IsAdd = false });
                 return;
             }
 
@@ -96,20 +92,17 @@ namespace Framework.Events
         public void Clear()
         {
             _handlers.Clear();
-            _pendingAdds.Clear();
-            _pendingRemoves.Clear();
-            _dirty = false;
-            _invokeDepth = 0;
-            _invoking = false;
+            _pending.Clear();
         }
 
+        /// <summary>按操作队列里该回调的最后一次操作判断：最后一次是 Remove 则本轮分发跳过它。</summary>
         bool IsPendingRemove(Action<T> handler)
         {
-            for (var i = 0; i < _pendingRemoves.Count; i++)
+            for (var i = _pending.Count - 1; i >= 0; i--)
             {
-                if (_pendingRemoves[i] == handler)
+                if (_pending[i].Handler == handler)
                 {
-                    return true;
+                    return !_pending[i].IsAdd;
                 }
             }
 
@@ -118,29 +111,23 @@ namespace Framework.Events
 
         void ApplyPendingChanges()
         {
-            if (!_dirty)
+            for (var i = 0; i < _pending.Count; i++)
             {
-                return;
-            }
-
-            for (var i = 0; i < _pendingAdds.Count; i++)
-            {
-                var handler = _pendingAdds[i];
-                if (!_handlers.Contains(handler))
+                var op = _pending[i];
+                if (op.IsAdd)
                 {
-                    _handlers.Add(handler);
+                    if (!_handlers.Contains(op.Handler))
+                    {
+                        _handlers.Add(op.Handler);
+                    }
+                }
+                else
+                {
+                    _handlers.Remove(op.Handler);
                 }
             }
 
-            _pendingAdds.Clear();
-
-            for (var i = 0; i < _pendingRemoves.Count; i++)
-            {
-                _handlers.Remove(_pendingRemoves[i]);
-            }
-
-            _pendingRemoves.Clear();
-            _dirty = false;
+            _pending.Clear();
         }
     }
 }

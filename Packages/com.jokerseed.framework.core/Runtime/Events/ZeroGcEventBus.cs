@@ -5,6 +5,8 @@ namespace Framework.Events
 {
     /// <summary>
     /// 零 GC 实例事件总线：每个实例独立通道，适合战斗内表现层隔离。
+    /// "零 GC"指 <see cref="Publish{TEvent}"/>：值类型事件按 <c>in</c> 传递、不装箱。
+    /// <see cref="Subscribe{TEvent}"/> 会分配一次（委托与返回凭证装箱），请在初始化时订阅、不要在每帧路径里反复订阅。
     /// 全局事件请使用 <see cref="GameEvent"/> / <see cref="GlobalEventBus"/>。
     /// </summary>
     public sealed class ZeroGcEventBus : IEventBus

@@ -10,7 +10,10 @@ namespace Framework.Events
         /// <param name="evt">要发布的事件实例。</param>
         void Publish<TEvent>(TEvent evt) where TEvent : struct;
 
-        /// <summary>订阅指定事件类型，返回可用于取消订阅的 <see cref="IDisposable"/>。</summary>
+        /// <summary>
+        /// 订阅指定事件类型，返回可用于取消订阅的 <see cref="IDisposable"/>。
+        /// 订阅本身会产生少量分配（凭证装箱），不要放在每帧路径里；分发过程中订阅/退订会在本轮分发结束后按调用顺序生效。
+        /// </summary>
         /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
         /// <param name="handler">事件处理委托，不可为 null。</param>
         /// <returns>订阅凭证；调用 Dispose 时自动取消订阅。</returns>
