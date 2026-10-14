@@ -1000,57 +1000,32 @@ namespace Framework.FixedMath {
             }
         }
 
+        /// <summary>
+        /// 用 <see cref="Math.Sin(double)"/> 重新生成正弦表源码（<see cref="FixedLutCodec"/> 编码格式）。
+        /// 双精度三角函数在不同平台 / 运行时上不保证逐位一致，重新生成会改变表内容：
+        /// 必须同时提升 <c>BattleSimulationVersion.Current</c> 并更新 <c>FixedLutTests</c> 的哈希。日常维护请用 <c>tools/Framework.LutTools</c> 无损重编码。
+        /// </summary>
         internal static void GenerateSinLut() {
-            using (var writer = new StreamWriter("Fix64SinLut.cs")) {
-                writer.Write(
-@"namespace FixMath.NET {
-    partial struct Fix64 {
-        public static readonly long[] SinLut = new[] {");
-                int lineCounter = 0;
-                for (int i = 0; i < LUT_SIZE; ++i) {
-                    var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
-                    if (lineCounter++ % 8 == 0) {
-                        writer.WriteLine();
-                        writer.Write("            ");
-                    }
-                    var sin = Math.Sin(angle);
-                    var rawValue = ((FP)sin)._serializedValue;
-                    writer.Write(string.Format("0x{0:X}L, ", rawValue));
-                }
-                writer.Write(
-@"
-        };
-    }
-}");
+            var values = new long[LUT_SIZE];
+            for (int i = 0; i < LUT_SIZE; ++i) {
+                var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
+                values[i] = ((FP)Math.Sin(angle))._serializedValue;
             }
+            File.WriteAllText("Fix64SinLut.cs", FixedLutCodec.WriteSource("SinLut", values));
         }
 
+        /// <summary>用 <see cref="Math.Tan(double)"/> 重新生成正切表源码；注意事项同 <see cref="GenerateSinLut"/>。</summary>
         internal static void GenerateTanLut() {
-            using (var writer = new StreamWriter("Fix64TanLut.cs")) {
-                writer.Write(
-@"namespace FixMath.NET {
-    partial struct Fix64 {
-        public static readonly long[] TanLut = new[] {");
-                int lineCounter = 0;
-                for (int i = 0; i < LUT_SIZE; ++i) {
-                    var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
-                    if (lineCounter++ % 8 == 0) {
-                        writer.WriteLine();
-                        writer.Write("            ");
-                    }
-                    var tan = Math.Tan(angle);
-                    if (tan > (double)MaxValue || tan < 0.0) {
-                        tan = (double)MaxValue;
-                    }
-                    var rawValue = (((decimal)tan > (decimal)MaxValue || tan < 0.0) ? MaxValue : (FP)tan)._serializedValue;
-                    writer.Write(string.Format("0x{0:X}L, ", rawValue));
+            var values = new long[LUT_SIZE];
+            for (int i = 0; i < LUT_SIZE; ++i) {
+                var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
+                var tan = Math.Tan(angle);
+                if (tan > (double)MaxValue || tan < 0.0) {
+                    tan = (double)MaxValue;
                 }
-                writer.Write(
-@"
-        };
-    }
-}");
+                values[i] = (((decimal)tan > (decimal)MaxValue || tan < 0.0) ? MaxValue : (FP)tan)._serializedValue;
             }
+            File.WriteAllText("Fix64TanLut.cs", FixedLutCodec.WriteSource("TanLut", values));
         }
 
         /// <summary>
