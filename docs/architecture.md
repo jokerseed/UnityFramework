@@ -189,5 +189,8 @@ var tables = ConfigManager.Instance.LoadTables<cfg.CfgTables>();
 
 | 菜单 | 功能 |
 |------|------|
-| Tools/Luban/Generate Client Config | 执行 Luban 打表 |
-| Tools/YooAsset/Generate Collector | 生成 `BundleCollectorSetting.asset` |
+| Tools/Framework/Settings | 工具路径与 Collector 规则（`ProjectSettings/FrameworkSettings.asset`） |
+| Tools/Framework/Config/Generate Luban Config | 执行 Luban 打表并校验生成代码前缀 |
+| Tools/Framework/Res/Generate YooAsset Collector | 生成 `BundleCollectorSetting.asset` |
+
+详见 [editor-tools.md](editor-tools.md)。

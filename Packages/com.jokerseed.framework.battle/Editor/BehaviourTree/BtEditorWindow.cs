@@ -8,7 +8,7 @@ namespace Framework.BehaviourTree.Editor
 {
     /// <summary>
     /// 行为树可视化编辑器（IMGUI 节点图）。
-    /// 菜单：<c>Tools/Behaviour Tree/Editor</c>。
+    /// 菜单：<c>Tools/Framework/Behaviour Tree/Editor</c>。
     /// </summary>
     public sealed class BtEditorWindow : EditorWindow
     {
@@ -33,7 +33,7 @@ namespace Framework.BehaviourTree.Editor
         Vector2 _inspectorScroll;
 
         /// <summary>打开行为树图编辑器。</summary>
-        [MenuItem("Tools/Behaviour Tree/Editor")]
+        [MenuItem("Tools/Framework/Behaviour Tree/Editor")]
         public static void OpenWindow()
         {
             var window = GetWindow<BtEditorWindow>("Behaviour Tree");
@@ -41,14 +41,14 @@ namespace Framework.BehaviourTree.Editor
         }
 
         /// <summary>创建新的行为树资产。</summary>
-        [MenuItem("Tools/Behaviour Tree/Create Tree Asset")]
+        [MenuItem("Tools/Framework/Behaviour Tree/Create Tree Asset")]
         public static void CreateTreeAssetMenu()
         {
             BtEditorUtility.CreateTreeAsset();
         }
 
         /// <summary>批量导出全部 BtTreeAsset 旁路 .bt.json（供 YooAsset 热更）。</summary>
-        [MenuItem("Tools/Behaviour Tree/Export All Runtime JSON")]
+        [MenuItem("Tools/Framework/Behaviour Tree/Export All Runtime JSON")]
         public static void ExportAllRuntimeJsonMenu()
         {
             var count = BtEditorUtility.ExportAllRuntimeJson();
@@ -111,7 +111,7 @@ namespace Framework.BehaviourTree.Editor
 
             if (_asset == null)
             {
-                EditorGUILayout.HelpBox("Assign a BtTreeAsset or create one via Tools/Behaviour Tree/Create Tree Asset.", MessageType.Info);
+                EditorGUILayout.HelpBox("Assign a BtTreeAsset or create one via Tools/Framework/Behaviour Tree/Create Tree Asset.", MessageType.Info);
                 _asset = (BtTreeAsset)EditorGUILayout.ObjectField("Tree Asset", _asset, typeof(BtTreeAsset), false);
                 return;
             }

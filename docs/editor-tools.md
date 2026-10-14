@@ -1,69 +1,56 @@
-# Framework.Editor
+# 编辑器工具
 
-编辑器专用工具，仅在 Editor 平台编译。提供 Luban 打表与 YooAsset Collector 生成菜单。
+框架自研的编辑器工具都挂在 **Tools → Framework** 下，只在 Editor 平台编译，不进运行时构建。路径类配置集中在 **Project Settings → Framework**（`ProjectSettings/FrameworkSettings.asset`，随仓库提交）。
 
 ## 程序集
 
-| 项 | 值 |
-|---|---|
-| 程序集 | `Framework.Editor` |
-| 命名空间 | `Framework.Editor` |
-| 平台 | Editor only |
-| 依赖 | `Framework.Logging`、`YooAsset.Editor`。Behavior Designer 编辑器已拆到同目录下的 `BehaviorDesigner.Editor`，本程序集不再引用它 |
+| 程序集 | 位置 | 内容 |
+|--------|------|------|
+| `Framework.Core.Editor` | `Packages/com.jokerseed.framework.core/Editor` | `FrameworkSettings` 与设置页 |
+| `Framework.Config.Editor` | `Packages/com.jokerseed.framework.config/Editor` | Luban 打表、生成代码前缀校验 |
+| `Framework.Res.Editor` | `Packages/com.jokerseed.framework.res/Editor` | YooAsset Collector 生成、`AddressByPreImportPath` 寻址规则 |
+| `Framework.BehaviourTree.Editor` | `Packages/com.jokerseed.framework.battle/Editor/BehaviourTree` | 行为树编辑器 |
+| `Framework.Battle.Editor` | `Packages/com.jokerseed.framework.battle/Editor/Determinism` | 确定性扫描 |
 
 ## 菜单一览
 
-| 菜单 | 类 | 功能 |
-|------|-----|------|
-| **Tools → Luban → Generate Client Config** | `LubanGenMenu` | 执行 `Config/Luban/gen_client.bat` 打表 |
-| **Tools → YooAsset → Generate Collector** | `YooAssetCollectorGenerator` | 生成 `BundleCollectorSetting.asset` |
-| **Tools → Determinism → Scan Battle Sim** | `SimDeterminismScanner` | 扫描 ECS/GAS/FixedMath/GamePlay/BehaviourTree/Core/Lockstep。Random、Time、DateTime.Now、Guid.NewGuid 一律阻断。float 在 ECS、Core、BehaviourTree 运行时和 Lockstep 模拟代码里阻断；GAS/GamePlay、行为树配置 DTO、Lockstep 调试绘制不阻断。模拟层订阅 `GameEvent` / `GlobalEventBus` / `.Subscribe` / `.Listen` 也阻断。Editor 目录不扫描。批处理：`Unity -batchmode -executeMethod Framework.Editor.Determinism.SimDeterminismScanner.ScanBatch`，有违规时退出码 1 |
+| 菜单 | 功能 |
+|------|------|
+| **Tools → Framework → Settings** | 打开 Project Settings → Framework |
+| **Tools → Framework → Config → Generate Luban Config** | Luban 打表 + 前缀校验 + 调试 JSON |
+| **Tools → Framework → Res → Generate YooAsset Collector** | 按设置重新生成 `BundleCollectorSetting.asset` |
+| **Tools → Framework → Behaviour Tree → Editor / Create Tree Asset / Export All Runtime JSON** | 行为树编辑与导出 |
+| **Tools → Framework → Battle → Scan Determinism** | 扫描模拟层的非确定性 API。批处理：`Unity -batchmode -executeMethod Framework.Editor.Determinism.SimDeterminismScanner.ScanBatch`，有违规时退出码 1 |
 
 ## Luban 打表
 
-`LubanGenMenu` 调用项目根目录下的 `Config/Luban/gen_client.bat`，产出：
+菜单直接调用 `dotnet Luban.dll`，不经过 cmd / bash，也不需要 Python，Windows 与 macOS 行为一致。`Luban.dll` 不存在时先用 `LubanProject` 构建（需要 .NET 8 SDK）。流程：
 
-| 类型 | 路径 |
-|------|------|
-| C# 代码 | `Assets/Generated/Luban/` |
-| 二进制 | `Assets/Bundles/Configs/*.bytes` |
-| JSON 调试 | `Config/Luban/Output/json/` |
+1. 生成 C# 代码（`OutputCodeDir`，默认 `Assets/Generated/Luban/Scripts`）与二进制（`OutputDataDir`，默认 `Assets/Bundles/Configs`）
+2. 按 `Config/Luban/codegen.json` 校验生成文件名前缀（`LubanCodegenValidator`）；`enforceOnGenerate: true` 时不通过即中断
+3. 导出调试 JSON（`OutputJsonDir`，留空则跳过）
+4. `AssetDatabase.Refresh`
 
-打表完成后 Unity 会自动刷新资源。
+Excel 源文件 `Config/Luban/Datas/**.xlsx` 是唯一数据源，直接编辑后重新打表。命令行（CI / 不开 Unity）用 `Config/Luban/gen_client.bat` 或 `gen_client.sh`，它们不做前缀校验；EditMode 测试 `LubanCodegenPrefixTests` 会在 CI 中检查。
 
-### 生成代码前缀
-
-类型名（及同名 `.cs` 文件）须带统一前缀，配置见 `Config/Luban/codegen.json`（默认 `Cfg`）。  
-打表脚本会调用 `validate_codegen_prefix.py` 校验；细则见 `.cursor/rules/framework-luban.mdc`。
+dotnet 不在 Unity 进程的 PATH 上时（macOS 从 Dock 启动 Unity 常见），在设置里把 `DotnetExecutable` 填成绝对路径，例如 `/usr/local/share/dotnet/dotnet`。
 
 ## YooAsset Collector
 
-`YooAssetCollectorGenerator` 根据 `Assets/Bundles/` 目录结构生成 Collector 配置：
+按 **Project Settings → Framework → Collector** 的规则清空并重新生成 Collector 配置：
 
-- `Assets/Bundles/Configs/*.bytes` — 每个文件单独打包
-- `Assets/Bundles/Prefabs/` — 每个 Prefab 单独打包
-- `Assets/Bundles/Scenes/` — 每个场景单独打包
-- `Assets/Bundles/BehaviourTrees/` — 每个 `.bt.json` 单独打包
-- 寻址规则由 `AddressByPreImportPath` 实现：`bundles/{目录}/{文件名}.unity3d`
-  （例：`MeleeChaser.bt.json` → `bundles/behaviourtrees/meleechaser.unity3d`）
+- 每条规则：收集目录、打包粒度（每文件一包 / 整目录一包）、分组名
+- `SubfoldersPerFolder` 为 true 时，目录下每个子目录再加一条按目录打包的规则（默认用于 `Assets/Bundles/Configs`）
+- 不存在的目录会跳过并打警告
+- `PackageName` 须与运行时 `ResourceInitOptions.PackageName` 一致
+- 寻址规则 `AddressByPreImportPath`：`bundles/{目录}/{文件名}.unity3d`（例：`MeleeChaser.bt.json` → `bundles/behaviourtrees/meleechaser.unity3d`）
 
-## 目录结构
+## 第三方编辑器
 
-```
-Editor/
-├── LubanGenMenu.cs
-└── YooAsset/
-    ├── YooAssetCollectorGenerator.cs
-    └── AddressByPreImportPath.cs
-```
+`Assets/ThirdParty/` 下的插件（Behavior Designer、Odin、Animancer、DOTween、Spine 等）保留各自的菜单，不改动。它们是商业或第三方授权，条款见 `THIRD_PARTY_NOTICES.md`。框架自己的行为树编辑器是 `Framework.BehaviourTree.Editor`，不要与 Behavior Designer 混用。
 
-## Behavior Designer 编辑器
+## 约定
 
-`Behavior Designer/` 是 Opsive Behavior Designer 1.7.4 的第三方编辑器代码，原样保留。程序集 `BehaviorDesigner.Editor` 只在 Editor 平台编译，并引用运行时 `BehaviorDesigner`（`Assets/ThirdParty/Behavior Designer`）。`Framework.Editor` 不再引用它。仓库没有这份插件的许可证文件，条款以购买时的 Asset Store 许可为准。框架自己的行为树编辑器在 `Framework.BehaviourTree.Editor`，两者不要混用。
-
-## 注意事项
-
-- 此程序集**不会**进入运行时构建（`includePlatforms: Editor`）
-- 运行时模块（Res、Config 等）不应引用 `Framework.Editor`
-- 新增编辑器工具时，在此程序集中添加并注册 `[MenuItem]`
-- **自研顶栏菜单统一挂在 `Tools/{模块}/...` 下**，禁止新建独立顶栏根菜单（见 `.cursor/rules/framework-editor-menu.mdc`）
+- 新工具的菜单挂在 `Tools/Framework/{模块}/...`，Validate 菜单与执行菜单同一路径（`.cursor/rules/framework-editor-menu.mdc`）
+- 工具里的路径不要写死，放进 `FrameworkSettings`
+- 运行时程序集不能引用任何 `*.Editor` 程序集

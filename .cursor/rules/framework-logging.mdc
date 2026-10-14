@@ -1,6 +1,6 @@
 ---
 description: 自有代码日志输出必须走 Framework.Logging
-globs: Assets/**/*.cs
+globs: Assets/**/*.cs,Packages/**/*.cs
 alwaysApply: false
 ---
 
@@ -23,7 +23,7 @@ alwaysApply: false
 
 | 范围 | 要求 |
 |------|------|
-| `Assets/Framework/**` | 必须 `GameLog`（见下方例外） |
+| `Packages/com.jokerseed.framework.*/**` | 必须 `GameLog`（见下方例外） |
 | `Assets/Scripts/**` | 必须 `GameLog` |
 | `ThirdParty/`、`Packages/` | 三方库，不改动 |
 | `Assets/Generated/**` | Luban 等生成代码，不改动 |

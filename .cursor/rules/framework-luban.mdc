@@ -1,6 +1,6 @@
 ---
 description: Assets/Generated/Luban 配置生成代码的统一可配置类名/文件名前缀
-globs: Config/Luban/**/*,Assets/Generated/Luban/**/*.cs,Assets/Framework/Config/**/*.cs,Assets/Framework/Editor/**/*Luban*,Assets/Framework/GamePlay/Data/**/*.cs,Assets/Framework/GamePlay.Luban/**/*.cs
+globs: Config/Luban/**/*,Assets/Generated/Luban/**/*.cs,Packages/com.jokerseed.framework.config/**/*.cs,Packages/com.jokerseed.framework.battle/Runtime/GamePlay/Data/**/*.cs,Assets/Scripts/Luban/**/*.cs
 alwaysApply: false
 ---
 
@@ -56,4 +56,6 @@ Assets/Generated/Luban/CfgTables.cs          → public class CfgTables
 
 ## 打表
 
-`gen_client.bat` / **Tools → Luban → Generate Client Config** 会跑 `validate_codegen_prefix.py`；`enforceOnGenerate: true` 时校验失败中断。
+**Tools → Framework → Config → Generate Luban Config** 直接调用 `dotnet Luban.dll`，生成后由 `LubanCodegenValidator` 校验前缀；`enforceOnGenerate: true` 时校验失败中断。EditMode 测试 `LubanCodegenPrefixTests` 在 CI 里做同样的校验。命令行用 `Config/Luban/gen_client.bat` / `gen_client.sh`（不做前缀校验）。
+
+Excel 源文件 `Config/Luban/Datas/**.xlsx` 是唯一数据源，直接编辑；不要再用脚本生成覆盖它们。

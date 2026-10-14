@@ -1,6 +1,6 @@
 ---
 description: 自有代码协程生命周期必须走 Framework.Coroutine
-globs: Assets/**/*.cs
+globs: Assets/**/*.cs,Packages/**/*.cs
 alwaysApply: false
 ---
 
@@ -23,7 +23,7 @@ alwaysApply: false
 
 | 范围 | 要求 |
 |------|------|
-| `Assets/Framework/**` | 必须 `GameCoroutine`（见下方例外） |
+| `Packages/com.jokerseed.framework.*/**` | 必须 `GameCoroutine`（见下方例外） |
 | `Assets/Scripts/**` | 必须 `GameCoroutine` |
 | `ThirdParty/`、`Packages/` | 三方库，不改动 |
 | `Assets/Generated/**` | 生成代码，不改动 |
@@ -60,4 +60,4 @@ GameCoroutine.Stop(h);
 ## 依赖声明
 
 - 使用 `GameCoroutine` 的 `IGameModule` 须在 `Dependencies` 声明 `typeof(CoroutineModule)`（并保证同组已注册）
-- 详见 `Assets/Framework/Coroutine/README.md`
+- 详见 `Packages/com.jokerseed.framework.core/Runtime/Coroutine/README.md`

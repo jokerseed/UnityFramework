@@ -1,6 +1,6 @@
 ---
 description: Luban 配置表加载、缓存与释放必须走 Framework.Config（ConfigManager）
-globs: Assets/**/*.cs
+globs: Assets/**/*.cs,Packages/**/*.cs
 alwaysApply: false
 ---
 

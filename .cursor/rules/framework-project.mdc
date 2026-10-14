@@ -1,11 +1,11 @@
 ---
-description: Framework 战斗框架项目约定与架构（换窗口后 Agent 必读）
+description: Framework 项目约定与架构（换窗口后 Agent 必读）
 alwaysApply: true
 ---
 
-# Framework.Battle 项目约定
+# Framework 项目约定
 
-Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
+Unity 2021.3 客户端框架：模块化启动 + 资源/配置/UI/网络/音频 + GAS/ECS/锁步战斗。异步统一用 UniTask。
 
 ## Agent 行为（最高优先级）
 
@@ -16,113 +16,81 @@ Unity 2021.3 战斗框架：GAS + ECS + Luban 配置 + YooAsset 资源。
 
 ## 工作区
 
-- 始终打开仓库根目录 `Framework/`（含 `Assets/`、`Framework.sln`）
-- 模块文档：`Assets/Framework/<模块>/README.md`，总览见 `Assets/Framework/README.md`
-- 业务层文档：`Assets/Scripts/README.md`
+- 打开仓库根目录（含 `Assets/`、`Packages/`、`Framework.slnx`）
+- 框架代码是嵌入式 UPM 包：`Packages/com.jokerseed.framework.{core,res,config,ui,audio,network,battle}`，命名空间仍是 `Framework.*`
+- 模块文档：`Packages/com.jokerseed.framework.<包>/Runtime/<模块>/README.md`；架构总览 `docs/architecture.md`；编辑器工具 `docs/editor-tools.md`
+- 业务/示例层：`Assets/Scripts/`（程序集 `Game`），文档 `Assets/Scripts/README.md`
+- 测试：Unity EditMode `Assets/Tests/EditMode`；引擎无关层 `tests/Framework.Sim.Tests`（`dotnet test`）
 
-## 程序集职责
+## 包与程序集
 
-| 程序集 | 职责 |
-|--------|------|
-| `Framework.Bootstrap` | `GameBootstrap` 多组模块编排（Host，非 IGameModule） |
-| `Framework.Core` | `IGameModule` 契约、`PersistentSingleton<T>`、快照缓冲、Tick 契约 |
-| `Framework.Battle.Core` | `ActorId`、`BattleContext`、`BattleCommandBuffer`（命名空间仍是 `Framework.Core`） |
-| `Framework.Events` | 事件总线契约与实现（`IEventBus`、`ZeroGcEventBus`、`GameEvent`） | [Events/README.md](Events/README.md) |
-| `Framework.GAS` | 战斗规则权威（ASC、技能、效果、属性）。引用 `Framework.Battle.Core`，不引用玩法内容 |
-| `Framework.ECS` | 位置/碰撞/投射物（不存生命等 GAS 数据）。销毁实体走 `IEcsBodyRemover`，不引用物理引擎 |
-| `Framework.ECS.Physics` | `BattlePhysicsWorld` 与 Farseer 步进，实现 `IEcsBodyRemover` |
-| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口。配置目录接口在此，不引用 Luban |
-| `Framework.GamePlay.Luban` | Luban→GAS 装配（命名空间仍是 `Framework.GamePlay.Data`） |
-| `Framework.Config` | Luban 按需加载与 Tables 缓存（`ConfigManager`）；**配置 Bundle 加载归属 Config，Res 仅通用资源** |
-| `Framework.Res` | YooAsset 封装（`ResourceManager`），**运行时通用资源加载/释放唯一入口** |
-| `Framework.Logging` | `GameLog` 日志级别/分类/Sink | [Logging/README.md](Logging/README.md) |
-| `Framework.MemoryPool` | 轻量 `IMemory` 内存池 | [MemoryPool/README.md](MemoryPool/README.md) |
-| `Framework.ObjectPool` | `ObjectBase` 对象池（容量/过期） | [ObjectPool/README.md](ObjectPool/README.md) |
-| `Framework.Coroutine` | 协程生命周期（Global/Scene/GameObject） | [Coroutine/README.md](Coroutine/README.md) |
-| `Framework.FixedMath` | 确定性定点数（锁步基座，非 IGameModule） |
-| `Framework.Lockstep` | 帧同步调度/输入抽象/回滚核心（非 IGameModule） |
-| `Framework.LockstepPhysics` | 确定性 Jitter/Farseer 物理插件（非 IGameModule） |
-| `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时（非 IGameModule） |
-| `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
-| `Framework.Network` | TCP 网络频道（`NetworkManager` / `INetworkChannel`） | [Network/README.md](Network/README.md) |
-| `Framework.Audio` | 音频管理（`AudioManager` / BGM·SFX 双通道） | [Audio/README.md](Audio/README.md) |
-| `Framework.Editor` | 打表、YooAsset Collector（仅 Editor） |
-| `Game` | 业务入口（`Assets/Scripts`：Launch / 主界面 / Battle 演示），引用框架、不被框架引用 |
+| 包 | 主要程序集 |
+|----|-----------|
+| core | `Framework.Core`、`Framework.Bootstrap`、`Framework.Logging`、`Framework.Events`、`Framework.Coroutine`、`Framework.MemoryPool`、`Framework.ObjectPool`、`Framework.Fsm`、`Framework.Timer`、`Framework.Save`、`Framework.Localization`、`Framework.DebugConsole`；Editor：`Framework.Core.Editor`（`FrameworkSettings`） |
+| res | `Framework.Res`（YooAsset 封装、`ResourcePatcher`）、`Framework.HotUpdate`（HybridCLR，可选）；Editor：`Framework.Res.Editor` |
+| config | `Framework.Config`（`ConfigManager`）；Editor：`Framework.Config.Editor`（Luban 打表） |
+| ui | `Framework.UI` |
+| audio | `Framework.Audio` |
+| network | `Framework.Network`（TCP / WebSocket 频道、`NetworkRpcClient`） |
+| battle | `Framework.Battle.Core`、`Framework.FixedMath`、`Framework.ECS`、`Framework.ECS.Physics`、`Framework.GAS`、`Framework.GamePlay`、`Framework.Lockstep`、`Framework.LockstepPhysics`、`Framework.BehaviourTree` 等 |
+
+- 战斗模拟层（ECS/GAS/GamePlay/Lockstep/FixedMath）只用 `FP`，不引用 UnityEngine 时间与随机；Unity 适配在 `*.Unity` 程序集
+- `Framework.Config` 负责配置 Bundle；`Framework.Res` 是通用资源加载/释放唯一入口
 
 ## 启动与模块
 
 - 入口：`Assets/Scripts/Launch.cs`，场景 `Assets/Bundles/Scenes/Launch.unity`
 - `GameBootstrap` 继承 `PersistentSingleton<GameBootstrap>`，跨场景常驻
-- 多组初始化：`SetModules("组名", modules)` → `Run` / `RunAsync` → 监听 `ModuleGroup` 事件
-- Bootstrap **仅做调度**，不保存 `ModuleContext`；模块实例由各模块自己管理
-- 业务模块实现 `Framework.Core.IGameModule`（契约在 Core，由 Bootstrap 调度），在 `Dependencies` 声明依赖，由拓扑排序决定顺序
-- **修改 `Framework` 内 `IGameModule` 时，必须同步检查并更新 `Dependencies`**（见 `framework-csharp.mdc`）
-- 同步模块：`InitMode = Synchronous`；异步：`InitMode = Asynchronous`
+- 多组初始化：`SetModules("组名", modules)` → `Run` / `await RunAsync` → 监听 `ModuleGroup` 事件
+- 模块实现 `Framework.Core.IGameModule`，在 `Dependencies` 声明依赖，由拓扑排序决定顺序；异步模块实现 `UniTask InitializeAsync(CancellationToken)`
+- **修改 `IGameModule` 时，必须同步检查并更新 `Dependencies`**（见 `framework-csharp.mdc`）
 
 ## 设计原则
 
 - GAS 规则权威；ECS 仅存 `CombatStateComponent.IsAlive` 等模拟数据
 - 热路径走 `BattleCommandBuffer`，表现走 `IEventBus`（`ZeroGcEventBus` / `GameEvent`）
-- Tick 顺序：`GAS → Flush Spawn → ECS → Flush Damage → Sync Positions`
-- 常驻 Mono 单例用 `PersistentSingleton<T>`，不要重复造轮子
-- **运行时通用资源**加载/释放/缓存/包生命周期只能走 `Framework.Res`**（详见 `framework-res.mdc`）
-- **Luban 配置表**加载/缓存只能走 `Framework.Config` 的 `ConfigManager`（详见 `framework-config.mdc`）
-- **自有代码日志只能走 `Framework.Logging`**（详见 `framework-logging.mdc`）
-- **自有代码协程生命周期只能走 `Framework.Coroutine`**；Unity `StartCoroutine` **仅允许** Coroutine / Bootstrap（详见 `framework-coroutine.mdc`）
+- 改变逐帧结果的改动必须提升 `BattleSimulationVersion.Current` 并更新 golden 录像
+- 常驻 Mono 单例用 `PersistentSingleton<T>`
+- **运行时通用资源**只能走 `Framework.Res`（`framework-res.mdc`）；**Luban 配置表**只能走 `ConfigManager`（`framework-config.mdc`）
+- **自有代码日志只能走 `Framework.Logging`**（`framework-logging.mdc`）；**协程生命周期只能走 `Framework.Coroutine`**（`framework-coroutine.mdc`）
+- 新异步 API 用 UniTask + `CancellationToken`，不要新写 `IEnumerator` 回调式接口或 `async void`
 
-## 示例与文档
+## 文档同步
 
-- **不**单独维护 `Samples` / `Tests` 程序集；演示与验证用例写在各模块 README
-- 新增模块时同步更新对应 `README.md`
-- **改 `Assets/Framework/**` 或 `Assets/Scripts/**` 时，须自行判断并同步更新对应 README**（见下表）
-- 判断标准：若改动会影响模块职责、对外 API、运行流程、目录结构、依赖关系或使用方式，**必须**更新 README；纯内部重构且对外行为与文档描述不变时可不改
-- 同一 PR / 任务内完成代码与文档，避免 README 长期滞后
+改包内代码或 `Assets/Scripts/**` 时，自行判断并同步更新 README：
 
-| 改动范围 | 对应 README |
-|----------|-------------|
-| `Assets/Framework/<模块>/` | `Assets/Framework/<模块>/README.md` |
-| 跨模块架构、程序集职责、总览 | `Assets/Framework/README.md` |
-| `Assets/Scripts/`（Launch、Flow、Battle、UI 等） | `Assets/Scripts/README.md` |
+| 改动范围 | 对应文档 |
+|----------|----------|
+| `Packages/com.jokerseed.framework.<包>/Runtime/<模块>/` | 同目录 `README.md` |
+| 跨模块架构、程序集职责 | `docs/architecture.md` |
+| 编辑器菜单与工具 | `docs/editor-tools.md` |
+| `Assets/Scripts/` | `Assets/Scripts/README.md` |
+| 对外可见的新增/破坏性变更 | `CHANGELOG.md` |
 
-**通常需要更新 README 的情况：**
-
-- 新增 / 删除 public 类型、模块入口、场景流程类
-- 修改模块职责、Tick 顺序、生命周期、资源加载 / 释放策略
-- 调整目录结构、命名约定、依赖关系（含 `Dependencies`、asmdef）
-- 新增或变更演示用法、配置项、Editor 菜单路径
-
-**通常可不更新 README 的情况：**
-
-- 仅修 bug，行为与已有文档一致
-- 内部实现重构，对外 API 与使用方式不变
-- 注释、格式化、无行为差异的命名微调
+判断标准：影响模块职责、对外 API、运行流程、目录结构、依赖关系、配置项或菜单路径时**必须**更新；纯内部重构且文档描述不变时可不改。
 
 ## 工具链
 
-- 打表：`Config/Luban/gen_client.bat` 或 **Tools → Luban → Generate Client Config**
-- 资源：**Tools → YooAsset → Generate Collector**
+- 设置：**Tools → Framework → Settings**（Project Settings → Framework，存 `ProjectSettings/FrameworkSettings.asset`）
+- 打表：**Tools → Framework → Config → Generate Luban Config**；命令行 `Config/Luban/gen_client.bat` / `gen_client.sh`
+- 资源：**Tools → Framework → Res → Generate YooAsset Collector**
 - 配置寻址：`bundles/configs/{表名}.unity3d`
-- **自研 Editor 顶栏菜单必须挂在 `Tools/` 下**（见 `framework-editor-menu.mdc`）
-- **Luban 生成代码类型/文件名须带可配置前缀**（`Config/Luban/codegen.json`，见 `framework-luban.mdc`）
+- **自研 Editor 顶栏菜单挂在 `Tools/Framework/` 下**（`framework-editor-menu.mdc`）
+- **Luban 生成代码类型/文件名须带可配置前缀**（`Config/Luban/codegen.json`，`framework-luban.mdc`）
 
 ## 编码要求
 
-- **无明确改动请求时不改任何文件**（见上文 Agent 行为）
 - 最小改动范围，匹配现有命名与 asmdef 边界
-- **枚举必须加注释**：枚举类型与每个成员都要有 `/// <summary>`（详见 `framework-csharp.mdc`）
-- **对外 API 必须加 XML 注释**：`public`/`protected` 类型与成员须有 `///`，方法精确到每个 `<param>` / `<typeparam>` / `<returns>`（详见 `framework-csharp.mdc`）
-- **改 Framework / Scripts 时同步 README**：按上文「示例与文档」对照表判断并更新；Agent 改代码后须在回复中说明是否已更新 README 及原因
+- **枚举与对外 API 必须加 XML 注释**，方法精确到每个 `<param>` / `<typeparam>` / `<returns>`（`framework-csharp.mdc`）
+- 改代码后在回复中说明是否已更新 README 及原因
 - 未经明确要求不提交 git、不新建无关文档
 - 回复使用简体中文
-- **Git 提交说明用简体中文**：用户明确要求提交时，`commit message` 用中文写「为什么」，1～2 句即可；不要用英文 Conventional Commits 当默认风格
+- **Git 提交说明用简体中文**，格式「动词: 说明为什么」，1～2 句
 
-## Unity MCP 验证（改代码后必做）
+## 验证（改代码后必做）
 
-当 **user-unityMCP** 可用且修改了 C# / Unity 相关代码后，结束前必须：
+- Unity 编辑器开着且 **user-unityMCP** 可用：`refresh_unity` → 等 `compilation.is_compiling` 为 false → `read_console`（error + warning），有错误修到 0
+- 编辑器没开：命令行跑 EditMode 测试 `Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults <xml> -logFile <log>`，检查 log 中的 `error CS` 与结果 XML
+- 改动 battle 模拟层或 core 的引擎无关代码：`cd tests/Framework.Sim.Tests && dotnet test`
 
-1. `refresh_unity` — 触发 Unity 刷新与编译
-2. 若仍在编译，等待 `mcpforunity://editor/state` 中 `compilation.is_compiling` 为 `false`
-3. `read_console` — 查看 Console，`types` 至少包含 `error`（建议同时看 `warning`）
-4. 有编译错误 → 修复后重复 1–3，直到无 error 或明确说明无法在当前环境验证
-
-MCP 不可用或 Unity 未连接时，在回复中说明原因，不要假装已验证。
+无法验证时在回复中说明原因，不要假装已验证。

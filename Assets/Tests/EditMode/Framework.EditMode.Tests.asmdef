@@ -17,6 +17,8 @@
         "Framework.Lockstep.Legacy",
         "Framework.LockstepPhysics",
         "Framework.Battle.Editor",
+        "Framework.Core.Editor",
+        "Framework.Config.Editor",
         "Framework.Logging",
         "Framework.Events",
         "Framework.BehaviourTree",

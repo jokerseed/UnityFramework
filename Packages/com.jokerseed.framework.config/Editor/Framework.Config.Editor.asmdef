@@ -2,7 +2,8 @@
     "name": "Framework.Config.Editor",
     "rootNamespace": "Framework.Editor",
     "references": [
-        "Framework.Logging"
+        "Framework.Logging",
+        "Framework.Core.Editor"
     ],
     "includePlatforms": [
         "Editor"

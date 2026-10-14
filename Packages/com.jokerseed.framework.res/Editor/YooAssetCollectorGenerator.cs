@@ -3,76 +3,51 @@ using System.Collections.Generic;
 using System.IO;
 using Framework.Logging;
 using UnityEditor;
-using UnityEngine;
 using YooAsset.Editor;
 
 namespace Framework.Editor.YooAsset
 {
     /// <summary>
-    /// 按 Bundles 目录规则生成 YooAsset Collector。
-    /// 菜单：Tools/YooAsset/Generate Collector
+    /// 按 Project Settings → Framework → Collector 的规则生成 YooAsset Collector。
+    /// 菜单：Tools/Framework/Res/Generate YooAsset Collector
     /// </summary>
     public static class YooAssetCollectorGenerator
     {
-        const string PackageName = "DefaultPackage";
-        const string ConfigsRoot = "Assets/Bundles/Configs";
-        const string PrefabsRoot = "Assets/Bundles/Prefabs";
-        const string ScenesRoot = "Assets/Bundles/Scenes";
-        const string BehaviourTreesRoot = "Assets/Bundles/BehaviourTrees";
-
-        /// <summary>Collector 打包粒度。</summary>
-        enum PackMode
-        {
-            /// <summary>目录下每个文件单独打包。</summary>
-            PerFile,
-
-            /// <summary>整个目录打成一个包。</summary>
-            PerFolder,
-        }
-
         readonly struct FolderRule
         {
             public readonly string CollectPath;
-            public readonly PackMode PackMode;
+            public readonly CollectorPackMode PackMode;
             public readonly string GroupName;
-            public readonly string FilterRule;
-            public readonly ECollectorType CollectorType;
 
-            public FolderRule(
-                string collectPath,
-                PackMode packMode,
-                string groupName,
-                string filterRule = nameof(CollectAll),
-                ECollectorType collectorType = ECollectorType.MainAssetCollector)
+            public FolderRule(string collectPath, CollectorPackMode packMode, string groupName)
             {
                 CollectPath = collectPath;
                 PackMode = packMode;
                 GroupName = groupName;
-                FilterRule = filterRule;
-                CollectorType = collectorType;
             }
         }
 
         /// <summary>
-        /// 根据 <c>Assets/Bundles/Configs</c> 目录结构生成 YooAsset BundleCollectorSetting，并保存到工程。
-        /// 菜单：<c>Tools/YooAsset/Generate Collector</c>。
+        /// 清空并按设置重新生成 BundleCollectorSetting，保存到工程。
+        /// 菜单：<c>Tools/Framework/Res/Generate YooAsset Collector</c>。
         /// </summary>
-        [MenuItem("Tools/YooAsset/Generate Collector")]
+        [MenuItem("Tools/Framework/Res/Generate YooAsset Collector", priority = 200)]
         public static void Generate()
         {
-            var rules = BuildRules();
+            var settings = FrameworkSettings.instance.Collector;
+            var rules = BuildRules(settings.Rules);
             if (rules.Count == 0)
             {
                 EditorUtility.DisplayDialog(
                     "YooAsset Collector",
-                    $"未找到可收集目录：{ConfigsRoot}",
+                    "设置中的收集目录都不存在，请检查 Project Settings → Framework → Collector。",
                     "确定");
                 return;
             }
 
             if (!EditorUtility.DisplayDialog(
                 "YooAsset Collector",
-                "将清空现有 Collector 配置，并按 Bundles 目录重新生成。手工调整的规则会丢失。",
+                "将清空现有 Collector 配置，并按设置重新生成。手工调整的规则会丢失。",
                 "生成",
                 "取消"))
             {
@@ -83,7 +58,7 @@ namespace Framework.Editor.YooAsset
             BundleCollectorSettingData.ModifyUniqueBundleName(false);
             BundleCollectorSettingData.ModifyShowPackageView(true);
 
-            var package = BundleCollectorSettingData.CreatePackage(PackageName);
+            var package = BundleCollectorSettingData.CreatePackage(settings.PackageName);
             package.EnableAddressable = true;
             package.LocationToLower = false;
             package.SupportExtensionless = true;
@@ -103,12 +78,12 @@ namespace Framework.Editor.YooAsset
                 {
                     CollectPath = rule.CollectPath,
                     CollectorGUID = AssetDatabase.AssetPathToGUID(rule.CollectPath),
-                    CollectorType = rule.CollectorType,
+                    CollectorType = ECollectorType.MainAssetCollector,
                     AddressRuleName = nameof(AddressByPreImportPath),
-                    PackRuleName = rule.PackMode == PackMode.PerFile
+                    PackRuleName = rule.PackMode == CollectorPackMode.PerFile
                         ? nameof(PackSeparately)
                         : nameof(PackDirectory),
-                    FilterRuleName = rule.FilterRule,
+                    FilterRuleName = nameof(CollectAll),
                 });
             }
 
@@ -116,47 +91,37 @@ namespace Framework.Editor.YooAsset
             BundleCollectorSettingData.SaveFile();
             AssetDatabase.Refresh();
 
-            GameLog.Info(LogCategories.YooAsset, $"Collector generated  Package={LogStyle.Name(PackageName)}  Rules={LogStyle.Value(rules.Count)}");
+            GameLog.Info(LogCategories.YooAsset, $"Collector generated  Package={LogStyle.Name(settings.PackageName)}  Rules={LogStyle.Value(rules.Count)}");
             EditorUtility.DisplayDialog(
                 "YooAsset Collector",
                 $"已写入 BundleCollectorSetting.asset\nCollector 数量: {rules.Count}",
                 "确定");
         }
 
-        static List<FolderRule> BuildRules()
+        static List<FolderRule> BuildRules(List<CollectorRuleSetting> settings)
         {
             var rules = new List<FolderRule>();
-            if (!AssetDatabase.IsValidFolder(ConfigsRoot))
+            foreach (var setting in settings)
             {
-                return rules;
+                if (string.IsNullOrEmpty(setting.CollectPath) || !AssetDatabase.IsValidFolder(setting.CollectPath))
+                {
+                    GameLog.Warning(LogCategories.YooAsset, $"Collector path not found, skipped: {LogStyle.Value(setting.CollectPath)}");
+                    continue;
+                }
+
+                rules.Add(new FolderRule(setting.CollectPath, setting.PackMode, setting.GroupName));
+                if (setting.SubfoldersPerFolder)
+                {
+                    AddSubfolders(rules, setting);
+                }
             }
 
-            // Luban 二进制：根目录下每个 .bytes 单独打包
-            rules.Add(new FolderRule(ConfigsRoot, PackMode.PerFile, "Configs"));
+            return rules;
+        }
 
-            if (AssetDatabase.IsValidFolder(PrefabsRoot))
-            {
-                rules.Add(new FolderRule(PrefabsRoot, PackMode.PerFile, "Prefabs"));
-            }
-
-            if (AssetDatabase.IsValidFolder(ScenesRoot))
-            {
-                rules.Add(new FolderRule(ScenesRoot, PackMode.PerFile, "Scenes"));
-            }
-
-            if (AssetDatabase.IsValidFolder(BehaviourTreesRoot))
-            {
-                rules.Add(new FolderRule(BehaviourTreesRoot, PackMode.PerFile, "BehaviourTrees"));
-            }
-
-            // 子目录按文件夹打包（后续扩展 battle/item 等模块时使用）
-            var absoluteRoot = Path.Combine(Application.dataPath, "Bundles/Configs");
-            if (!Directory.Exists(absoluteRoot))
-            {
-                return rules;
-            }
-
-            foreach (var dir in Directory.GetDirectories(absoluteRoot))
+        static void AddSubfolders(List<FolderRule> rules, CollectorRuleSetting setting)
+        {
+            foreach (var dir in Directory.GetDirectories(FrameworkSettings.ToAbsolute(setting.CollectPath)))
             {
                 var folderName = Path.GetFileName(dir);
                 if (string.IsNullOrEmpty(folderName) || folderName.StartsWith("."))
@@ -164,16 +129,12 @@ namespace Framework.Editor.YooAsset
                     continue;
                 }
 
-                var collectPath = $"{ConfigsRoot}/{folderName}";
-                if (!AssetDatabase.IsValidFolder(collectPath))
+                var collectPath = $"{setting.CollectPath}/{folderName}";
+                if (AssetDatabase.IsValidFolder(collectPath))
                 {
-                    continue;
+                    rules.Add(new FolderRule(collectPath, CollectorPackMode.PerFolder, setting.GroupName));
                 }
-
-                rules.Add(new FolderRule(collectPath, PackMode.PerFolder, "Configs"));
             }
-
-            return rules;
         }
     }
 }
