@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cfg;
 using Framework.Core;
+using Framework.FixedMath;
 using Framework.GAS.Events;
 using UnityEngine;
 
@@ -32,13 +33,13 @@ namespace Game
             switch (evt.Action)
             {
                 case GameplayCueAction.Add:
-                    ReplaceActive(MakeKey(evt), evt.Actor, Spawn(def, FollowPosition(evt.Position)));
+                    ReplaceActive(MakeKey(evt), evt.Actor, Spawn(def, FollowPosition(FPConversions.ToVector3(evt.Position))));
                     break;
                 case GameplayCueAction.Remove:
                     DestroyActive(MakeKey(evt));
                     break;
                 default:
-                    _bursts.Add(new TimedCue(Spawn(def, evt.Position), Time.time + Mathf.Max(0.05f, def.Duration)));
+                    _bursts.Add(new TimedCue(Spawn(def, FPConversions.ToVector3(evt.Position)), Time.time + Mathf.Max(0.05f, def.Duration)));
                     break;
             }
         }

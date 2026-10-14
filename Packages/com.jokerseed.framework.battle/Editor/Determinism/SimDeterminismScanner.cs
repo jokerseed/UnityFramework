@@ -10,8 +10,8 @@ namespace Framework.Editor.Determinism
     /// <summary>
     /// 扫描战斗逻辑程序集，标出容易破坏确定性的 API。
     /// 错误级：<c>UnityEngine.Random</c>、<c>System.Random</c>、<c>Time.*</c>、<c>DateTime.Now</c>、<c>Guid.NewGuid</c>，
-    /// 以及 ECS、Core、BehaviourTree 运行时、Lockstep 模拟代码里的 <c>float</c>。
-    /// <c>ITickable.Tick(float)</c> 桥、BehaviourTree 配置 DTO、Lockstep 的调试绘制/统计文件不阻断。
+    /// 以及 ECS、Battle.Core、BehaviourTree 运行时、Lockstep 模拟代码里的 <c>float</c>（BehaviourTree 配置 DTO 不阻断）。
+    /// 这些程序集都开了 <c>noEngineReferences</c>，Unity API 已经由编译器挡住；扫描器负责编译器挡不住的部分。
     /// GAS / GamePlay 的 float 留在配置装配和表现边界，扫描器不把它们放进返回列表。
     /// 模拟目录里出现 <c>GameEvent</c>、<c>GlobalEventBus</c>、<c>.Subscribe</c> 或 <c>.Listen&lt;</c> 也算错误：
     /// 模拟只发布命令和表现事件，不订阅总线。实现 <c>IEventBus.Subscribe</c> 的方法声明不匹配（前面没有点号）。
@@ -36,7 +36,6 @@ namespace Framework.Editor.Determinism
             BattleRuntimeRoot + "/BehaviourTree",
             BattleRuntimeRoot + "/Battle.Core",
             BattleRuntimeRoot + "/Lockstep",
-            "Packages/com.jokerseed.framework.core/Runtime/Core",
             "Assets/Scripts/Luban",
         };
 
@@ -124,7 +123,7 @@ namespace Framework.Editor.Determinism
                     continue;
                 }
 
-                if (checkFloat && FloatToken.IsMatch(code) && !IsFloatBridge(code))
+                if (checkFloat && FloatToken.IsMatch(code))
                 {
                     violations.Add(relativePath + ":" + (i + 1) + " float in sim: " + code.Trim());
                 }
@@ -188,7 +187,6 @@ namespace Framework.Editor.Determinism
 
             if (path.Contains("/Runtime/ECS/") ||
                 path.Contains("/Runtime/ECS.Physics/") ||
-                path.Contains("/Runtime/Core/") ||
                 path.Contains("/Runtime/Battle.Core/"))
             {
                 return true;
@@ -205,11 +203,6 @@ namespace Framework.Editor.Determinism
             }
 
             return false;
-        }
-
-        static bool IsFloatBridge(string code)
-        {
-            return code.IndexOf("Tick(float", System.StringComparison.Ordinal) >= 0;
         }
 
         static string StripComments(string line, ref bool inBlock)

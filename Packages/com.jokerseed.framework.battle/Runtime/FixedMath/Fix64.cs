@@ -1,9 +1,8 @@
-// Migrated from D:\Client\Assets\Script\Core\TrueSync\Engine\Math (TrueSync FP / Fix64).
+// Migrated from Photon TrueSync (FP / Fix64), which is based on FixedMath.Net.
 // Namespace retargeted to Framework.FixedMath; Obscured*/IWGames removed.
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 
 namespace Framework.FixedMath {
 
@@ -13,7 +12,6 @@ namespace Framework.FixedMath {
     [Serializable]
     public partial struct FP : IEquatable<FP>, IComparable<FP> {
 
-        [SerializeField]
         public long _serializedValue;
 
 		public const long MAX_VALUE = long.MaxValue;

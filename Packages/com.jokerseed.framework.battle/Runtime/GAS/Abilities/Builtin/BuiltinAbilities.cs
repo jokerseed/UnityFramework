@@ -7,7 +7,6 @@ using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
-using UnityEngine;
 
 namespace Framework.GAS.Abilities.Builtin
 {
@@ -95,8 +94,8 @@ namespace Framework.GAS.Abilities.Builtin
             {
                 Caster = owner.ActorId,
                 AbilityId = instance.Spec.Def.AbilityId,
-                Origin = FPConversions.ToVector3(context.Origin),
-                Direction = FPConversions.ToVector3(context.Direction),
+                Origin = context.Origin,
+                Direction = context.Direction,
                 PrimaryTarget = primaryTarget
             });
 
@@ -104,8 +103,8 @@ namespace Framework.GAS.Abilities.Builtin
             {
                 Actor = owner.ActorId,
                 CueTag = $"Cue.{instance.Spec.Def.AbilityId}.Cast",
-                Position = FPConversions.ToVector3(context.Origin),
-                Direction = FPConversions.ToVector3(context.Direction),
+                Position = context.Origin,
+                Direction = context.Direction,
                 Action = GameplayCueAction.Execute
             });
         }

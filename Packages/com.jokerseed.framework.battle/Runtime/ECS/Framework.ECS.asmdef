@@ -2,7 +2,6 @@
     "name": "Framework.ECS",
     "rootNamespace": "Framework.ECS",
     "references": [
-        "Framework.Core",
         "Framework.Battle.Core",
         "Framework.FixedMath"
     ],
@@ -14,5 +13,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": true
 }

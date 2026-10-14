@@ -29,8 +29,8 @@ namespace Framework.GAS.Targeting
         /// <summary>主目标 Actor。</summary>
         public ActorId PrimaryActor { get; }
 
-        /// <summary>目标位置。</summary>
-        public UnityEngine.Vector3 Location { get; }
+        /// <summary>目标位置（仿真坐标）。</summary>
+        public TSVector Location { get; }
 
         /// <summary>多目标列表。</summary>
         public IReadOnlyList<ActorId> Actors { get; }
@@ -40,7 +40,7 @@ namespace Framework.GAS.Targeting
             new GameplayTargetData(GameplayTargetDataType.SingleActor, actor, default, null);
 
         /// <summary>位置目标。</summary>
-        public static GameplayTargetData FromLocation(UnityEngine.Vector3 location) =>
+        public static GameplayTargetData FromLocation(TSVector location) =>
             new GameplayTargetData(GameplayTargetDataType.Location, ActorId.Invalid, location, null);
 
         /// <summary>多 Actor 目标。</summary>
@@ -50,7 +50,7 @@ namespace Framework.GAS.Targeting
         GameplayTargetData(
             GameplayTargetDataType type,
             ActorId primaryActor,
-            UnityEngine.Vector3 location,
+            TSVector location,
             IReadOnlyList<ActorId> actors)
         {
             Type = type;

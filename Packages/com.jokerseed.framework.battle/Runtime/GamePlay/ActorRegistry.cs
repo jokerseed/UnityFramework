@@ -7,7 +7,6 @@ using Framework.GAS;
 using Framework.GAS.Tags;
 using Framework.GAS.Targeting;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.GamePlay
 {
@@ -29,10 +28,7 @@ namespace Framework.GamePlay
         /// <summary>Actor 所属队伍编号；同队视为友方，不同队视为敌方。</summary>
         public int TeamId { get; }
 
-        /// <summary>Actor 在世界空间的当前位置（表现缓存），由 <see cref="ActorRegistry.SyncPositionsFromEcs"/> 每帧更新。</summary>
-        public Vector3 Position { get; internal set; }
-
-        /// <summary>Actor 仿真世界坐标（定点），逻辑链统一读取此字段。</summary>
+        /// <summary>Actor 仿真世界坐标（定点），由 <see cref="ActorRegistry.SyncPositionsFromEcs"/> 每帧更新；表现层自行转成引擎坐标。</summary>
         public TSVector SimPosition { get; internal set; }
 
         /// <summary>创建一个 BattleActor 数据容器。</summary>
@@ -114,7 +110,6 @@ namespace Framework.GamePlay
 
             var actor = new BattleActor(actorId, asc, teamId)
             {
-                Position = FPConversions.ToVector3(position),
                 SimPosition = position
             };
             var entity = _world.CreateEntity();
@@ -209,7 +204,6 @@ namespace Framework.GamePlay
             transform.Position = position;
             _world.AddComponent(entity, transform);
             actor.SimPosition = position;
-            actor.Position = FPConversions.ToVector3(position);
             _world.GetSingleton<BattlePhysicsWorld>()?.SetPosition(entity.Id, position);
             MarkSpatialDirty();
         }
@@ -551,22 +545,6 @@ namespace Framework.GamePlay
                 : TSVector.forward;
         }
 
-        /// <summary>读取 Actor 朝向（表现）；无 Transform 时返回 <see cref="Vector3.forward"/>。</summary>
-        /// <param name="actorId">目标 Actor。</param>
-        /// <returns>朝向向量。</returns>
-        public Vector3 GetForward(ActorId actorId)
-        {
-            if (!TryGetEntity(actorId, out var entity) ||
-                !_world.TryGetComponent(entity, out TransformComponent transform))
-            {
-                return Vector3.forward;
-            }
-
-            return transform.Forward.sqrMagnitude > FP.Zero
-                ? transform.ToUnityForward()
-                : Vector3.forward;
-        }
-
         /// <summary>写入 Actor 朝向（定点）。</summary>
         /// <param name="actorId">目标 Actor。</param>
         /// <param name="forward">朝向。</param>
@@ -625,7 +603,6 @@ namespace Framework.GamePlay
                 if (_world.TryGetComponent(actor.EcsEntity, out TransformComponent transform))
                 {
                     actor.SimPosition = transform.Position;
-                    actor.Position = transform.ToUnityPosition();
                 }
             }
         }

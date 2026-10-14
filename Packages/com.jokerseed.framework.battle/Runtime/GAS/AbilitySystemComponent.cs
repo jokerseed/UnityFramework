@@ -10,7 +10,6 @@ using Framework.GAS.Cues;
 using Framework.GAS.Effects;
 using Framework.GAS.Events;
 using Framework.GAS.Tags;
-using UnityEngine;
 
 namespace Framework.GAS
 {
@@ -99,12 +98,6 @@ namespace Framework.GAS
 
         /// <summary>Cue 管理器；为 null 时直接向 EventBus 发布 <see cref="GameplayCueEvent"/>。</summary>
         public IGameplayCueManager CueManager { get; set; }
-
-        /// <summary>Cue 使用的世界坐标（表现）；由 GamePlay 每帧从 <see cref="CueSimPosition"/> 同步。</summary>
-        public Vector3 CuePosition { get; set; }
-
-        /// <summary>Cue 使用的朝向（表现）；由 GamePlay 每帧从 <see cref="CueSimDirection"/> 同步。</summary>
-        public Vector3 CueDirection { get; set; } = Vector3.forward;
 
         /// <summary>Cue 与逻辑查询使用的仿真坐标（定点）。</summary>
         public TSVector CueSimPosition { get; set; }
@@ -1282,8 +1275,7 @@ namespace Framework.GAS
                 return;
             }
 
-            var direction = CueDirection.sqrMagnitude > 0f ? CueDirection.normalized : Vector3.forward;
-            var parameters = new GameplayCueParameters(ActorId, CuePosition, direction);
+            var parameters = new GameplayCueParameters(ActorId, CueSimPosition, CueSimDirection);
             for (var i = 0; i < cueTags.Count; i++)
             {
                 var cueTag = cueTags[i];
@@ -1308,8 +1300,8 @@ namespace Framework.GAS
                     {
                         Actor = ActorId,
                         CueTag = cueTag,
-                        Position = CuePosition,
-                        Direction = direction,
+                        Position = parameters.Location,
+                        Direction = parameters.Direction,
                         Action = action
                     });
                 }

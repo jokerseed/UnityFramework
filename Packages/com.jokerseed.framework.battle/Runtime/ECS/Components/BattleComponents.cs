@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.ECS.Components
 {
@@ -13,14 +12,6 @@ namespace Framework.ECS.Components
 
         /// <summary>实体的朝向向量（单位向量）。</summary>
         public TSVector Forward;
-
-        /// <summary>转为 Unity 坐标，仅供表现层使用。</summary>
-        /// <returns>浮点世界坐标。</returns>
-        public Vector3 ToUnityPosition() => FPConversions.ToVector3(Position);
-
-        /// <summary>转为 Unity 朝向，仅供表现层使用。</summary>
-        /// <returns>浮点朝向。</returns>
-        public Vector3 ToUnityForward() => FPConversions.ToVector3(Forward);
     }
 
     /// <summary>速度组件，由物理步进系统写入刚体。</summary>

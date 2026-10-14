@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
-using Framework.Core.Tick;
 using Framework.ECS;
 using Framework.ECS.Systems;
 using Framework.Events;
@@ -26,7 +25,7 @@ namespace Framework.GamePlay
     /// 若步间发生创建、移除、传送或复活，则在本步 ASC.Tick 之前再重建一次。范围结算读物理之后的格子。
     /// AI 意图由 <see cref="CollectAiIntents"/> 在 Host 逻辑步写入帧，不在 Tick 内直接 Apply。
     /// </summary>
-    public sealed class GamePlayFramework : ITickable, IDisposable
+    public sealed class GamePlayFramework : IDisposable
     {
         readonly ZeroGcEventBus _presentationBus = new ZeroGcEventBus();
         readonly BattleCommandBuffer _commandBuffer = new BattleCommandBuffer();
@@ -555,8 +554,6 @@ namespace Framework.GamePlay
             return order != 0 ? order : left.Sequence.CompareTo(right.Sequence);
         }
 
-        void ITickable.Tick(float deltaTime) => Tick((FP)deltaTime);
-
         void SyncCuePose()
         {
             for (var i = 0; i < _actorOrder.Count; i++)
@@ -568,8 +565,6 @@ namespace Framework.GamePlay
 
                 actor.AbilitySystem.CueSimPosition = actor.SimPosition;
                 actor.AbilitySystem.CueSimDirection = _registry.GetSimForward(actor.ActorId);
-                actor.AbilitySystem.CuePosition = actor.Position;
-                actor.AbilitySystem.CueDirection = _registry.GetForward(actor.ActorId);
             }
         }
 

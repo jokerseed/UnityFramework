@@ -39,14 +39,27 @@ namespace Framework.Tests
         }
 
         [Test]
-        public void ScannerAllowsTickFloatBridge()
+        public void SimAssembliesDoNotReferenceUnityEngine()
         {
-            var violations = new List<string>();
-            SimDeterminismScanner.CollectViolations(
-                "Packages/com.jokerseed.framework.core/Runtime/Core/Tick/ITickable.cs",
-                "void Tick(float deltaTime);",
-                violations);
-            Assert.IsEmpty(violations);
+            var projectRoot = Path.GetDirectoryName(FindAssetsFolder());
+            var battle = Path.Combine(projectRoot, "Packages", "com.jokerseed.framework.battle", "Runtime");
+            string[] simAsmdefs =
+            {
+                Path.Combine(battle, "FixedMath", "Framework.FixedMath.asmdef"),
+                Path.Combine(battle, "Lockstep", "Framework.Lockstep.asmdef"),
+                Path.Combine(battle, "LockstepPhysics", "Framework.LockstepPhysics.asmdef"),
+                Path.Combine(battle, "Battle.Core", "Framework.Battle.Core.asmdef"),
+                Path.Combine(battle, "ECS", "Framework.ECS.asmdef"),
+                Path.Combine(battle, "ECS.Physics", "Framework.ECS.Physics.asmdef"),
+                Path.Combine(battle, "GAS", "Framework.GAS.asmdef"),
+            };
+            for (var i = 0; i < simAsmdefs.Length; i++)
+            {
+                var text = File.ReadAllText(simAsmdefs[i]);
+                Assert.IsTrue(
+                    Regex.IsMatch(text, "\"noEngineReferences\"\\s*:\\s*true"),
+                    Path.GetFileName(simAsmdefs[i]) + " 必须开启 noEngineReferences，模拟层不能直接用 UnityEngine。");
+            }
         }
 
         [Test]
@@ -106,6 +119,7 @@ namespace Framework.Tests
 
             Assert.IsTrue(graph.ContainsKey("Game"));
             Assert.IsFalse(graph["Framework.Core"].Contains("Framework.Events"));
+            Assert.IsFalse(graph["Framework.Core"].Contains("Framework.FixedMath"), "Core 不应把定点数学带给不做帧同步的项目。");
             Assert.IsFalse(graph["Framework.GamePlay"].Contains("Generated.Luban"));
             Assert.IsTrue(graph["Framework.GamePlay.Luban"].Contains("Luban.Runtime"));
             Assert.IsTrue(graph["Framework.ECS.Physics"].Contains("Framework.LockstepPhysics"));
@@ -171,7 +185,6 @@ namespace Framework.Tests
                 battle + "/BehaviourTree",
                 battle + "/Battle.Core",
                 battle + "/Lockstep",
-                "Packages/com.jokerseed.framework.core/Runtime/Core",
                 "Assets/Scripts/Luban",
             };
             for (var i = 0; i < required.Length; i++)

@@ -18,8 +18,6 @@
 */
 
 using System;
-using UnityEngine;
-
 namespace Framework.FixedMath
 {
     /// <summary>

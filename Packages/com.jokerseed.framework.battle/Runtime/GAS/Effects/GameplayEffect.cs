@@ -66,14 +66,6 @@ namespace Framework.GAS.Effects
     /// <summary>GameplayEffect 运行时 Spec。</summary>
     public sealed class GameplayEffectSpec
     {
-        static int s_nextHandle = 1;
-
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetProcessCounter()
-        {
-            s_nextHandle = 1;
-        }
-
         /// <summary>运行时 Spec 句柄。0 表示尚未由 ASC 分配；施加时按该 ASC 的计数写入。</summary>
         public int RuntimeId { get; private set; }
 
@@ -127,14 +119,6 @@ namespace Framework.GAS.Effects
 
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
-
-        /// <summary>下一个将分配的 RuntimeId。</summary>
-        /// <returns>静态计数。</returns>
-        internal static int PeekNextRuntimeId() => s_nextHandle;
-
-        /// <summary>把下一个 RuntimeId 设为快照中的值。</summary>
-        /// <param name="value">下一个 RuntimeId。</param>
-        internal static void SetNextRuntimeId(int value) => s_nextHandle = value;
 
         /// <summary>从 Def 构造运行时 Spec（兼容旧构造函数）。</summary>
         public GameplayEffectSpec(
@@ -206,14 +190,6 @@ namespace Framework.GAS.Effects
     /// <summary>运行时活跃的 GameplayEffect 实例。</summary>
     public sealed class ActiveGameplayEffect
     {
-        static int s_nextHandle = 1;
-
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetProcessCounter()
-        {
-            s_nextHandle = 1;
-        }
-
         /// <summary>活跃效果句柄。</summary>
         public GameplayEffectHandle Handle { get; }
 
@@ -241,12 +217,13 @@ namespace Framework.GAS.Effects
         /// <summary>创建活跃效果。</summary>
         /// <param name="spec">效果 Spec。</param>
         /// <param name="source">来源 Actor。</param>
-        /// <param name="handle">ASC 或快照给出的句柄。大于 0 时直接使用且不推进静态计数；≤0 时分配进程计数，仅兼容直接 new。</param>
-        public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source, int handle = 0)
+        /// <param name="handle">ASC 会话内计数或快照给出的句柄；必须大于 0。</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="handle"/> 不大于 0。</exception>
+        public ActiveGameplayEffect(GameplayEffectSpec spec, ActorId source, int handle)
         {
             if (handle <= 0)
             {
-                handle = s_nextHandle++;
+                throw new ArgumentOutOfRangeException(nameof(handle), handle, "Effect handles are allocated by the owning ASC and must be positive.");
             }
 
             Handle = new GameplayEffectHandle(handle);
@@ -258,14 +235,6 @@ namespace Framework.GAS.Effects
 
         /// <summary>快照里来源 ASC 引用是否存在。恢复后由外部重新绑定。</summary>
         internal bool SnapshotHadSourceAsc { get; set; }
-
-        /// <summary>下一个将分配的效果句柄。</summary>
-        /// <returns>静态计数。</returns>
-        internal static int PeekNextHandle() => s_nextHandle;
-
-        /// <summary>把下一个效果句柄设为快照中的值。</summary>
-        /// <param name="value">下一个句柄。</param>
-        internal static void SetNextHandle(int value) => s_nextHandle = value;
 
         /// <summary>是否已过期。</summary>
         public bool IsExpired =>

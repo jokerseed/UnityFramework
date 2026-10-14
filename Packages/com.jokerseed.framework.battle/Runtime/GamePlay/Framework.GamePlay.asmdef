@@ -11,6 +11,7 @@
         "Framework.Logging",
         "Framework.BehaviourTree",
         "Framework.FixedMath",
+        "Framework.FixedMath.Unity",
         "Framework.Lockstep",
         "Framework.Res"
     ],

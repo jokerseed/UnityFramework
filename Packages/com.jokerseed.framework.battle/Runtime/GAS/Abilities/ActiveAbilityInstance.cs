@@ -21,14 +21,6 @@ namespace Framework.GAS.Abilities
     /// <summary>单次技能激活实例，持有 Spec、上下文与 Task 运行器。</summary>
     public sealed class ActiveAbilityInstance
     {
-        static int s_nextInstanceId = 1;
-
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetProcessCounter()
-        {
-            s_nextInstanceId = 1;
-        }
-
         readonly List<Tasks.AbilityTask> _tasks = new List<Tasks.AbilityTask>();
 
         /// <summary>实例唯一 ID，用于 Cancel 查找。</summary>
@@ -52,17 +44,8 @@ namespace Framework.GAS.Abilities
         /// <summary>本实例挂载的 AbilityTask 列表（只读）。</summary>
         public IReadOnlyList<Tasks.AbilityTask> Tasks => _tasks;
 
-        internal ActiveAbilityInstance(
-            GameplayAbilitySpec spec,
-            in AbilityActivationContext context,
-            AbilityActivationInfo activationInfo)
-            : this(spec, context, activationInfo, s_nextInstanceId++)
-        {
-        }
-
         /// <summary>
-        /// 用已保存或由 ASC 分配的实例 ID 重建，不推进静态计数。
-        /// 快照恢复和 <c>AbilitySystemComponent</c> 的会话内计数都走这里。
+        /// 用 <c>AbilitySystemComponent</c> 会话内计数分配、或从快照读回的实例 ID 构造。
         /// </summary>
         /// <param name="spec">授予技能 Spec。</param>
         /// <param name="context">激活上下文。</param>
@@ -80,14 +63,6 @@ namespace Framework.GAS.Abilities
             ActivationInfo = activationInfo ?? new AbilityActivationInfo();
             State = ActiveAbilityState.Pending;
         }
-
-        /// <summary>下一个将分配的实例 ID。</summary>
-        /// <returns>静态计数。</returns>
-        internal static int PeekNextInstanceId() => s_nextInstanceId;
-
-        /// <summary>把下一个实例 ID 设为快照中的值。</summary>
-        /// <param name="value">下一个实例 ID。</param>
-        internal static void SetNextInstanceId(int value) => s_nextInstanceId = value;
 
         internal void AddTask(Tasks.AbilityTask task) => _tasks.Add(task);
 

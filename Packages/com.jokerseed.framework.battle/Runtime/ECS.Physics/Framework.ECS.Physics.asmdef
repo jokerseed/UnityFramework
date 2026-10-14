@@ -2,7 +2,6 @@
     "name": "Framework.ECS.Physics",
     "rootNamespace": "Framework.ECS",
     "references": [
-        "Framework.Core",
         "Framework.Battle.Core",
         "Framework.ECS",
         "Framework.FixedMath",
@@ -17,5 +16,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": true
 }

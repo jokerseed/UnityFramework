@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Framework.Core;
 using Framework.Core.Commands;
-using Framework.Core.Tick;
 using Framework.FixedMath;
 
 namespace Framework.ECS
@@ -11,7 +10,7 @@ namespace Framework.ECS
     /// ECS 世界，负责实体的生命周期、组件存储和系统调度。
     /// 每个战斗实例对应一个 World，由 <see cref="Framework.GamePlay.GamePlayFramework"/> 持有。
     /// </summary>
-    public sealed partial class World : ITickable
+    public sealed partial class World
     {
         static readonly EcsSystemPhase[] s_phaseOrder =
         {
@@ -216,8 +215,6 @@ namespace Framework.ECS
                 }
             }
         }
-
-        void ITickable.Tick(float deltaTime) => Tick((FP)deltaTime);
 
         /// <summary>销毁世界：逆序调用所有系统的 <see cref="ISystem.OnDestroy"/>，并清空全部存储。</summary>
         public void Dispose()

@@ -21,10 +21,10 @@ namespace Framework.GAS.Snapshot
         public const int Magic = 0x31534147;
 
         /// <summary>
-        /// 当前快照版本。版本 3 在每个 ASC 里追加效果 Spec 的下一个 RuntimeId。
-        /// 版本 2 及更早的字节不能再读。
+        /// 当前快照版本。版本 4 去掉了头部三个进程级计数（Spec RuntimeId、效果句柄、技能实例 ID），
+        /// 这些计数只按 ASC 保存。版本 3 及更早的字节不能再读。
         /// </summary>
-        public const int Version = 3;
+        public const int Version = 4;
 
         readonly IList<AbilitySystemComponent> _components;
         readonly BattleContext _battle;
@@ -50,10 +50,6 @@ namespace Framework.GAS.Snapshot
             SortComponents();
             writer.WriteInt(Magic);
             writer.WriteInt(Version);
-            // 这一格是已经不再递增的静态 Spec 计数，留着只为字节布局。不要把它当身份。
-            writer.WriteInt(GameplayEffectSpec.PeekNextRuntimeId());
-            writer.WriteInt(ActiveGameplayEffect.PeekNextHandle());
-            writer.WriteInt(ActiveAbilityInstance.PeekNextInstanceId());
             writer.WriteInt(_sorted.Count);
             for (var i = 0; i < _sorted.Count; i++)
             {
@@ -78,9 +74,6 @@ namespace Framework.GAS.Snapshot
                 throw new InvalidOperationException("Unsupported GAS snapshot version " + version + ".");
             }
 
-            var nextRuntimeId = reader.ReadInt();
-            var nextEffectHandle = reader.ReadInt();
-            var nextInstanceId = reader.ReadInt();
             var count = reader.ReadInt();
             if (count != _components.Count)
             {
@@ -99,10 +92,6 @@ namespace Framework.GAS.Snapshot
 
                 asc.RestoreState(reader, _abilityDefs, _battle, FindAsc);
             }
-
-            GameplayEffectSpec.SetNextRuntimeId(nextRuntimeId);
-            ActiveGameplayEffect.SetNextHandle(nextEffectHandle);
-            ActiveAbilityInstance.SetNextInstanceId(nextInstanceId);
         }
 
         void SortComponents()

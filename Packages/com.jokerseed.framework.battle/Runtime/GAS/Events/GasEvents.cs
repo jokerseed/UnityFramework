@@ -1,6 +1,5 @@
 using Framework.Core;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.GAS.Events
 {
@@ -13,10 +12,10 @@ namespace Framework.GAS.Events
         public ActorId Caster;
         /// <summary>激活的技能 ID。</summary>
         public string AbilityId;
-        /// <summary>施放起点（世界坐标）。</summary>
-        public Vector3 Origin;
+        /// <summary>施放起点（仿真坐标）。</summary>
+        public TSVector Origin;
         /// <summary>施放方向（已归一化）。</summary>
-        public Vector3 Direction;
+        public TSVector Direction;
         /// <summary>主目标 ID；无目标时为无效值。</summary>
         public ActorId PrimaryTarget;
     }
@@ -110,10 +109,10 @@ namespace Framework.GAS.Events
         public ActorId Actor;
         /// <summary>Cue 标签（如 <c>Cue.Fireball.Cast</c>）。</summary>
         public string CueTag;
-        /// <summary>触发位置（世界坐标）。</summary>
-        public Vector3 Position;
+        /// <summary>触发位置（仿真坐标）。</summary>
+        public TSVector Position;
         /// <summary>触发方向（已归一化）。</summary>
-        public Vector3 Direction;
+        public TSVector Direction;
         /// <summary>Cue 动作（爆发 / 添加 / 移除）。</summary>
         public GameplayCueAction Action;
     }

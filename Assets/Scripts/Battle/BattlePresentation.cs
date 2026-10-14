@@ -1,5 +1,6 @@
 using System;
 using Framework.Config;
+using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.GAS.Events;
 using Framework.Core;
@@ -103,7 +104,7 @@ namespace Game
         {
             if (_framework != null && _framework.Registry.TryGet(actorId, out var actor))
             {
-                return actor.Position;
+                return FPConversions.ToVector3(actor.SimPosition);
             }
 
             return null;

@@ -15,6 +15,7 @@
         "Framework.ECS.Physics",
         "Framework.GAS",
         "Framework.FixedMath",
+        "Framework.FixedMath.Unity",
         "Framework.Logging",
         "Framework.MemoryPool",
         "Framework.Network",
