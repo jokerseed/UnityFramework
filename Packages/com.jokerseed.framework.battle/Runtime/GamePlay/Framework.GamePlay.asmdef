@@ -10,6 +10,7 @@
         "Framework.ECS.Physics",
         "Framework.Logging",
         "Framework.BehaviourTree",
+        "Framework.BehaviourTree.Unity",
         "Framework.FixedMath",
         "Framework.FixedMath.Unity",
         "Framework.Lockstep",

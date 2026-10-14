@@ -46,7 +46,8 @@
       "source": "embedded",
       "dependencies": {
         "com.jokerseed.framework.core": "0.1.0",
-        "com.jokerseed.framework.res": "0.1.0"
+        "com.jokerseed.framework.res": "0.1.0",
+        "com.unity.nuget.newtonsoft-json": "3.0.2"
       }
     },
     "com.jokerseed.framework.config": {

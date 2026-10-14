@@ -8,24 +8,6 @@ namespace Framework.BehaviourTree
     {
         static readonly BtBuiltinNodeRegistry DefaultBuiltin = new BtBuiltinNodeRegistry();
 
-        /// <summary>从 ScriptableObject 资产编译。</summary>
-        /// <param name="asset">行为树资产；不可为 null。</param>
-        /// <param name="customRegistry">自定义节点注册表；可为 null。</param>
-        /// <param name="subtrees">子树解析；可为 null。</param>
-        /// <returns>运行时行为树。</returns>
-        public static BehaviourTree Compile(
-            BtTreeAsset asset,
-            IBtNodeRegistry customRegistry = null,
-            IBtSubtreeResolver subtrees = null)
-        {
-            if (asset == null)
-            {
-                throw new ArgumentNullException(nameof(asset));
-            }
-
-            return Compile(asset.Definition, customRegistry, subtrees);
-        }
-
         /// <summary>从配置定义编译为运行时实例。</summary>
         /// <param name="definition">树定义；不可为 null。</param>
         /// <param name="customRegistry">自定义节点注册表；可为 null。</param>
@@ -37,24 +19,6 @@ namespace Framework.BehaviourTree
             IBtSubtreeResolver subtrees = null)
         {
             return new BehaviourTree(CompileToTemplate(definition, customRegistry, subtrees));
-        }
-
-        /// <summary>从 ScriptableObject 编译为可共享模板。</summary>
-        /// <param name="asset">行为树资产；不可为 null。</param>
-        /// <param name="customRegistry">自定义节点注册表；可为 null。</param>
-        /// <param name="subtrees">子树解析；可为 null。</param>
-        /// <returns>共享拓扑模板。</returns>
-        public static BtTreeTemplate CompileToTemplate(
-            BtTreeAsset asset,
-            IBtNodeRegistry customRegistry = null,
-            IBtSubtreeResolver subtrees = null)
-        {
-            if (asset == null)
-            {
-                throw new ArgumentNullException(nameof(asset));
-            }
-
-            return CompileToTemplate(asset.Definition, customRegistry, subtrees);
         }
 
         /// <summary>从配置定义编译为可共享模板（多 Agent 可 <see cref="BehaviourTree.Instantiate"/>）。</summary>

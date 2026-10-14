@@ -52,6 +52,7 @@ namespace Framework.Tests
                 Path.Combine(battle, "ECS", "Framework.ECS.asmdef"),
                 Path.Combine(battle, "ECS.Physics", "Framework.ECS.Physics.asmdef"),
                 Path.Combine(battle, "GAS", "Framework.GAS.asmdef"),
+                Path.Combine(battle, "BehaviourTree", "Framework.BehaviourTree.asmdef"),
             };
             for (var i = 0; i < simAsmdefs.Length; i++)
             {

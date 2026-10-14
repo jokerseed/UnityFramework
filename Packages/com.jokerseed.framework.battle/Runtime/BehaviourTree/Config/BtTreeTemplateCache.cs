@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Framework.BehaviourTree
 {
@@ -61,23 +60,6 @@ namespace Framework.BehaviourTree
             IBtSubtreeResolver subtrees = null)
         {
             return GetOrCompile(key, () => BtTreeLoader.CompileToTemplateFromJson(json, customRegistry, subtrees));
-        }
-
-        /// <summary>从 <see cref="TextAsset"/> 编译（或取缓存）模板。</summary>
-        /// <param name="key">缓存键。</param>
-        /// <param name="textAsset">文本资产；不可为 null。</param>
-        /// <param name="customRegistry">自定义节点注册表；可为 null。</param>
-        /// <param name="subtrees">子树解析；可为 null。</param>
-        /// <returns>共享模板。</returns>
-        public BtTreeTemplate GetOrCompileFromTextAsset(
-            string key,
-            TextAsset textAsset,
-            IBtNodeRegistry customRegistry = null,
-            IBtSubtreeResolver subtrees = null)
-        {
-            return GetOrCompile(
-                key,
-                () => BtTreeLoader.CompileToTemplateFromTextAsset(textAsset, customRegistry, subtrees));
         }
 
         /// <summary>尝试获取已缓存模板。</summary>

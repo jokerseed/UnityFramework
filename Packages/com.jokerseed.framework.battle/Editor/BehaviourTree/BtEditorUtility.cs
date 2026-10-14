@@ -94,7 +94,7 @@ namespace Framework.BehaviourTree.Editor
             }
 
             var jsonPath = Path.ChangeExtension(assetPath, null) + JsonExtension;
-            var json = BtTreeSerializer.ExportAsset(asset, true);
+            var json = BtAssetLoader.ExportAsset(asset, true);
             File.WriteAllText(jsonPath, json);
             AssetDatabase.Refresh();
             return jsonPath;
@@ -139,7 +139,7 @@ namespace Framework.BehaviourTree.Editor
             }
 
             var text = File.ReadAllText(jsonPath);
-            BtTreeSerializer.ImportToAsset(asset, text);
+            BtAssetLoader.ImportToAsset(asset, text);
             EditorUtility.SetDirty(asset);
         }
 
@@ -157,7 +157,7 @@ namespace Framework.BehaviourTree.Editor
 
             try
             {
-                BtTreeCompiler.Compile(asset, null, new BtEditorSubtreeResolver());
+                BtAssetLoader.Load(asset, null, new BtEditorSubtreeResolver());
                 return true;
             }
             catch (Exception ex)
@@ -174,7 +174,7 @@ namespace Framework.BehaviourTree.Editor
                 Id = Guid.NewGuid().ToString("N"),
                 Kind = BtNodeKind.Selector,
                 DisplayName = "Root",
-                EditorPosition = new Vector2(200f, 80f),
+                EditorPosition = new BtEditorPosition(200f, 80f),
             };
         }
 

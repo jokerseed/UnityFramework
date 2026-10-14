@@ -2,7 +2,8 @@
     "name": "Framework.BehaviourTree.Editor",
     "rootNamespace": "Framework.BehaviourTree.Editor",
     "references": [
-        "Framework.BehaviourTree"
+        "Framework.BehaviourTree",
+        "Framework.BehaviourTree.Unity"
     ],
     "includePlatforms": [
         "Editor"

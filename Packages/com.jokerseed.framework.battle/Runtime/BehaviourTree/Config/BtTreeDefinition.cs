@@ -5,6 +5,7 @@ namespace Framework.BehaviourTree
 {
     /// <summary>完整行为树配置（可 JSON 序列化）。</summary>
     [Serializable]
+    [Preserve]
     public sealed class BtTreeDefinition
     {
         /// <summary>配置格式版本。</summary>

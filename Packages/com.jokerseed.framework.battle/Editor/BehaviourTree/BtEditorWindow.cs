@@ -491,7 +491,7 @@ namespace Framework.BehaviourTree.Editor
                     continue;
                 }
 
-                var from = origin + node.EditorPosition + new Vector2(NodeWidth * 0.5f, NodeHeight);
+                var from = origin + node.EditorPosition.ToVector2() + new Vector2(NodeWidth * 0.5f, NodeHeight);
                 var catalogOk = BtNodeCatalog.TryGet(node.Kind, out var meta);
                 var maxChildren = catalogOk && meta.IsDecorator ? 1 : int.MaxValue;
                 for (var c = 0; c < node.ChildIds.Count; c++)
@@ -503,7 +503,7 @@ namespace Framework.BehaviourTree.Editor
                     Vector2 to;
                     if (child != null)
                     {
-                        to = origin + child.EditorPosition + new Vector2(NodeWidth * 0.5f, 0f);
+                        to = origin + child.EditorPosition.ToVector2() + new Vector2(NodeWidth * 0.5f, 0f);
                     }
                     else
                     {
@@ -628,7 +628,7 @@ namespace Framework.BehaviourTree.Editor
                 var n = FindNode(id);
                 if (n != null)
                 {
-                    _dragStartPositions[id] = n.EditorPosition;
+                    _dragStartPositions[id] = n.EditorPosition.ToVector2();
                 }
             }
         }
@@ -734,7 +734,7 @@ namespace Framework.BehaviourTree.Editor
                 var node = FindNode(pair.Key);
                 if (node != null)
                 {
-                    node.EditorPosition = pair.Value + delta;
+                    node.EditorPosition = (pair.Value + delta).ToBtPosition();
                 }
             }
 
@@ -775,7 +775,7 @@ namespace Framework.BehaviourTree.Editor
                 var entry = BtNodeCatalog.Entries[i];
                 menu.AddItem(new GUIContent(entry.Label), false, () =>
                 {
-                    var childPos = parent.EditorPosition + new Vector2(0f, NodeHeight + 80f + parent.ChildIds.Count * (NodeHeight + 24f));
+                    var childPos = parent.EditorPosition.ToVector2() + new Vector2(0f, NodeHeight + 80f + parent.ChildIds.Count * (NodeHeight + 24f));
                     Record("Add Child");
                     var child = AddNode(entry.Kind, childPos);
                     parent.ChildIds.Add(child.Id);
@@ -810,7 +810,7 @@ namespace Framework.BehaviourTree.Editor
             menu.AddSeparator(string.Empty);
             menu.AddItem(new GUIContent("Create New Child Below..."), false, () =>
             {
-                var childPos = decorator.EditorPosition + new Vector2(0f, NodeHeight + 80f);
+                var childPos = decorator.EditorPosition.ToVector2() + new Vector2(0f, NodeHeight + 80f);
                 Record("Create Decorator Child");
                 var child = AddNode(BtNodeKind.Sequence, childPos);
                 decorator.ChildIds.Clear();
@@ -830,7 +830,7 @@ namespace Framework.BehaviourTree.Editor
                 Id = Guid.NewGuid().ToString("N"),
                 Kind = kind,
                 DisplayName = meta.Label,
-                EditorPosition = canvasPos,
+                EditorPosition = canvasPos.ToBtPosition(),
             };
 
             if (kind == BtNodeKind.Repeater)

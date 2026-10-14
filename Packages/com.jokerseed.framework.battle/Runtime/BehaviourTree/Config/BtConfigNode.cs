@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.BehaviourTree
 {
     /// <summary>可序列化键值参数。</summary>
     [Serializable]
+    [Preserve]
     public sealed class BtParamKv
     {
         /// <summary>参数键。</summary>
@@ -33,6 +33,7 @@ namespace Framework.BehaviourTree
 
     /// <summary>单个行为树节点的可序列化配置。</summary>
     [Serializable]
+    [Preserve]
     public sealed class BtConfigNode
     {
         /// <summary>节点唯一 id（GUID 字符串）。</summary>
@@ -45,7 +46,7 @@ namespace Framework.BehaviourTree
         public string DisplayName = string.Empty;
 
         /// <summary>图编辑器中的位置（仅 Editor 使用）。</summary>
-        public Vector2 EditorPosition;
+        public BtEditorPosition EditorPosition;
 
         /// <summary>子节点 id 列表。</summary>
         public List<string> ChildIds = new List<string>();

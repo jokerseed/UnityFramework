@@ -49,7 +49,7 @@ namespace Framework.GamePlay
                             $"Behaviour tree asset at '{location}' is not a TextAsset.");
                     }
 
-                    return BtTreeLoader.CompileToTemplateFromTextAsset(textAsset, customRegistry, subtrees);
+                    return BtAssetLoader.CompileToTemplateFromTextAsset(textAsset, customRegistry, subtrees);
                 }
             });
         }

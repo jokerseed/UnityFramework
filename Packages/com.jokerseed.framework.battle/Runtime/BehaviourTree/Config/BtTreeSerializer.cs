@@ -1,11 +1,23 @@
 using System;
-using UnityEngine;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Framework.BehaviourTree
 {
-    /// <summary>行为树配置 JSON 导入导出（Unity <see cref="JsonUtility"/>）。</summary>
+    /// <summary>
+    /// 行为树配置 JSON 导入导出。
+    /// 使用 Newtonsoft.Json 而不是 Unity <c>JsonUtility</c>：客户端、服务端和纯 .NET 测试解析同一份 <c>.bt.json</c> 时走同一套代码，
+    /// 浮点参数逐位一致。字段名、枚举按整数、缺省字段取初始值，这些都与 <c>JsonUtility</c> 输出的格式兼容。
+    /// </summary>
     public static class BtTreeSerializer
     {
+        static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
+        {
+            MissingMemberHandling = MissingMemberHandling.Ignore,
+            ObjectCreationHandling = ObjectCreationHandling.Replace,
+            NullValueHandling = NullValueHandling.Include,
+        };
+
         /// <summary>
         /// 将定义序列化为 JSON 字符串。
         /// </summary>
@@ -21,15 +33,15 @@ namespace Framework.BehaviourTree
             }
 
             definition.Version = BtTreeDefinition.CurrentVersion;
-            return JsonUtility.ToJson(definition, prettyPrint);
+            return JsonConvert.SerializeObject(definition, prettyPrint ? Formatting.Indented : Formatting.None, Settings);
         }
 
         /// <summary>
-        /// 从 JSON 反序列化树定义。
+        /// 从 JSON 反序列化树定义，并把旧版本格式迁移到 <see cref="BtTreeDefinition.CurrentVersion"/>。
         /// </summary>
         /// <param name="json">JSON 文本；不可为 null 或空。</param>
         /// <returns>树定义。</returns>
-        /// <exception cref="ArgumentException"><paramref name="json"/> 无效。</exception>
+        /// <exception cref="ArgumentException"><paramref name="json"/> 为空或无法解析。</exception>
         public static BtTreeDefinition FromJson(string json)
         {
             if (string.IsNullOrWhiteSpace(json))
@@ -37,7 +49,16 @@ namespace Framework.BehaviourTree
                 throw new ArgumentException("JSON is empty.", nameof(json));
             }
 
-            var definition = JsonUtility.FromJson<BtTreeDefinition>(json);
+            BtTreeDefinition definition;
+            try
+            {
+                definition = JsonConvert.DeserializeObject<BtTreeDefinition>(json, Settings);
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException("Failed to parse behaviour tree JSON: " + ex.Message, nameof(json), ex);
+            }
+
             if (definition == null)
             {
                 throw new ArgumentException("Failed to parse behaviour tree JSON.", nameof(json));
@@ -45,7 +66,7 @@ namespace Framework.BehaviourTree
 
             if (definition.Nodes == null)
             {
-                definition.Nodes = new System.Collections.Generic.List<BtConfigNode>();
+                definition.Nodes = new List<BtConfigNode>();
             }
 
             Migrate(definition);
@@ -82,37 +103,6 @@ namespace Framework.BehaviourTree
             }
 
             definition.Version = BtTreeDefinition.CurrentVersion;
-        }
-
-        /// <summary>
-        /// 从资产导出 JSON。
-        /// </summary>
-        /// <param name="asset">行为树资产；不可为 null。</param>
-        /// <param name="prettyPrint">是否格式化。</param>
-        /// <returns>JSON 文本。</returns>
-        public static string ExportAsset(BtTreeAsset asset, bool prettyPrint = true)
-        {
-            if (asset == null)
-            {
-                throw new ArgumentNullException(nameof(asset));
-            }
-
-            return ToJson(asset.Definition, prettyPrint);
-        }
-
-        /// <summary>
-        /// 将 JSON 导入到资产定义（不自动保存）。
-        /// </summary>
-        /// <param name="asset">目标资产；不可为 null。</param>
-        /// <param name="json">JSON 文本。</param>
-        public static void ImportToAsset(BtTreeAsset asset, string json)
-        {
-            if (asset == null)
-            {
-                throw new ArgumentNullException(nameof(asset));
-            }
-
-            asset.Definition = FromJson(json);
         }
     }
 }
