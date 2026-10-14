@@ -190,6 +190,25 @@ Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，`await` / 协程等
 | `OfflinePlayMode` | 本地离线包 |
 | `HostPlayMode` | 热更新 CDN 模式 |
 
+## 补丁下载（HostPlayMode）
+
+`InitializeAsync` 已经请求了最新版本并加载了对应 Manifest，之后用 `ResourcePatcher` 统计并下载需要更新的 Bundle：
+
+```csharp
+var patcher = ResourcePatcher.Create(tags: null);   // null = 全部资源；也可传 new[] { "base" }
+if (patcher.NeedDownload)
+{
+    // 先让玩家确认：ResourcePatcher.FormatBytes(patcher.TotalBytes)
+    var progress = new Progress<ResourcePatchProgress>(p => bar.value = p.Progress);
+    await patcher.DownloadAsync(progress, this.GetCancellationTokenOnDestroy());
+}
+```
+
+- 非 Host 模式下 `NeedDownload` 为 false，同一段代码可以在所有模式下运行
+- 下载失败抛 `InvalidOperationException`（带首个出错文件）；取消时停止下载并抛 `OperationCanceledException`，已下载的文件留在缓存里
+- 一个 `ResourcePatcher` 只能下载一次；重试时重新 `Create`，已缓存的文件不会再算进去
+- 目前只管理一个主资源包（`ResourceInitOptions.PackageName`）；DLC 式的多包加载需要扩展 `ResourceManager`
+
 ## Bootstrap 集成
 
 ```csharp

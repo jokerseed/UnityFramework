@@ -1,0 +1,26 @@
+{
+    "name": "Framework.HotUpdate",
+    "rootNamespace": "Framework.HotUpdate",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Logging",
+        "Framework.Res",
+        "HybridCLR.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.code-philosophy.hybridclr",
+            "expression": "0.0.1",
+            "define": "FRAMEWORK_HYBRIDCLR"
+        }
+    ],
+    "noEngineReferences": false
+}

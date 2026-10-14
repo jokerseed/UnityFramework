@@ -624,6 +624,15 @@ namespace Framework.Res
             return _package.UnloadUnusedAssetsAsync();
         }
 
+        internal ResourceDownloaderOperation CreateDownloader(string[] tags, int maximumConcurrency, int retryCount)
+        {
+            EnsureInitialized();
+            var options = tags == null || tags.Length == 0
+                ? new ResourceDownloaderOptions(maximumConcurrency, retryCount)
+                : new ResourceDownloaderOptions(tags, maximumConcurrency, retryCount);
+            return _package.CreateResourceDownloader(options);
+        }
+
         void EnsureInitialized()
         {
             if (!_initialized || _package == null || _scheduler == null)
