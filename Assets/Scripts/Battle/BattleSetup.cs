@@ -134,7 +134,7 @@ namespace Game
 
             try
             {
-                var tables = ConfigManager.Instance.GetTables();
+                var tables = ConfigManager.Instance.GetTables<cfg.CfgTables>();
 
                 HeroId = session.AllocateActorId();
                 framework.CreateActor(HeroId, HeroPosition, maxHealth: 120f, teamId: HeroTeamId);

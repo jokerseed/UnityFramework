@@ -5,8 +5,7 @@
         "Framework.Core",
         "Framework.Res",
         "Framework.Logging",
-        "Luban.Runtime",
-        "Generated.Luban"
+        "Luban.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

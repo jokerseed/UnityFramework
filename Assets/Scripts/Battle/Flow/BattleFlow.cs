@@ -53,7 +53,7 @@ namespace Game
 
             try
             {
-                ConfigManager.Instance.LoadTables();
+                ConfigManager.Instance.LoadTables<cfg.CfgTables>();
                 Session = module.Director.CreateSession();
                 State = BattleFlowState.Running;
                 GameLog.Info(

@@ -15,7 +15,7 @@ namespace Framework.GamePlay.Data
         /// <param name="actorId">Actor ID。</param>
         /// <param name="teamId">队伍 ID。</param>
         /// <param name="abilityIds">技能 ID 列表。</param>
-        /// <param name="tables">Luban 表；为 null 时通过 <see cref="ConfigManager.LoadTables"/> 按需加载。</param>
+        /// <param name="tables">Luban 表；为 null 时通过 <see cref="ConfigManager.LoadTables{TTables}"/> 按需加载。</param>
         /// <exception cref="InvalidOperationException">表未能加载。</exception>
         /// <exception cref="KeyNotFoundException">某个技能 ID 不在表中。</exception>
         public static void RegisterActorAbilities(
@@ -25,10 +25,10 @@ namespace Framework.GamePlay.Data
             IReadOnlyList<string> abilityIds,
             CfgTables tables = null)
         {
-            tables ??= ConfigManager.Instance.LoadTables();
+            tables ??= ConfigManager.Instance.LoadTables<CfgTables>();
             if (tables == null)
             {
-                throw new InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables() first.");
+                throw new InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables<CfgTables>() first.");
             }
 
             framework.EffectCatalog ??= new LubanEffectCatalog(tables);

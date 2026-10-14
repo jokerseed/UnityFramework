@@ -117,7 +117,7 @@ namespace Framework.GamePlay.Data
             CfgTables tables = null;
             if (ConfigManager.HasInstance)
             {
-                tables = ConfigManager.Instance.GetTables();
+                tables = ConfigManager.Instance.GetTables<CfgTables>();
             }
 
             return CreateDef(def, tables);

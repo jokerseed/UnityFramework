@@ -25,7 +25,8 @@
         "Framework.UI",
         "Unity.InputSystem",
         "Generated.input",
-        "Generated.Luban"
+        "Generated.Luban",
+        "Luban.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using cfg;
 using Framework.Core;
 using Framework.Logging;
 using Framework.Res;
@@ -10,8 +9,9 @@ using UnityEngine;
 namespace Framework.Config
 {
     /// <summary>
-    /// 配置管理器：Luban <see cref="CfgTables"/> 的按需加载与缓存入口。
-    /// 不在模块初始化时读表；业务首次需要时调用 <see cref="LoadTables"/>。
+    /// 配置管理器：Luban 生成的表聚合类（如 <c>cfg.CfgTables</c>）的按需加载与缓存入口。
+    /// 框架不认识具体表类型：游戏通过 <see cref="RegisterTables{TTables}"/>（或 <see cref="ConfigModule.Create{TTables}"/>）注册构造工厂，
+    /// 之后用 <see cref="LoadTables{TTables}"/> / <see cref="GetTables{TTables}"/> 读取。
     /// 配置表 Bundle 的加载/释放逻辑归属本类，底层仅调用 <see cref="ResourceManager"/> 通用 API。
     /// </summary>
     [DefaultExecutionOrder(-450)]
@@ -19,50 +19,96 @@ namespace Framework.Config
     {
         readonly Dictionary<string, ResourceAssetHandle> _tableAssetCache = new Dictionary<string, ResourceAssetHandle>();
 
-        CfgTables _tables;
+        Func<Func<string, ByteBuf>, object> _factory;
+        Type _tablesType;
+        object _tables;
 
-        /// <summary>是否已加载并缓存运行时 <see cref="CfgTables"/>。</summary>
+        /// <summary>表缓存被 <see cref="ReloadTables"/> 重建后触发；参数为新的表对象。</summary>
+        public event Action<object> TablesReloaded;
+
+        /// <summary>是否已注册表工厂。</summary>
+        public bool IsRegistered => _factory != null;
+
+        /// <summary>已注册的表聚合类型；未注册时为 null。</summary>
+        public Type TablesType => _tablesType;
+
+        /// <summary>是否已加载并缓存表对象。</summary>
         public bool IsLoaded => _tables != null;
 
         /// <summary>
-        /// 当前缓存的 <see cref="CfgTables"/>；尚未加载时为 null。
-        /// 需要保证已加载时请用 <see cref="LoadTables"/>。
+        /// 注册 Luban 表聚合类的构造工厂（通常是 <c>loader =&gt; new cfg.CfgTables(loader)</c>）。
+        /// 重复注册同一类型会替换工厂并丢弃已缓存的表对象。
         /// </summary>
-        public CfgTables Tables => _tables;
-
-        /// <summary>
-        /// 按需加载 Luban 全表并缓存；已加载则直接返回缓存。
-        /// </summary>
-        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄（由本类 table asset 缓存管理）。</param>
-        /// <returns>Luban <see cref="CfgTables"/>。</returns>
-        /// <exception cref="InvalidOperationException">ResourceManager 未就绪或加载失败。</exception>
-        public CfgTables LoadTables(bool cacheTableAssets = true)
+        /// <typeparam name="TTables">Luban 生成的表聚合类型。</typeparam>
+        /// <param name="factory">接收"表名 → <see cref="ByteBuf"/>"读取器并返回表对象的工厂。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="factory"/> 为 null。</exception>
+        /// <exception cref="InvalidOperationException">已注册了另一种表类型。</exception>
+        public void RegisterTables<TTables>(Func<Func<string, ByteBuf>, TTables> factory) where TTables : class
         {
-            if (_tables != null)
+            if (factory == null)
             {
-                return _tables;
+                throw new ArgumentNullException(nameof(factory));
             }
 
-            _tables = LoadLubanTables(cacheTableAssets);
-            GameLog.Info(LogCategories.Config, $"CfgTables {LogStyle.Ok("loaded")} (cached)");
-            return _tables;
+            if (_tablesType != null && _tablesType != typeof(TTables))
+            {
+                throw new InvalidOperationException(
+                    $"[Config] Tables type already registered as {_tablesType.FullName}; cannot register {typeof(TTables).FullName}.");
+            }
+
+            _tablesType = typeof(TTables);
+            _factory = loader => factory(loader);
+            _tables = null;
         }
 
         /// <summary>
-        /// 从 Bundle 加载 Luban 全表；不写入 <see cref="Tables"/> 缓存。
-        /// 需要 <see cref="CfgTables"/> 对象但不走 <see cref="LoadTables"/> 单例缓存时使用。
+        /// 按需加载全表并缓存；已加载则直接返回缓存。
         /// </summary>
-        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄。</param>
-        /// <returns>Luban <see cref="CfgTables"/>。</returns>
-        /// <exception cref="InvalidOperationException">ResourceManager 未就绪或加载失败。</exception>
-        public CfgTables LoadLubanTables(bool cacheTableAssets = true)
+        /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
+        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄（由本类 table asset 缓存管理）。</param>
+        /// <returns>表对象。</returns>
+        /// <exception cref="InvalidOperationException">未注册、类型不符、ResourceManager 未就绪或加载失败。</exception>
+        public TTables LoadTables<TTables>(bool cacheTableAssets = true) where TTables : class
         {
-            EnsureResourceReady();
-            return new CfgTables(file =>
+            EnsureType<TTables>();
+            if (_tables != null)
             {
-                var bytes = LoadConfigBytes(file, cacheTableAssets);
-                return new ByteBuf(bytes);
-            });
+                return (TTables)_tables;
+            }
+
+            _tables = CreateTables<TTables>(cacheTableAssets);
+            GameLog.Info(LogCategories.Config, $"{_tablesType.Name} {LogStyle.Ok("loaded")} (cached)");
+            return (TTables)_tables;
+        }
+
+        /// <summary>
+        /// 从 Bundle 构造一份新的表对象；不写入缓存。需要独立副本（如对比、工具）时使用。
+        /// </summary>
+        /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
+        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄。</param>
+        /// <returns>新的表对象。</returns>
+        /// <exception cref="InvalidOperationException">未注册、类型不符、ResourceManager 未就绪或加载失败。</exception>
+        public TTables CreateTables<TTables>(bool cacheTableAssets = true) where TTables : class
+        {
+            EnsureType<TTables>();
+            EnsureResourceReady();
+            return (TTables)_factory(file => new ByteBuf(LoadConfigBytes(file, cacheTableAssets)));
+        }
+
+        /// <summary>获取已缓存的表对象；若尚未加载则先 <see cref="LoadTables{TTables}"/>。</summary>
+        /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
+        /// <returns>表对象。</returns>
+        /// <exception cref="InvalidOperationException">未注册、类型不符或加载失败。</exception>
+        public TTables GetTables<TTables>() where TTables : class => LoadTables<TTables>();
+
+        /// <summary>只读取已缓存的表对象，不触发加载。</summary>
+        /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
+        /// <param name="tables">已缓存时为表对象，否则为 null。</param>
+        /// <returns>已缓存且类型匹配时为 true。</returns>
+        public bool TryGetTables<TTables>(out TTables tables) where TTables : class
+        {
+            tables = _tables as TTables;
+            return tables != null;
         }
 
         /// <summary>同步加载 Luban 配置表原始字节。</summary>
@@ -111,12 +157,28 @@ namespace Framework.Config
         }
 
         /// <summary>
-        /// 获取已缓存 <see cref="CfgTables"/>；若尚未加载则先 <see cref="LoadTables"/>。
+        /// 丢弃表对象与 TextAsset 句柄缓存后重新加载，并触发 <see cref="TablesReloaded"/>。
+        /// 用于 Editor 下改表后热重载；已持有旧表引用的业务需订阅事件自行替换。
         /// </summary>
-        /// <returns>Luban <see cref="CfgTables"/>。</returns>
-        public CfgTables GetTables() => LoadTables();
+        /// <returns>新的表对象。</returns>
+        /// <exception cref="InvalidOperationException">未注册或加载失败。</exception>
+        public object ReloadTables()
+        {
+            if (_factory == null)
+            {
+                throw new InvalidOperationException("[Config] No tables registered. Call RegisterTables first.");
+            }
 
-        /// <summary>丢弃 <see cref="CfgTables"/> 对象缓存（不释放 TextAsset 句柄）。</summary>
+            UnloadTables();
+            ReleaseTableAssetCache();
+            EnsureResourceReady();
+            _tables = _factory(file => new ByteBuf(LoadConfigBytes(file, true)));
+            GameLog.Info(LogCategories.Config, $"{_tablesType.Name} {LogStyle.Ok("reloaded")}");
+            TablesReloaded?.Invoke(_tables);
+            return _tables;
+        }
+
+        /// <summary>丢弃表对象缓存（不释放 TextAsset 句柄）。</summary>
         public void UnloadTables()
         {
             if (_tables == null)
@@ -125,7 +187,7 @@ namespace Framework.Config
             }
 
             _tables = null;
-            GameLog.Info(LogCategories.Config, "CfgTables cache cleared");
+            GameLog.Info(LogCategories.Config, "Tables cache cleared");
         }
 
         /// <summary>释放配置表 TextAsset 句柄缓存。</summary>
@@ -140,7 +202,7 @@ namespace Framework.Config
         }
 
         /// <summary>
-        /// 关闭配置管理：清空 <see cref="CfgTables"/> 并释放配置表 TextAsset 句柄缓存。
+        /// 关闭配置管理：清空表对象并释放配置表 TextAsset 句柄缓存；保留已注册的工厂。
         /// </summary>
         public void Shutdown()
         {
@@ -150,17 +212,35 @@ namespace Framework.Config
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Editor 直读 bin 目录并写入缓存（不走 YooAsset）；仅调试用。
-        /// Player 请使用 <see cref="LoadTables"/>。
+        /// Editor 直读默认 bin 目录并写入缓存（不走 YooAsset）；仅调试用。
+        /// Player 请使用 <see cref="LoadTables{TTables}"/>。
         /// </summary>
-        /// <returns>Luban <see cref="CfgTables"/>。</returns>
-        public CfgTables LoadEditorDefault()
+        /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
+        /// <returns>表对象。</returns>
+        /// <exception cref="InvalidOperationException">未注册或类型不符。</exception>
+        public TTables LoadEditorDefault<TTables>() where TTables : class
         {
-            _tables = ConfigLoader.LoadDefault();
-            GameLog.Info(LogCategories.Config, $"CfgTables {LogStyle.Ok("loaded")} (editor bin)");
-            return _tables;
+            EnsureType<TTables>();
+            _tables = ConfigLoader.LoadBinaryFromDirectory(loader => (TTables)_factory(loader), ConfigPaths.GetBinDirectory());
+            GameLog.Info(LogCategories.Config, $"{_tablesType.Name} {LogStyle.Ok("loaded")} (editor bin)");
+            return (TTables)_tables;
         }
 #endif
+
+        void EnsureType<TTables>()
+        {
+            if (_factory == null)
+            {
+                throw new InvalidOperationException(
+                    $"[Config] No tables registered. Call ConfigManager.RegisterTables<{typeof(TTables).Name}>() or use ConfigModule.Create<{typeof(TTables).Name}>().");
+            }
+
+            if (_tablesType != typeof(TTables))
+            {
+                throw new InvalidOperationException(
+                    $"[Config] Registered tables type is {_tablesType.FullName}, requested {typeof(TTables).FullName}.");
+            }
+        }
 
         void EnsureResourceReady()
         {

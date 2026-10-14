@@ -36,7 +36,7 @@ namespace Game
             _framework = framework;
             _heroId = heroId;
 
-            var tables = ConfigManager.Instance.GetTables();
+            var tables = ConfigManager.Instance.GetTables<cfg.CfgTables>();
             _cuePresenter.Bind(tables.CfgTbCue);
 
             _onDamageDealt = OnDamageDealt;

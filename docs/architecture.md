@@ -179,8 +179,9 @@ Collector 规则：
 ## 运行时加载配置
 
 ```csharp
-var tables = ConfigManager.Instance.LoadTables();
-// 或 ConfigManager.Instance.LoadLubanTables()（无 CfgTables 单例缓存）
+// 启动时注册：ConfigModule.Create(loader => new cfg.CfgTables(loader))
+var tables = ConfigManager.Instance.LoadTables<cfg.CfgTables>();
+// 或 ConfigManager.Instance.CreateTables<cfg.CfgTables>()（不写缓存）
 // 单表：ConfigManager.Instance.LoadConfigBytes("tbability", cache: true)
 ```
 

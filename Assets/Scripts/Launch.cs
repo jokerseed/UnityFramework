@@ -36,7 +36,7 @@ public sealed class Launch : MonoBehaviour
             new ResourceModule(),
             new AudioModule(),
             new UIModule(),
-            new ConfigModule(),
+            ConfigModule.Create(loader => new cfg.CfgTables(loader)),
             new GamePlayModule(),
         });
         launch.StateChanged += OnGroupStateChanged;
