@@ -1,0 +1,53 @@
+name: Bug 报告
+description: 报告一个可复现的问题
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 问题描述
+      description: 发生了什么，期望是什么
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开 Launch 场景
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 框架版本 / 提交哈希
+    validations:
+      required: true
+  - type: input
+    id: unity
+    attributes:
+      label: Unity 版本与目标平台
+      placeholder: 2021.3.21f1 / Android
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: 模块
+      options:
+        - Core（Bootstrap / Logging / Events / Pool）
+        - Res
+        - Config
+        - UI
+        - Audio
+        - Network
+        - Battle（FixedMath / Lockstep / Physics）
+        - GAS / ECS / BehaviourTree / GamePlay
+        - 编辑器工具
+        - 其他
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 堆栈
+      render: text

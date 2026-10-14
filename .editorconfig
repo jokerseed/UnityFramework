@@ -1,0 +1,50 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,asmdef,asmref,yml,yaml}]
+indent_size = 2
+
+[*.asmdef]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{unity,prefab,asset,mat,anim,controller,meta}]
+indent_size = 2
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+# 第三方代码保持原样，不套用本项目格式
+[{Assets/ThirdParty/**,ThirdParty/**,LocalPackages/**,Assets/TextMesh Pro/**,Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/Farseer/**,Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/Jitter/**,Assets/Generated/**}]
+charset = unset
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+
+[*.cs]
+# 命名
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = suggestion
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# 风格
+csharp_new_line_before_open_brace = all
+csharp_prefer_braces = true:suggestion
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_namespace_declarations = block_scoped:suggestion
+dotnet_sort_system_directives_first = true
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
