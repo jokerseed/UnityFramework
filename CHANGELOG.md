@@ -27,6 +27,7 @@
 - Config：`PreloadTableAssetsAsync`，供不允许同步加载的平台（WebGL / 小游戏）预热；`ReloadTables`，改表后热重载。
 - UI：返回键分发（`CloseOnBack` / `OnBack` / `BackUnhandled`）、引用计数的输入屏蔽 `BlockInput()`、`UISafeArea`；启用 Input System 时使用 `InputSystemUIInputModule` 并复用场景已有的 EventSystem。
 - Network：WebSocket 频道（桌面 / 移动端用 `ClientWebSocket`，WebGL 用 jslib，可替换传输层）、带超时与取消的 `NetworkRpcClient`。
+- Network：KCP 频道（UDP，会话号由调用方指定；WebGL / 小游戏创建即失败）。HTTP 短请求 `HttpRequests` 不进入频道。
 - Battle：录像记录模拟版本，提供 golden 录像；`BattleSimulationVersion.Current` 写入录像与锁步输入。
 - 测试与 CI：`tests/Framework.Sim.Tests` 用纯 .NET 编译模拟层并运行测试（含 golden 录像与确定性扫描），GitHub Actions 在 Linux / Windows 上跑；另有可手动触发的 Unity EditMode 工作流。
 - 打表：`Config/Luban/gen_client.sh`，macOS / Linux 可直接命令行打表。

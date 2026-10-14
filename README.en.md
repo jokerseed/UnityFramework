@@ -27,7 +27,7 @@ To use the framework in your own project, copy the packages you need into `Packa
 | **config** | Luban table loading and caching, async preloading for WebGL |
 | **ui** | Layered window stack, release policies, async opening, back-key routing, input blocking, safe area, localized text |
 | **audio** | BGM / SFX channels |
-| **network** | TCP and WebSocket (including WebGL) channels, heartbeats, main-thread dispatch, `NetworkRpcClient` with timeouts |
+| **network** | TCP, WebSocket (including WebGL) and KCP channels, heartbeats, main-thread dispatch, `NetworkRpcClient` with timeouts; separate HTTP requests |
 | **battle** | Deterministic battle kit (optional) |
 
 Each module has a README next to its code (in Chinese). The architecture overview is in [docs/architecture.md](docs/architecture.md).

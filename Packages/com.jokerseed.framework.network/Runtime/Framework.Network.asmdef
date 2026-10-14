@@ -6,7 +6,8 @@
         "Framework.Core",
         "Framework.Logging",
         "Framework.MemoryPool",
-        "Framework.Events"
+        "Framework.Events",
+        "KCP"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

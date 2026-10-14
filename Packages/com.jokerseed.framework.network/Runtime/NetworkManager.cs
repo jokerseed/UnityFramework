@@ -81,12 +81,33 @@ namespace Framework.Network
             return (WebSocketNetworkChannel)CreateChannel(name, NetworkServiceType.WebSocket, new DefaultNetworkChannelHelper());
         }
 
+        /// <summary>使用默认二进制协议创建 KCP 频道。两端的 <paramref name="conversation"/> 必须相同。</summary>
+        /// <param name="name">频道名称；为 null 时使用空字符串。</param>
+        /// <param name="conversation">KCP 会话号。</param>
+        /// <returns>新建频道。</returns>
+        /// <exception cref="InvalidOperationException">同名频道已存在。</exception>
+        /// <exception cref="PlatformNotSupportedException">WebGL / 小游戏没有 UDP。</exception>
+        public KcpNetworkChannel CreateKcpChannel(string name = "Default", int conversation = 0)
+        {
+            name = name ?? string.Empty;
+            if (_channels.ContainsKey(name))
+            {
+                throw new InvalidOperationException($"Network channel already exists: {name}");
+            }
+
+            var channel = new KcpNetworkChannel(name, new DefaultNetworkChannelHelper(), conversation);
+            _channels.Add(name, channel);
+            GameLog.Info(LogCategories.Network, $"Created channel {LogStyle.Name(name)} type={LogStyle.Value(NetworkServiceType.Kcp)}");
+            return channel;
+        }
+
         /// <summary>创建网络频道。</summary>
         /// <param name="name">频道名称；为 null 时使用空字符串。</param>
         /// <param name="serviceType">服务类型。</param>
         /// <param name="helper">协议辅助器；为 null 时使用 <see cref="DefaultNetworkChannelHelper"/>。</param>
         /// <returns>新建频道。</returns>
         /// <exception cref="NotSupportedException">不支持的服务类型。</exception>
+        /// <exception cref="PlatformNotSupportedException">服务类型为 KCP，且当前平台没有 UDP。</exception>
         /// <exception cref="InvalidOperationException">同名频道已存在。</exception>
         public INetworkChannel CreateChannel(
             string name,
@@ -108,6 +129,9 @@ namespace Framework.Network
                     break;
                 case NetworkServiceType.WebSocket:
                     channel = new WebSocketNetworkChannel(name, helper);
+                    break;
+                case NetworkServiceType.Kcp:
+                    channel = new KcpNetworkChannel(name, helper);
                     break;
                 default:
                     throw new NotSupportedException($"Unsupported network service type: {serviceType}");
