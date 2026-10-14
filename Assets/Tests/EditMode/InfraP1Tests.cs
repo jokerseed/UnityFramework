@@ -6,6 +6,9 @@ using Framework.Core;
 using Framework.Events;
 using Framework.Network;
 using NUnit.Framework;
+using System.Text.RegularExpressions;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Framework.Tests
 {
@@ -30,6 +33,9 @@ namespace Framework.Tests
             GameEvent.Listen<ProbeEvent>(_ => throw new InvalidOperationException("boom"));
             GameEvent.Listen<ProbeEvent>(_ => second++);
 
+            // 抛异常的监听器每次派发都会被记一条错误日志，两次派发各一条。
+            LogAssert.Expect(LogType.Error, new Regex("boom"));
+            LogAssert.Expect(LogType.Error, new Regex("boom"));
             GameEvent.Send(new ProbeEvent());
             Assert.AreEqual(1, second);
 

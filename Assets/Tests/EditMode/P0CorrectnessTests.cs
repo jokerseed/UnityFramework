@@ -15,7 +15,9 @@ using Framework.GAS.Tags;
 using Framework.MemoryPool;
 using MemPool = Framework.MemoryPool.MemoryPool;
 using NUnit.Framework;
+using System.Text.RegularExpressions;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Framework.Tests
 {
@@ -148,6 +150,7 @@ namespace Framework.Tests
                 Exception reported = null;
                 var group = bootstrap.SetModules("p0-sync", new IGameModule[] { previous, failing });
                 group.Failed += (_, ex) => reported = ex;
+                LogAssert.Expect(LogType.Error, new Regex("failing"));
                 Pump(bootstrap.RunAsync("p0-sync"));
                 Assert.AreEqual(ModuleGroupState.Failed, group.State);
                 Assert.IsNotNull(reported);
@@ -170,6 +173,7 @@ namespace Framework.Tests
                 Exception reported = null;
                 var group = bootstrap.SetModules("p0-async", new IGameModule[] { failing });
                 group.Failed += (_, ex) => reported = ex;
+                LogAssert.Expect(LogType.Error, new Regex("async-fail"));
                 Pump(bootstrap.RunAsync("p0-async"));
                 Assert.AreEqual(ModuleGroupState.Failed, group.State);
                 Assert.AreEqual("async-fail", reported.Message);
@@ -183,17 +187,18 @@ namespace Framework.Tests
         [Test]
         public void QuittingFlagCanBeClearedWithoutDomainReload()
         {
+            // EditMode 下 AddComponent 不会调用 Awake，DestroyImmediate 也不会调用 OnDestroy，
+            // 所以这里走懒创建路径，并用 Unity 的 == null（已销毁即为 null）判断。
             QuitProbeSingleton.ResetStaticState();
-            var go = new GameObject("quit-probe");
-            var probe = go.AddComponent<QuitProbeSingleton>();
+            var probe = QuitProbeSingleton.Instance;
             Assert.IsTrue(QuitProbeSingleton.HasInstance);
             probe.MarkQuitting();
-            UnityEngine.Object.DestroyImmediate(go);
-            Assert.IsNull(QuitProbeSingleton.Instance);
+            UnityEngine.Object.DestroyImmediate(probe.gameObject);
+            Assert.IsTrue(QuitProbeSingleton.Instance == null, "退出阶段不应重建单例。");
 
             QuitProbeSingleton.ResetStaticState();
             var recreated = QuitProbeSingleton.Instance;
-            Assert.IsNotNull(recreated);
+            Assert.IsTrue(recreated != null, "清掉退出标志后应能重建单例。");
             UnityEngine.Object.DestroyImmediate(recreated.gameObject);
             QuitProbeSingleton.ResetStaticState();
         }
