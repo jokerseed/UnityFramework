@@ -11,6 +11,7 @@
         "Framework.GamePlay",
         "Framework.GamePlay.Luban",
         "Framework.Lockstep",
+        "Framework.Lockstep.Legacy",
         "Framework.LockstepPhysics",
         "Framework.Battle.Editor",
         "Framework.Logging",

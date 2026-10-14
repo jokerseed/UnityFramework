@@ -1,10 +1,10 @@
 using Framework.FixedMath;
-using UnityEngine;
 
 namespace Framework.Lockstep
 {
     /// <summary>
-    /// Unity 侧物理世界管理接口（含 GameObject 映射）。纯模拟可不实现本接口，仅实现 <see cref="IPhysicsManagerBase"/>。
+    /// 物理世界管理接口：层过滤、碰撞开关和刚体生命周期通知。
+    /// 不引用引擎类型；需要把刚体映射到场景对象时，由实现方自己维护映射。
     /// </summary>
     public interface IPhysicsManager : IPhysicsManagerBase
     {
@@ -17,10 +17,12 @@ namespace Framework.Lockstep
         /// <summary>锁定时间步长。</summary>
         FP LockedTimeStep { get; set; }
 
-        /// <summary>刚体对应的 Unity GameObject。</summary>
-        /// <param name="rigidBody">刚体。</param>
-        /// <returns>GameObject；无映射时可为 null。</returns>
-        GameObject GetGameObject(IBody rigidBody);
+        /// <summary>
+        /// 回滚恢复时，一个之前被禁用的刚体重新变为启用。
+        /// 表现层实现可在这里重新激活对应的场景对象；纯模拟实现留空即可。
+        /// </summary>
+        /// <param name="rigidBody">重新启用的刚体。</param>
+        void OnBodyRestoredEnabled(IBody rigidBody);
 
         /// <summary>刚体层。</summary>
         /// <param name="rigidBody">刚体。</param>

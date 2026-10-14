@@ -182,7 +182,7 @@ namespace Framework.Lockstep.Physics3D {
             rb.restitution = this.restitution;
 
             if (lastDisabled && !rb.disabled) {
-                world.physicsManager.GetGameObject(rb).SetActive(true);
+                world.physicsManager.OnBodyRestoredEnabled(rb);
             }
         }
 			

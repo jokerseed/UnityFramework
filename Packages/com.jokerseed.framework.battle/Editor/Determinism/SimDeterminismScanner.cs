@@ -201,10 +201,7 @@ namespace Framework.Editor.Determinism
 
             if (path.Contains("/Runtime/Lockstep/"))
             {
-                return !path.EndsWith("TrueSyncStats.cs", System.StringComparison.Ordinal)
-                    && !path.EndsWith("Drawing.cs", System.StringComparison.Ordinal)
-                    && !path.EndsWith("CountInfo.cs", System.StringComparison.Ordinal)
-                    && !path.EndsWith("CompoundStats.cs", System.StringComparison.Ordinal);
+                return true;
             }
 
             return false;
