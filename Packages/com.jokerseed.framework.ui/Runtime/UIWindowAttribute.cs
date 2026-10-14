@@ -28,6 +28,9 @@ namespace Framework.UI
         /// </summary>
         public float DelayUnloadSeconds { get; }
 
+        /// <summary>按返回键（Esc / Android Back）时是否关闭本窗口；默认 false。可在 <see cref="UIWindow.OnBack"/> 中自定义。</summary>
+        public bool CloseOnBack { get; set; }
+
         /// <summary>创建窗口特性。</summary>
         /// <param name="layer">UI 层级，默认 <see cref="UILayer.UI"/>。</param>
         /// <param name="fullScreen">是否全屏遮挡下层窗口。</param>

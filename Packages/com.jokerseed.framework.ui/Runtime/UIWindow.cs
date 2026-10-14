@@ -30,6 +30,25 @@ namespace Framework.UI
         /// <summary>延迟卸载秒数（仅 <see cref="UIReleasePolicy.HideAndDelayUnload"/>）。</summary>
         internal float DelayUnloadSeconds { get; set; }
 
+        /// <summary>按返回键时是否关闭本窗口（来自 <see cref="UIWindowAttribute.CloseOnBack"/>）。</summary>
+        public bool CloseOnBack { get; internal set; }
+
+        /// <summary>
+        /// 返回键回调，由 <see cref="UIManager.HandleBack"/> 从最上层窗口往下调用。
+        /// 返回 true 表示已处理，不再传给下层窗口。默认：<see cref="CloseOnBack"/> 为 true 时关闭自身。
+        /// </summary>
+        /// <returns>已处理返回 true。</returns>
+        protected internal virtual bool OnBack()
+        {
+            if (!CloseOnBack)
+            {
+                return false;
+            }
+
+            Manager.Close(GetType());
+            return true;
+        }
+
         /// <summary>设置窗口可见性（不销毁实例）。</summary>
         /// <param name="visible">为 true 时显示并启用射线检测。</param>
         public void SetVisible(bool visible)

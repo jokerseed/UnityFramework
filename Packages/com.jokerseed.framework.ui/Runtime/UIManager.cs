@@ -29,12 +29,26 @@ namespace Framework.UI
         readonly Dictionary<Type, ICoroutineHandle> _delayUnloadTimers = new Dictionary<Type, ICoroutineHandle>(4);
         readonly Dictionary<UILayer, Transform> _layerRoots = new Dictionary<UILayer, Transform>(8);
 
+        const int InputBlockerSortingOrder = 30000;
+
         Transform _uiRoot;
         Transform _eventSystemRoot;
+        GameObject _inputBlocker;
+        int _inputBlockCount;
+        int _inputBlockGeneration;
         bool _initialized;
 
         /// <summary>当前打开的窗口数量。</summary>
         public int OpenCount => _stack.Count;
+
+        /// <summary>是否每帧检测返回键（Esc / Android Back）并调用 <see cref="HandleBack"/>；默认 true。</summary>
+        public bool BackKeyEnabled { get; set; } = true;
+
+        /// <summary>返回键没有任何窗口处理时触发（例如弹出「退出游戏」确认）。</summary>
+        public event Action BackUnhandled;
+
+        /// <summary>是否有 <see cref="BlockInput"/> 尚未释放。</summary>
+        public bool IsInputBlocked => _inputBlockCount > 0;
 
         /// <summary>初始化 UI 根节点与五层 Canvas。</summary>
         public void Initialize()
@@ -56,6 +70,7 @@ namespace Framework.UI
             EnsureLayer(UILayer.Tips);
             EnsureLayer(UILayer.System);
             EnsureEventSystem();
+            CreateInputBlocker();
 
             _initialized = true;
             GameLog.Info(LogCategories.UI, LogStyle.Ok("ready"));
@@ -290,11 +305,59 @@ namespace Framework.UI
             return _cached.ContainsKey(typeof(TWindow));
         }
 
+        /// <summary>
+        /// 分发一次返回操作：从最上层窗口往下调用 <see cref="UIWindow.OnBack"/>，第一个返回 true 的窗口消费；
+        /// 遇到全屏窗口即停止（其下方窗口不可见）。输入被 <see cref="BlockInput"/> 屏蔽时不分发。
+        /// </summary>
+        /// <returns>有窗口处理返回 true。</returns>
+        public bool HandleBack()
+        {
+            if (!_initialized || IsInputBlocked)
+            {
+                return false;
+            }
+
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                var window = _stack[i];
+                if (window.OnBack())
+                {
+                    return true;
+                }
+
+                if (window.FullScreen)
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 屏蔽全部 UI 输入（最顶层透明遮罩），直到返回的句柄 Dispose。可嵌套，全部释放后才移除遮罩。
+        /// 典型用于网络请求、场景切换、异步打开窗口期间防止重复点击。
+        /// </summary>
+        /// <returns>释放屏蔽的句柄；重复 Dispose 无效果。</returns>
+        public IDisposable BlockInput()
+        {
+            EnsureInitialized();
+            if (_inputBlockCount++ == 0)
+            {
+                _inputBlocker.SetActive(true);
+            }
+
+            return new InputBlockScope(this, _inputBlockGeneration);
+        }
+
         /// <summary>关闭并销毁全部窗口（含缓存），释放 UI 根节点。</summary>
         public void Shutdown()
         {
             CancelAllPendingShows();
             CancelAllDelayedUnloads();
+            _inputBlockCount = 0;
+            _inputBlockGeneration++;
+            _inputBlocker = null;
 
             var toDestroy = new HashSet<UIWindow>(_opened.Values);
             foreach (var window in _cached.Values)
@@ -342,6 +405,11 @@ namespace Framework.UI
             if (!_initialized)
             {
                 return;
+            }
+
+            if (BackKeyEnabled && BackPressedThisFrame() && !IsInputBlocked && !HandleBack())
+            {
+                BackUnhandled?.Invoke();
             }
 
             var deltaTime = Time.deltaTime;
@@ -494,6 +562,7 @@ namespace Framework.UI
             var window = new TWindow();
             window.ReleasePolicy = metadata.ReleasePolicy;
             window.DelayUnloadSeconds = metadata.DelayUnloadSeconds;
+            window.CloseOnBack = metadata.CloseOnBack;
             try
             {
                 window.InternalCreate(this, instance, null, userData);
@@ -788,6 +857,84 @@ namespace Framework.UI
             _layerRoots[layer] = rect;
         }
 
+        void CreateInputBlocker()
+        {
+            var blocker = new GameObject("InputBlocker", typeof(RectTransform));
+            var rect = blocker.GetComponent<RectTransform>();
+            rect.SetParent(_uiRoot, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var canvas = blocker.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = InputBlockerSortingOrder;
+            blocker.AddComponent<GraphicRaycaster>();
+            var image = blocker.AddComponent<Image>();
+            image.color = Color.clear;
+            image.raycastTarget = true;
+            blocker.SetActive(false);
+            _inputBlocker = blocker;
+        }
+
+        void ReleaseInputBlock(int generation)
+        {
+            if (generation != _inputBlockGeneration || _inputBlockCount == 0)
+            {
+                return;
+            }
+
+            if (--_inputBlockCount == 0)
+            {
+                _inputBlocker.SetActive(false);
+            }
+        }
+
+        static bool BackPressedThisFrame()
+        {
+#if FRAMEWORK_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
+        /// <summary>一次 <see cref="BlockInput"/> 的释放句柄；所属 UIManager Shutdown 后释放无效果。</summary>
+        sealed class InputBlockScope : IDisposable
+        {
+            readonly UIManager _owner;
+            readonly int _generation;
+            bool _disposed;
+
+            public InputBlockScope(UIManager owner, int generation)
+            {
+                _owner = owner;
+                _generation = generation;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _owner.ReleaseInputBlock(_generation);
+            }
+        }
+
         void EnsureEventSystem()
         {
             if (_eventSystemRoot != null)
@@ -834,7 +981,8 @@ namespace Framework.UI
                 attribute?.FullScreen ?? false,
                 string.IsNullOrEmpty(attribute?.Location) ? UIPaths.Window(windowType) : attribute.Location,
                 attribute?.ReleasePolicy ?? UIReleasePolicy.DestroyImmediate,
-                attribute?.DelayUnloadSeconds ?? 30f);
+                attribute?.DelayUnloadSeconds ?? 30f,
+                attribute?.CloseOnBack ?? false);
         }
 
         readonly struct WindowMetadata
@@ -844,14 +992,18 @@ namespace Framework.UI
                 bool fullScreen,
                 string location,
                 UIReleasePolicy releasePolicy,
-                float delayUnloadSeconds)
+                float delayUnloadSeconds,
+                bool closeOnBack)
             {
                 Layer = layer;
                 FullScreen = fullScreen;
                 Location = location;
                 ReleasePolicy = releasePolicy;
                 DelayUnloadSeconds = delayUnloadSeconds;
+                CloseOnBack = closeOnBack;
             }
+
+            public bool CloseOnBack { get; }
 
             public UILayer Layer { get; }
             public bool FullScreen { get; }

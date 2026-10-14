@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.UI` |
 | 命名空间 | `Framework.UI` |
-| 依赖 | `Framework.Core`、`Framework.Logging`、`Framework.Res`、`Framework.Coroutine`、`Framework.Events` |
+| 依赖 | `UniTask`、`Framework.Core`、`Framework.Logging`、`Framework.Localization`、`Framework.Res`、`Framework.Coroutine`、`Framework.Events` |
 
 ## 核心类型
 
@@ -20,6 +20,8 @@
 | `UIWindow` | 窗口级 UI |
 | `UIWindowAttribute` | 层级 / 全屏 / 寻址 / 释放策略 |
 | `UIReleasePolicy` | 关闭时 Destroy / Hide / Cache / 延迟卸载 |
+| `UISafeArea` | 把内容节点约束到屏幕安全区 |
+| `LocalizedText` | 按本地化 key 显示文本，切换语言自动刷新 |
 | `UIModule` | Bootstrap 模块入口 |
 
 ## 生命周期
@@ -110,6 +112,30 @@ MainUIWindow → bundles/ui/mainuiwindow.unity3d
 | `HideAndDelayUnload` | 先缓存；超时未再打开则 Destroy + Dispose | 超时前 `TryReviveCached`；超时后重新 Load | 等待中 `IsCached` true |
 
 `ForceDestroy<T>()` 可无视策略立即销毁（含缓存）。`Shutdown()` 销毁全部窗口与缓存。`OnCreate` 抛异常时会先 `InternalDestroy`（清掉已经注册的事件），再销毁已经实例化的对象并释放加载句柄。句柄不延后一帧释放，避免和下一轮加载抢引用计数。`InternalDestroy` 抛异常时仍然 `Destroy` 对象并 `Dispose` 句柄。
+
+## 返回键
+
+`[UIWindow(..., CloseOnBack = true)]` 的窗口按 Esc / Android Back 时关闭。`UIManager.Update` 每帧检测（`BackKeyEnabled` 可关），也可以自己调 `HandleBack()`（如手势返回）：
+
+- 从最上层窗口往下调用 `OnBack()`，第一个返回 true 的窗口消费；遇到全屏窗口就停止
+- 重写 `protected override bool OnBack()` 可自定义（如先关二级面板），返回 false 交给下层
+- 没有窗口处理时触发 `BackUnhandled`，通常用来弹「退出游戏」确认
+- 输入被屏蔽时不分发
+
+## 输入屏蔽
+
+```csharp
+using (UIManager.Instance.BlockInput())
+{
+    await RequestAsync();   // 期间所有 UI 点击被最顶层透明遮罩吃掉
+}
+```
+
+可嵌套，全部 `Dispose` 后才移除遮罩；`Shutdown` 之前拿到的句柄在之后释放无效果。
+
+## 安全区
+
+在窗口预制体的内容节点上挂 `UISafeArea`，锚点会约束到 `Screen.safeArea`（刘海、圆角、手势条），屏幕旋转或尺寸变化时自动重算。背景放在窗口根节点，仍铺满全屏。四条边可分别开关。
 
 ## Bootstrap
 

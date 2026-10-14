@@ -28,6 +28,7 @@
         "Framework.Save",
         "Framework.Localization",
         "Framework.DebugConsole",
+        "Framework.UI",
         "Generated.Luban",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
