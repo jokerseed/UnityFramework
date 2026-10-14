@@ -2,6 +2,7 @@
     "name": "Framework.UI",
     "rootNamespace": "Framework.UI",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Logging",
         "Framework.Res",

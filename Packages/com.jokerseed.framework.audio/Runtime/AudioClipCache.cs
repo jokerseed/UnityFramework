@@ -87,7 +87,7 @@ namespace Framework.Audio
             ResourceAssetHandle handle = default;
             try
             {
-                yield return ResourceManager.Instance.LoadAssetAsync<AudioClip>(location, h => handle = h);
+                yield return ResourceManager.Instance.LoadAssetScheduled<AudioClip>(location, h => handle = h);
                 if (generation != _generation)
                 {
                     handle.Dispose();

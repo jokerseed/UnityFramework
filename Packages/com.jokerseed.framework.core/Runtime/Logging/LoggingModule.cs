@@ -63,14 +63,6 @@ namespace Framework.Logging
             GameLog.Info(LogCategories.Bootstrap, $"Logging {LogStyle.Ok("ready")} (file={file})");
         }
 
-        /// <summary>异步初始化协程（内部直接调用同步 <see cref="Initialize"/>）。</summary>
-        /// <returns>协程枚举器。</returns>
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
         /// <summary>解除异常捕获、关闭文件 Sink 并调用 <see cref="GameLog.Shutdown"/>。</summary>
         public void Shutdown()
         {

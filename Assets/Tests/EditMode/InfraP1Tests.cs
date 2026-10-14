@@ -175,11 +175,6 @@ namespace Framework.Tests
             {
             }
 
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
-            }
-
             public void Shutdown()
             {
             }
@@ -195,11 +190,6 @@ namespace Framework.Tests
 
             public void Initialize()
             {
-            }
-
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
             }
 
             public void Shutdown()
@@ -219,11 +209,6 @@ namespace Framework.Tests
 
             public void Initialize()
             {
-            }
-
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
             }
 
             public void Shutdown()

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using BtTree = Framework.BehaviourTree.BehaviourTree;
+using Cysharp.Threading.Tasks;
 using Framework.BehaviourTree;
 using Framework.Bootstrap;
 using Framework.Battle;
@@ -152,7 +153,8 @@ namespace Framework.Tests
                 var group = bootstrap.SetModules("p0-sync", new IGameModule[] { previous, failing });
                 group.Failed += (_, ex) => reported = ex;
                 LogAssert.Expect(LogType.Error, new Regex("failing"));
-                Pump(bootstrap.RunAsync("p0-sync"));
+                var run = bootstrap.RunAsync("p0-sync");
+                Assert.AreEqual(UniTaskStatus.Succeeded, run.Status, "同步模块失败应在调用当帧结束。");
                 Assert.AreEqual(ModuleGroupState.Failed, group.State);
                 Assert.IsNotNull(reported);
                 Assert.AreEqual(1, previous.ShutdownCount);
@@ -163,8 +165,8 @@ namespace Framework.Tests
             }
         }
 
-        [Test]
-        public void AsyncInitFailureRaisesFailed()
+        [UnityTest]
+        public IEnumerator AsyncInitFailureRaisesFailed() => UniTask.ToCoroutine(async () =>
         {
             var failing = new ThrowingModule("async-fail", ModuleInitMode.Asynchronous);
             var go = new GameObject("bootstrap-async-fail");
@@ -175,7 +177,7 @@ namespace Framework.Tests
                 var group = bootstrap.SetModules("p0-async", new IGameModule[] { failing });
                 group.Failed += (_, ex) => reported = ex;
                 LogAssert.Expect(LogType.Error, new Regex("async-fail"));
-                Pump(bootstrap.RunAsync("p0-async"));
+                await bootstrap.RunAsync("p0-async");
                 Assert.AreEqual(ModuleGroupState.Failed, group.State);
                 Assert.AreEqual("async-fail", reported.Message);
             }
@@ -183,7 +185,7 @@ namespace Framework.Tests
             {
                 UnityEngine.Object.DestroyImmediate(go);
             }
-        }
+        });
 
         [Test]
         public void QuittingFlagCanBeClearedWithoutDomainReload()
@@ -286,20 +288,6 @@ namespace Framework.Tests
             return false;
         }
 
-        static void Pump(IEnumerator routine)
-        {
-            var driven = NestedCoroutine.Drive(routine, _ => { });
-            var guard = 0;
-            while (driven.MoveNext())
-            {
-                guard++;
-                if (guard > 64)
-                {
-                    Assert.Fail("初始化协程没有结束。");
-                }
-            }
-        }
-
         sealed class CountingModule : IGameModule
         {
             public CountingModule(string name)
@@ -313,12 +301,6 @@ namespace Framework.Tests
             public int ShutdownCount { get; private set; }
             public void Initialize()
             {
-            }
-
-            public IEnumerator InitializeAsync()
-            {
-                Initialize();
-                yield break;
             }
 
             public void Shutdown() => ShutdownCount++;
@@ -342,9 +324,9 @@ namespace Framework.Tests
 
             public void Initialize() => throw new InvalidOperationException(Name);
 
-            public IEnumerator InitializeAsync()
+            public async UniTask InitializeAsync(CancellationToken cancellationToken)
             {
-                yield return null;
+                await UniTask.Yield();
                 throw new InvalidOperationException(Name);
             }
 

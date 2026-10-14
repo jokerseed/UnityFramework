@@ -10,39 +10,42 @@ namespace Framework.Res
     /// </summary>
     public readonly struct ResourceAssetHandle : IDisposable
     {
-        readonly AssetHandle _handle;
+        /// <summary>实际为 <see cref="AssetHandle"/>；以 object 存放，使持有本结构的程序集（含 async 状态机）无需引用 YooAsset。</summary>
+        readonly object _raw;
 
         /// <summary>使用 YooAsset 原生句柄构造包装。</summary>
         /// <param name="handle">YooAsset 原生资源句柄；可为 null（<see cref="IsValid"/> 将返回 false）。</param>
-        public ResourceAssetHandle(AssetHandle handle)
+        internal ResourceAssetHandle(AssetHandle handle)
         {
-            _handle = handle;
+            _raw = handle;
         }
 
+        AssetHandle Handle => (AssetHandle)_raw;
+
         /// <summary>句柄是否有效（非 null 且未被释放）。</summary>
-        public bool IsValid => _handle != null && _handle.IsValid;
+        public bool IsValid => Handle != null && Handle.IsValid;
 
         /// <summary>加载是否已完成（包括失败情况）。</summary>
-        public bool IsDone => _handle != null && _handle.IsDone;
+        public bool IsDone => Handle != null && Handle.IsDone;
 
         /// <summary>当前加载状态。</summary>
-        public ResourceLoadStatus Status => MapStatus(_handle?.Status);
+        public ResourceLoadStatus Status => MapStatus(Handle?.Status);
 
         /// <summary>加载是否成功。</summary>
         public bool Succeeded => Status == ResourceLoadStatus.Succeeded;
 
         /// <summary>失败时的错误信息；未失败或句柄无效则为空字符串。</summary>
-        public string Error => _handle != null ? _handle.Error : string.Empty;
+        public string Error => Handle != null ? Handle.Error : string.Empty;
 
         /// <summary>原始 <see cref="UnityEngine.Object"/> 资源；加载未完成或失败则为 null。</summary>
-        public UnityEngine.Object Asset => _handle?.AssetObject;
+        public UnityEngine.Object Asset => Handle?.AssetObject;
 
         /// <summary>以强类型方式获取资源对象。</summary>
         /// <typeparam name="T">目标资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <returns>资源对象；句柄无效或类型不匹配则返回 null。</returns>
         public T GetAsset<T>() where T : UnityEngine.Object
         {
-            return _handle != null ? _handle.GetAssetObject<T>() : null;
+            return Handle != null ? Handle.GetAssetObject<T>() : null;
         }
 
         /// <summary>同步实例化资源为场景对象。</summary>
@@ -51,23 +54,23 @@ namespace Framework.Res
         /// <returns>实例化后的 <see cref="GameObject"/>；句柄无效则返回 null。</returns>
         public GameObject InstantiateSync(Transform parent = null, bool worldPositionStays = false)
         {
-            if (_handle == null)
+            if (Handle == null)
             {
                 return null;
             }
 
             if (parent == null)
             {
-                return _handle.InstantiateSync();
+                return Handle.InstantiateSync();
             }
 
-            return _handle.InstantiateSync(new InstantiateOptions(true, parent, worldPositionStays));
+            return Handle.InstantiateSync(new InstantiateOptions(true, parent, worldPositionStays));
         }
 
         /// <summary>释放底层 YooAsset 句柄，减少资源引用计数。</summary>
         public void Dispose()
         {
-            _handle?.Release();
+            Handle?.Release();
         }
 
         static ResourceLoadStatus MapStatus(EOperationStatus? status)

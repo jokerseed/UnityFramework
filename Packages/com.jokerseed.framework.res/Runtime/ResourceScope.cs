@@ -1,6 +1,7 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Logging;
 using UnityEngine;
 
@@ -56,31 +57,29 @@ namespace Framework.Res
             return handle;
         }
 
-        /// <summary>异步加载并登记句柄；完成后通过回调返回句柄。</summary>
+        /// <summary>异步加载并登记句柄。</summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
-        /// <param name="onComplete">完成回调。成功时句柄已登记；失败或取消时句柄不登记，若仍然有效则由调用方 <see cref="ResourceAssetHandle.Dispose"/>。可为 null。</param>
         /// <param name="priority">调度优先级，数值越大越先处理；默认 0。</param>
-        /// <returns>协程迭代器。</returns>
+        /// <param name="cancellationToken">取消时撤销排队中的请求。</param>
+        /// <returns>
+        /// 资源句柄。成功时已由本作用域持有；失败时不登记，若仍然有效则由调用方 <see cref="ResourceAssetHandle.Dispose"/>。
+        /// 等待期间作用域被释放时返回无效句柄。
+        /// </returns>
         /// <exception cref="ObjectDisposedException">作用域已释放。</exception>
         /// <exception cref="InvalidOperationException"><see cref="ResourceManager"/> 尚未初始化。</exception>
-        public IEnumerator LoadAsync<T>(
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask<ResourceAssetHandle> LoadAsync<T>(
             string location,
-            Action<ResourceAssetHandle> onComplete = null,
-            int priority = 0) where T : UnityEngine.Object
+            int priority = 0,
+            CancellationToken cancellationToken = default) where T : UnityEngine.Object
         {
             ThrowIfDisposed();
-            ResourceAssetHandle loaded = default;
-            yield return ResourceManager.Instance.LoadAssetAsync<T>(location, h => loaded = h, priority);
+            var loaded = await ResourceManager.Instance.LoadAssetAsync<T>(location, priority, cancellationToken);
             if (_disposed)
             {
-                if (loaded.IsValid)
-                {
-                    loaded.Dispose();
-                }
-
-                onComplete?.Invoke(default);
-                yield break;
+                loaded.Dispose();
+                return default;
             }
 
             if (loaded.IsValid && loaded.Succeeded)
@@ -88,7 +87,7 @@ namespace Framework.Res
                 Track(loaded);
             }
 
-            onComplete?.Invoke(loaded);
+            return loaded;
         }
 
         /// <summary>

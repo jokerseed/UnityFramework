@@ -1,8 +1,7 @@
 using System;
-using System.Collections;
+using Cysharp.Threading.Tasks;
 using Framework.Battle;
 using Framework.Core;
-using Framework.Coroutine;
 using Framework.Logging;
 using Framework.Res;
 using Framework.UI;
@@ -45,7 +44,7 @@ namespace Game
                 return;
             }
 
-            GameCoroutine.StartGlobal(EnterBattleAsync());
+            EnterBattleAsync().Forget();
         }
 
         /// <summary>
@@ -95,11 +94,9 @@ namespace Game
             res.RequestUnloadUnusedAssets();
         }
 
-        IEnumerator EnterBattleAsync()
+        async UniTaskVoid EnterBattleAsync()
         {
             _isEnteringBattle = true;
-            Exception failure = null;
-            IEnumerator load = null;
             try
             {
                 if (CurrentBattleFlow != null)
@@ -110,60 +107,22 @@ namespace Game
 
                 CurrentBattleFlow = new BattleFlow();
                 GameLog.Info(LogCategories.Launch, $"Loading scene {LogStyle.Name("Battle")}");
-                load = ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene);
+                await ResourceManager.Instance.LoadMainSceneAsync(ResourceAddresses.BattleScene, this.GetCancellationTokenOnDestroy());
+                GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
             }
             catch (Exception ex)
             {
-                failure = ex;
-            }
-
-            if (failure == null)
-            {
-                while (true)
-                {
-                    object current = null;
-                    var done = false;
-                    try
-                    {
-                        if (!load.MoveNext())
-                        {
-                            done = true;
-                        }
-                        else
-                        {
-                            current = load.Current;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        failure = ex;
-                        break;
-                    }
-
-                    if (done)
-                    {
-                        break;
-                    }
-
-                    yield return current;
-                }
-            }
-
-            if (failure != null)
-            {
-                GameLog.Exception(LogCategories.Launch, failure, "Enter battle failed.");
+                GameLog.Exception(LogCategories.Launch, ex, "Enter battle failed.");
                 if (CurrentBattleFlow != null)
                 {
                     CurrentBattleFlow.Dispose();
                     CurrentBattleFlow = null;
                 }
             }
-            else
+            finally
             {
-                GameLog.Info(LogCategories.Launch, $"Scene {LogStyle.Name("Battle")} {LogStyle.Ok("opened")}");
+                _isEnteringBattle = false;
             }
-
-            _isEnteringBattle = false;
         }
     }
 }

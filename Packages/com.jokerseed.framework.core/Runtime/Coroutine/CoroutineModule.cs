@@ -30,13 +30,6 @@ namespace Framework.Coroutine
         }
 
         /// <inheritdoc />
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
-        /// <inheritdoc />
         public void Shutdown()
         {
             if (CoroutineManager.HasInstance)

@@ -1,6 +1,7 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Core;
 using Framework.Logging;
 using UnityEngine;
@@ -32,14 +33,15 @@ namespace Framework.Res
         }
 
         /// <summary>异步初始化：从 <see cref="ResourceManager"/> 读取选项，应用平台默认后完成包初始化。</summary>
-        /// <returns>协程枚举器。</returns>
-        public IEnumerator InitializeAsync()
+        /// <param name="cancellationToken">取消时停止初始化并清理资源包。</param>
+        /// <returns>初始化完成的任务。</returns>
+        public async UniTask InitializeAsync(CancellationToken cancellationToken)
         {
             var manager = ResourceManager.Instance;
             var options = manager.InitOptions;
             ApplyPlatformDefaults(options);
 
-            yield return manager.InitializeAsync(options);
+            await manager.InitializeAsync(options, cancellationToken);
             GameLog.Info(LogCategories.Resource, $"Module {LogStyle.Ok("ready")}");
         }
 

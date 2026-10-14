@@ -2,6 +2,7 @@
     "name": "Framework.GamePlay.Unity",
     "rootNamespace": "Framework.GamePlay",
     "references": [
+        "UniTask",
         "Framework.GamePlay",
         "Framework.Core",
         "Framework.Battle.Core",

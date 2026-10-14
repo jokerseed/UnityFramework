@@ -33,14 +33,6 @@ namespace Framework.ObjectPool
             GameLog.Info(LogCategories.ObjectPool, $"Ready  Pools={LogStyle.Value(manager.Count)}");
         }
 
-        /// <summary>异步初始化，内部直接调用同步 <see cref="Initialize"/>。</summary>
-        /// <returns>协程迭代器。</returns>
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
         /// <summary>关闭模块，销毁全部对象池并释放 <see cref="ObjectPoolManager"/> 单例。</summary>
         public void Shutdown()
         {

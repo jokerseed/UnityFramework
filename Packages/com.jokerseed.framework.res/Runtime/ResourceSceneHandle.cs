@@ -11,56 +11,59 @@ namespace Framework.Res
     /// </summary>
     public readonly struct ResourceSceneHandle : IDisposable
     {
-        readonly SceneHandle _handle;
+        /// <summary>实际为 <see cref="SceneHandle"/>；以 object 存放，使持有本结构的程序集（含 async 状态机）无需引用 YooAsset。</summary>
+        readonly object _raw;
 
         /// <summary>使用 YooAsset 原生场景句柄构造包装。</summary>
         /// <param name="handle">YooAsset 原生场景句柄；可为 null（<see cref="IsValid"/> 将返回 false）。</param>
-        public ResourceSceneHandle(SceneHandle handle)
+        internal ResourceSceneHandle(SceneHandle handle)
         {
-            _handle = handle;
+            _raw = handle;
         }
 
+        SceneHandle Handle => (SceneHandle)_raw;
+
         /// <summary>句柄是否有效（非 null 且未被释放）。</summary>
-        public bool IsValid => _handle != null && _handle.IsValid;
+        public bool IsValid => Handle != null && Handle.IsValid;
 
         /// <summary>加载是否已完成（包括失败情况）。</summary>
-        public bool IsDone => _handle != null && _handle.IsDone;
+        public bool IsDone => Handle != null && Handle.IsDone;
 
         /// <summary>当前加载状态。</summary>
-        public ResourceLoadStatus Status => MapStatus(_handle?.Status);
+        public ResourceLoadStatus Status => MapStatus(Handle?.Status);
 
         /// <summary>加载是否成功。</summary>
         public bool Succeeded => Status == ResourceLoadStatus.Succeeded;
 
         /// <summary>失败时的错误信息；未失败或句柄无效则为空字符串。</summary>
-        public string Error => _handle != null ? _handle.Error : string.Empty;
+        public string Error => Handle != null ? Handle.Error : string.Empty;
 
         /// <summary>加载进度（0~1）。</summary>
-        public float Progress => _handle != null ? _handle.Progress : 0f;
+        public float Progress => Handle != null ? Handle.Progress : 0f;
 
         /// <summary>场景名称；句柄无效时为空字符串。</summary>
-        public string SceneName => _handle != null ? _handle.SceneName : string.Empty;
+        public string SceneName => Handle != null ? Handle.SceneName : string.Empty;
 
         /// <summary>已加载的 <see cref="Scene"/>；未完成或失败时可能无效。</summary>
-        public Scene Scene => _handle != null ? _handle.SceneObject : default;
+        public Scene Scene => Handle != null ? Handle.SceneObject : default;
 
         /// <summary>异步卸载本句柄对应的场景。</summary>
         /// <returns>可 yield 的卸载操作；句柄无效时立即结束。</returns>
         public IEnumerator UnloadAsync()
         {
-            if (_handle == null || !_handle.IsValid)
+            if (Handle == null || !Handle.IsValid)
             {
                 yield break;
             }
 
-            var operation = _handle.UnloadSceneAsync();
+            var operation = Handle.UnloadSceneAsync();
             yield return operation;
         }
 
         /// <summary>释放底层 YooAsset 句柄引用计数（不会主动卸载场景，请优先使用 <see cref="UnloadAsync"/>）。</summary>
         public void Dispose()
         {
-            _handle?.Release();
+            Handle?.Release();
         }
 
         static ResourceLoadStatus MapStatus(EOperationStatus? status)

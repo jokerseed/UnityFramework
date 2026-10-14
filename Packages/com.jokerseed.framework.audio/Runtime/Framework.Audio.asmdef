@@ -2,6 +2,7 @@
     "name": "Framework.Audio",
     "rootNamespace": "Framework.Audio",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Logging",
         "Framework.Res",

@@ -80,6 +80,9 @@ UIManager.Instance.Show<MainUIWindow>();
 
 // 异步打开；失败或取消时 window 为 null
 var show = UIManager.Instance.ShowAsync<MainUIWindow>(onComplete: window => { /* ... */ });
+
+// UniTask 版本：失败返回 null；令牌取消或被 Close / 再次打开取消时抛 OperationCanceledException
+var main = await UIManager.Instance.ShowAsync<MainUIWindow>(null, this.GetCancellationTokenOnDestroy());
 show.Cancel(); // 或 show.Stop() / Dispose()，释放未完成的加载与实例
 
 // Close / CloseAll / 再次 Show(Async) 同类型时，会取消进行中的异步打开

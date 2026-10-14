@@ -92,27 +92,26 @@ var res = ResourceManager.Instance;
 // 同步（旁路调度）
 using var handle = res.LoadAssetSync<GameObject>(ResourceAddresses.MainPrefab);
 
-// 异步协程（内部入队，用法与以前相同）
-yield return res.LoadAssetAsync<GameObject>(location, h => handle = h);
+// 异步（UniTask，内部入队）；ct 取消时撤销排队请求、释放已完成的句柄并抛 OperationCanceledException
+var ct = this.GetCancellationTokenOnDestroy();
+using var prefab = await res.LoadAssetAsync<GameObject>(location, priority: 0, cancellationToken: ct);
 
-// 入队并拿到请求句柄（可 Cancel，亦可 yield return 等待）
+// 回调式：入队并拿到请求句柄（可 Cancel，亦可在协程里 yield return 等待）
 var request = res.LoadAssetScheduled<AudioClip>(location, clipHandle => { }, priority: 0);
-yield return request;
 request.Cancel();
 
-// 分帧实例化
-yield return res.InstantiateAsync(handle, parent, go => instance = go, priority: 10);
+// 分帧实例化；取消时销毁已生成的实例
+var instance = await res.InstantiateAsync(prefab, parent, priority: 10, cancellationToken: ct);
 
 // 合并卸载未使用资源（禁止业务直接调 YooAsset UnloadUnusedAssets）
 res.RequestUnloadUnusedAssets();
 
 // 主场景（Single：自动 Dispose 旧主场景 + 全部 Additive 句柄）
-yield return res.LoadMainSceneAsync(ResourceAddresses.BattleScene);
+await res.LoadMainSceneAsync(ResourceAddresses.BattleScene, ct);
 
 // Additive 子场景（天气 / 房间等）
-ResourceSceneHandle weather = default;
-yield return res.LoadAdditiveSceneAsync(ResourceAddresses.Scene("Weather"), h => weather = h);
-yield return res.UnloadAdditiveSceneAsync(weather);
+var weather = await res.LoadAdditiveSceneAsync(ResourceAddresses.Scene("Weather"), ct);
+await res.UnloadAdditiveSceneAsync(weather);
 
 var active = res.ActiveScene;
 var main = res.CurrentMainScene;
@@ -125,7 +124,7 @@ using var battle = ResourceScope.Create("Battle");
 
 // 同步 / 异步加载会自动登记句柄
 var heroPrefab = battle.LoadSync<GameObject>(ResourceAddresses.MaleSword01Prefab);
-yield return battle.LoadAsync<AudioClip>(location, clip => { });
+var clip = await battle.LoadAsync<AudioClip>(location, cancellationToken: ct);
 
 var instance = heroPrefab.InstantiateSync(); // Instance 由业务 / Pool 管理
 Destroy(instance);
@@ -179,7 +178,7 @@ battle.Dispose();
 
 Single 切走后 Unity 会卸旧场景，但 **YooAsset 句柄须手动 `Dispose`**；Additive 列表由 `ResourceManager` 维护，不能指望 Unity 卸场景就自动 Release。
 
-Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，协程等待会结束；`onComplete` 收到无效句柄或 null。场景句柄在 Shutdown 时一并释放。
+Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，`await` / 协程等待会结束；`onComplete` 收到无效句柄或 null。场景句柄在 Shutdown 时一并释放。
 
 **禁止**在业务代码中直接调用 YooAsset 的 `Release` / `Destroy` / `UnloadUnusedAssets`。
 
@@ -201,7 +200,7 @@ new ResourceModule(),
 
 ## 被谁使用
 
-- `Framework.Config` — `LoadAssetSync<TextAsset>`，不走调度
+- `Framework.Config` — 默认 `LoadAssetSync<TextAsset>`（不走调度）；`PreloadTableAssetsAsync` 走 `LoadAssetAsync` 预热缓存
 - `Framework.UI` — `Show` 同步旁路；`ShowAsync` 走调度
-- `Framework.Audio` — `PlayBgmAsync` 等走 `LoadAssetAsync`
+- `Framework.Audio` — `PlayBgmAsync` 等走 `LoadAssetScheduled`
 - `Assets/Scripts/Launch.cs` — 注册 `ResourceModule`

@@ -2,6 +2,7 @@
     "name": "Framework.Network",
     "rootNamespace": "Framework.Network",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Logging",
         "Framework.MemoryPool",

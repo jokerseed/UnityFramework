@@ -2,6 +2,7 @@
     "name": "Framework.Coroutine",
     "rootNamespace": "Framework.Coroutine",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Logging"
     ],

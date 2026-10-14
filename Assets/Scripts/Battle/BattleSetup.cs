@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Config;
 using Framework.Battle;
 using Framework.FixedMath;
@@ -52,42 +54,39 @@ namespace Game
         /// <summary>异步加载英雄与杂兵模型，并注册到 <see cref="BattleViewBinder"/>。</summary>
         /// <param name="session">战斗会话。</param>
         /// <param name="viewBinder">表现层绑定器。</param>
-        public IEnumerator LoadViewsAsync(BattleSession session, BattleViewBinder viewBinder)
+        /// <param name="cancellationToken">场景销毁时取消。</param>
+        /// <returns>加载完成的任务；失败时 <see cref="BattleViewBinder.ViewsReady"/> 为 false。</returns>
+        public async UniTask LoadViewsAsync(BattleSession session, BattleViewBinder viewBinder, CancellationToken cancellationToken)
         {
             var res = ResourceManager.Instance;
             if (res == null || !res.IsInitialized)
             {
                 GameLog.Error(LogCategories.GamePlay, "ResourceManager is not ready.");
-                yield break;
+                return;
             }
 
             var scope = ResourceScope.Create($"BattleViews_{session.SessionId}");
             session.AttachResource(scope);
 
-            ResourceAssetHandle heroHandle = default;
-            ResourceAssetHandle monsterHandle = default;
-            yield return scope.LoadAsync<GameObject>(
-                ResourceAddresses.MaleSword01Prefab, h => heroHandle = h, priority: 10);
+            var heroHandle = await scope.LoadAsync<GameObject>(ResourceAddresses.MaleSword01Prefab, 10, cancellationToken);
             if (!heroHandle.IsValid || !heroHandle.Succeeded)
             {
                 GameLog.Error(LogCategories.GamePlay, $"Load model failed: {LogStyle.Name("Hero")} error={heroHandle.Error}");
-                yield break;
+                return;
             }
 
-            yield return scope.LoadAsync<GameObject>(
-                ResourceAddresses.AxeKnightPrefab, h => monsterHandle = h, priority: 10);
+            var monsterHandle = await scope.LoadAsync<GameObject>(ResourceAddresses.AxeKnightPrefab, 10, cancellationToken);
             if (!monsterHandle.IsValid || !monsterHandle.Succeeded)
             {
                 GameLog.Error(LogCategories.GamePlay, $"Load model failed: {LogStyle.Name("Monster")} error={monsterHandle.Error}");
-                yield break;
+                return;
             }
 
-            GameObject heroGo = null;
-            yield return res.InstantiateAsync(heroHandle, null, go => heroGo = go, priority: 10);
+            var heroGo = await res.InstantiateAsync(heroHandle, null, priority: 10, cancellationToken: cancellationToken);
             if (heroGo == null)
             {
                 GameLog.Error(LogCategories.GamePlay, $"Instantiate model failed: {LogStyle.Name("Hero")}");
-                yield break;
+                return;
             }
 
             heroGo.name = "Hero";
@@ -98,7 +97,7 @@ namespace Game
             if (monsterPrefab == null)
             {
                 GameLog.Error(LogCategories.GamePlay, "Monster prefab asset is null.");
-                yield break;
+                return;
             }
 
             BattleMonsterView.Configure(monsterPrefab);
@@ -111,7 +110,7 @@ namespace Game
                 monsterViews.Add(view);
                 if (i < MonsterCount - 1)
                 {
-                    yield return null;
+                    await UniTask.Yield(cancellationToken);
                 }
             }
 

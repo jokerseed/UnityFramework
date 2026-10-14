@@ -43,13 +43,6 @@ namespace Framework.GamePlay
         }
 
         /// <inheritdoc/>
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
-        /// <inheritdoc/>
         public void Shutdown()
         {
             Director?.Dispose();

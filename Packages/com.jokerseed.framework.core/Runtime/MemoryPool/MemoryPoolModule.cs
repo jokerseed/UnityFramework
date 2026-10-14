@@ -29,14 +29,6 @@ namespace Framework.MemoryPool
             GameLog.Info(LogCategories.MemoryPool, $"Ready  StrictCheck={LogStyle.Value(enableStrictCheck)}");
         }
 
-        /// <summary>异步初始化，内部直接调用同步 <see cref="Initialize"/>。</summary>
-        /// <returns>协程迭代器。</returns>
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
         /// <summary>关闭模块，清空所有内存池中的闲置对象。</summary>
         public void Shutdown()
         {

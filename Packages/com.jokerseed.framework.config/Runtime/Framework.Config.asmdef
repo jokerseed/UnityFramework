@@ -2,6 +2,7 @@
     "name": "Framework.Config",
     "rootNamespace": "Framework.Config",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Res",
         "Framework.Logging",

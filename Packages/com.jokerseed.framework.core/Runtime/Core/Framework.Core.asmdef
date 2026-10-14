@@ -1,7 +1,9 @@
 {
     "name": "Framework.Core",
     "rootNamespace": "Framework.Core",
-    "references": [],
+    "references": [
+        "UniTask"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

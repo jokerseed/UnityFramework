@@ -2,6 +2,7 @@
     "name": "Framework.EditMode.Tests",
     "rootNamespace": "Framework.Tests",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Battle.Core",
         "Framework.ECS",

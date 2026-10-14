@@ -34,13 +34,6 @@ namespace Framework.Network
         }
 
         /// <inheritdoc />
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
-        /// <inheritdoc />
         public void Shutdown()
         {
             if (NetworkManager.HasInstance)

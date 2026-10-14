@@ -19,5 +19,7 @@
     "pool",
     "logging"
   ],
-  "dependencies": {}
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.11"
+  }
 }

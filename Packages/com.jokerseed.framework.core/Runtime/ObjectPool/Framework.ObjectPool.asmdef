@@ -2,6 +2,7 @@
     "name": "Framework.ObjectPool",
     "rootNamespace": "Framework.ObjectPool",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Logging",
         "Framework.MemoryPool"

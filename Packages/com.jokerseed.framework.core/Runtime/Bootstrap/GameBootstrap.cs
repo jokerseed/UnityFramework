@@ -1,6 +1,7 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Core;
 using Framework.Logging;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace Framework.Bootstrap
         }
 
         readonly Dictionary<string, ModuleGroup> _groups = new Dictionary<string, ModuleGroup>();
+        readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
         /// <summary>
         /// 注册或替换指定组的模块列表；组不存在时自动创建。
@@ -77,43 +79,44 @@ namespace Framework.Bootstrap
         }
 
         /// <summary>
-        /// 启动指定组的异步初始化协程（内部调用 <see cref="RunAsync"/>）。
-        /// 若组已在运行则等待其完成；已就绪则立即返回。
+        /// 启动指定组的初始化，不等待结果（内部调用 <see cref="RunAsync"/>）。
+        /// 结果通过 <see cref="ModuleGroup"/> 的 Ready / Failed 事件获知。
         /// </summary>
         /// <param name="groupName">要启动的组名。</param>
         /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public void Run(string groupName)
         {
             GetGroup(groupName);
-            StartCoroutine(RunAsync(groupName));
+            RunAsync(groupName).Forget();
         }
 
         /// <summary>
-        /// 异步初始化指定模块组的协程。
-        /// 若组已在运行则等待其完成；已就绪则立即 yield break。
+        /// 初始化指定模块组并等待结束。
+        /// 若组已在运行则等待其结束；已就绪则立即返回。
+        /// 模块初始化失败不会抛出：组进入 <see cref="ModuleGroupState.Failed"/>、触发 <see cref="ModuleGroup.Failed"/>，调用方检查 <see cref="ModuleGroup.State"/>。
         /// </summary>
         /// <param name="groupName">要启动的组名。</param>
-        /// <returns>可被 StartCoroutine 驱动的协程枚举器。</returns>
+        /// <param name="cancellationToken">取消时中止初始化，已初始化的模块逆序关闭，组进入 Failed。Bootstrap 销毁时也会取消。</param>
+        /// <returns>初始化结束（成功、失败或取消）的任务。</returns>
         /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
-        public IEnumerator RunAsync(string groupName)
+        public async UniTask RunAsync(string groupName, CancellationToken cancellationToken = default)
         {
             var group = GetGroup(groupName);
             if (group.State == ModuleGroupState.Running)
             {
-                while (group.State == ModuleGroupState.Running)
-                {
-                    yield return null;
-                }
-
-                yield break;
+                await UniTask.WaitWhile(() => group.State == ModuleGroupState.Running, cancellationToken: cancellationToken);
+                return;
             }
 
             if (group.State == ModuleGroupState.Ready)
             {
-                yield break;
+                return;
             }
 
-            yield return RunGroup(group);
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token))
+            {
+                await RunGroup(group, linked);
+            }
         }
 
         /// <summary>
@@ -137,21 +140,27 @@ namespace Framework.Bootstrap
             group.SetState(ModuleGroupState.Idle);
         }
 
-        IEnumerator RunGroup(ModuleGroup group)
+        async UniTask RunGroup(ModuleGroup group, CancellationTokenSource runCancellation)
         {
             var serial = ++group.RunSerial;
             group.SetState(ModuleGroupState.Running);
 
-            Exception failure = null;
-            var driven = NestedCoroutine.Drive(RunGroupInternal(group, serial), ex => failure = ex);
-            while (failure == null && driven.MoveNext())
+            try
             {
-                yield return driven.Current;
+                await RunGroupInternal(group, serial, runCancellation);
             }
-
-            if (failure != null)
+            catch (Exception failure)
             {
-                GameLog.Exception(LogCategories.Bootstrap, failure);
+                runCancellation.Cancel();
+                if (failure is OperationCanceledException)
+                {
+                    GameLog.Warning(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} cancelled.");
+                }
+                else
+                {
+                    GameLog.Exception(LogCategories.Bootstrap, failure);
+                }
+
                 group.RunSerial++;
                 try
                 {
@@ -161,6 +170,7 @@ namespace Framework.Bootstrap
                 {
                     GameLog.Exception(LogCategories.Bootstrap, shutdownError);
                 }
+
                 group.SetState(ModuleGroupState.Failed, failure);
             }
         }
@@ -185,36 +195,37 @@ namespace Framework.Bootstrap
             return ready;
         }
 
-        IEnumerator RunGroupInternal(ModuleGroup group, int serial)
+        async UniTask RunGroupInternal(ModuleGroup group, int serial, CancellationTokenSource runCancellation)
         {
             if (group.Modules.Count == 0)
             {
                 GameLog.Warning(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} has no modules.");
                 group.SetState(ModuleGroupState.Ready);
-                yield break;
+                return;
             }
 
             var waves = ModuleSorter.SortIntoWaves(group.Modules, CollectReadyModules(group.Name));
             var progress = new InitProgress();
             var totalModules = group.Modules.Count;
+            var token = runCancellation.Token;
 
             for (var waveIndex = 0; waveIndex < waves.Count; waveIndex++)
             {
+                token.ThrowIfCancellationRequested();
                 var wave = waves[waveIndex];
-                var useConcurrent = CanRunConcurrently(wave);
-
-                if (useConcurrent)
+                if (CanRunConcurrently(wave))
                 {
                     GameLog.Info(
                         LogCategories.Bootstrap,
                         $"Group {LogStyle.Name(group.Name)} wave {LogStyle.Value($"{waveIndex + 1}/{waves.Count}")} {LogStyle.Muted("concurrent")} ({LogStyle.Value(wave.Count)} modules)");
-                    yield return InitializeWaveConcurrent(group, wave, progress, totalModules, serial);
+                    await InitializeWaveConcurrent(group, wave, progress, totalModules, serial, runCancellation);
                 }
                 else
                 {
                     for (var i = 0; i < wave.Count; i++)
                     {
-                        yield return InitializeModuleSequential(group, wave[i], progress, totalModules, serial);
+                        token.ThrowIfCancellationRequested();
+                        await InitializeModule(group, wave[i], progress, totalModules, serial, token, false);
                     }
                 }
             }
@@ -223,18 +234,21 @@ namespace Framework.Bootstrap
             GameLog.Info(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} {LogStyle.Ok("ready")}");
         }
 
-        IEnumerator InitializeModuleSequential(
+        static async UniTask InitializeModule(
             ModuleGroup group,
             IGameModule module,
             InitProgress progress,
             int totalModules,
-            int serial)
+            int serial,
+            CancellationToken token,
+            bool concurrent)
         {
             progress.Value++;
             group.ReportProgress(progress.Value, totalModules);
+            var mode = concurrent ? $", {LogStyle.Muted("concurrent")}" : string.Empty;
             GameLog.Info(
                 LogCategories.Bootstrap,
-                $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")}, {LogStyle.Muted(module.InitMode)})");
+                $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")}, {LogStyle.Muted(module.InitMode)}{mode})");
 
             if (module.InitMode == ModuleInitMode.Synchronous)
             {
@@ -242,99 +256,39 @@ namespace Framework.Bootstrap
             }
             else
             {
-                yield return module.InitializeAsync();
+                await module.InitializeAsync(token);
             }
 
             CompleteModule(group, module, serial);
         }
 
-        IEnumerator InitializeWaveConcurrent(
+        /// <summary>
+        /// 同波次全部模块同时开始；任一模块失败立即取消其余模块并抛出该异常。
+        /// 失败后才完成的模块由 <see cref="CompleteModule"/> 按代号判定为迟到并立即关闭。
+        /// </summary>
+        static async UniTask InitializeWaveConcurrent(
             ModuleGroup group,
             IReadOnlyList<IGameModule> wave,
             InitProgress progress,
             int totalModules,
-            int serial)
+            int serial,
+            CancellationTokenSource runCancellation)
         {
-            var pendingAsync = 0;
-            Exception failure = null;
-
+            var tasks = new UniTask[wave.Count];
             for (var i = 0; i < wave.Count; i++)
             {
-                var module = wave[i];
-                progress.Value++;
-                group.ReportProgress(progress.Value, totalModules);
-                GameLog.Info(
-                    LogCategories.Bootstrap,
-                    $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")}, {LogStyle.Muted(module.InitMode)}, {LogStyle.Muted("concurrent")})");
-
-                if (module.InitMode == ModuleInitMode.Synchronous)
-                {
-                    try
-                    {
-                        module.Initialize();
-                        CompleteModule(group, module, serial);
-                    }
-                    catch (Exception ex)
-                    {
-                        failure = ex;
-                        break;
-                    }
-
-                    continue;
-                }
-
-                pendingAsync++;
-                StartCoroutine(RunAsyncModule(group, module, serial, () => pendingAsync--, ex =>
-                {
-                    failure = ex;
-                    pendingAsync--;
-                }));
+                tasks[i] = InitializeModule(group, wave[i], progress, totalModules, serial, runCancellation.Token, true);
             }
 
-            while (pendingAsync > 0 && failure == null)
-            {
-                yield return null;
-            }
-
-            if (failure != null)
-            {
-                throw failure;
-            }
-        }
-
-        IEnumerator RunAsyncModule(
-            ModuleGroup group,
-            IGameModule module,
-            int serial,
-            Action onComplete,
-            Action<Exception> onError)
-        {
-            IEnumerator routine;
             try
             {
-                routine = module.InitializeAsync();
+                await UniTask.WhenAll(tasks);
             }
-            catch (Exception ex)
+            catch
             {
-                onError?.Invoke(ex);
-                yield break;
+                runCancellation.Cancel();
+                throw;
             }
-
-            Exception failure = null;
-            var driven = NestedCoroutine.Drive(routine, ex => failure = ex);
-            while (failure == null && driven.MoveNext())
-            {
-                yield return driven.Current;
-            }
-
-            if (failure != null)
-            {
-                onError?.Invoke(failure);
-                yield break;
-            }
-
-            CompleteModule(group, module, serial);
-            onComplete?.Invoke();
         }
 
         static void CompleteModule(ModuleGroup group, IGameModule module, int serial)
@@ -394,12 +348,14 @@ namespace Framework.Bootstrap
 
         protected override void OnDestroy()
         {
+            _lifetime.Cancel();
             foreach (var pair in _groups)
             {
                 ShutdownGroup(pair.Value);
             }
 
             _groups.Clear();
+            _lifetime.Dispose();
             base.OnDestroy();
         }
     }

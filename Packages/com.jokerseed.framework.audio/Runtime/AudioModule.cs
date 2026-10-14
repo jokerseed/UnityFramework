@@ -36,13 +36,6 @@ namespace Framework.Audio
         }
 
         /// <inheritdoc />
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
-        /// <inheritdoc />
         public void Shutdown()
         {
             if (AudioManager.HasInstance)

@@ -1,6 +1,6 @@
 using System;
-using System.Collections;
-using Framework.Coroutine;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.Logging;
@@ -24,7 +24,6 @@ namespace Game
         BattleViewBinder _view;
         BattlePresentation _presentation;
         LocalLockstepHost _host;
-        ICoroutineHandle _startHandle;
         bool _battleStarted;
         Action<BattleIntentFrame> _fillFrame;
         Action<FP> _afterFixedStep;
@@ -41,23 +40,31 @@ namespace Game
             _input = new BattleInputController();
             _view = new BattleViewBinder();
             _presentation = new BattlePresentation();
-            _startHandle = GameCoroutine.StartGlobal(StartBattleAsync());
+            StartBattleAsync(this.GetCancellationTokenOnDestroy()).Forget();
         }
 
-        IEnumerator StartBattleAsync()
+        async UniTaskVoid StartBattleAsync(CancellationToken cancellationToken)
         {
             if (!TryEnterBattle())
             {
-                yield break;
+                return;
             }
 
-            yield return _setup.LoadViewsAsync(_session, _view);
+            try
+            {
+                await _setup.LoadViewsAsync(_session, _view, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
             if (!_view.ViewsReady)
             {
                 GameLog.Error(LogCategories.GamePlay, "Battle models failed to spawn; gameplay not started.");
                 _view.Clear();
                 _setup.TearDown();
-                yield break;
+                return;
             }
 
             if (!_setup.CreateActors(_session))
@@ -65,7 +72,7 @@ namespace Game
                 CleanupSession();
                 _view.Clear();
                 _setup.TearDown();
-                yield break;
+                return;
             }
 
             _presentation.Bind(_session.Framework, _setup.HeroId);
@@ -199,12 +206,6 @@ namespace Game
 
         void OnDestroy()
         {
-            if (_startHandle != null)
-            {
-                _startHandle.Stop();
-                _startHandle = null;
-            }
-
             _battleStarted = false;
             _host?.Clear();
             _input?.Dispose();

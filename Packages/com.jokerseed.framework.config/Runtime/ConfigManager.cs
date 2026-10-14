@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Core;
 using Framework.Logging;
 using Framework.Res;
@@ -154,6 +156,82 @@ namespace Framework.Config
                 var asset = handle.GetAsset<TextAsset>();
                 return asset != null ? asset.bytes : Array.Empty<byte>();
             }
+        }
+
+        /// <summary>
+        /// 异步预加载配置表 TextAsset 并写入句柄缓存；之后 <see cref="LoadTables{TTables}"/>（<c>cacheTableAssets=true</c>）直接命中缓存，不再同步读包。
+        /// WebGL / 小游戏等不允许同步加载的平台须先调用本方法。已缓存的表跳过。
+        /// </summary>
+        /// <param name="tableNames">Luban 表名列表（与生成代码中 loader 收到的文件名一致）。</param>
+        /// <param name="cancellationToken">取消时释放本次已加载的句柄并抛出 <see cref="OperationCanceledException"/>。</param>
+        /// <returns>全部加载完成的任务。</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="tableNames"/> 为 null。</exception>
+        /// <exception cref="InvalidOperationException">ResourceManager 未就绪，或任一表加载失败（成功的表仍保留在缓存中）。</exception>
+        public async UniTask PreloadTableAssetsAsync(IReadOnlyList<string> tableNames, CancellationToken cancellationToken = default)
+        {
+            if (tableNames == null)
+            {
+                throw new ArgumentNullException(nameof(tableNames));
+            }
+
+            EnsureResourceReady();
+            var locations = new List<string>(tableNames.Count);
+            var seen = new HashSet<string>();
+            for (var i = 0; i < tableNames.Count; i++)
+            {
+                var location = ResourceAddresses.ConfigTable(tableNames[i]);
+                if (!seen.Add(location) || (_tableAssetCache.TryGetValue(location, out var cached) && cached.IsValid))
+                {
+                    continue;
+                }
+
+                locations.Add(location);
+            }
+
+            var handles = new ResourceAssetHandle[locations.Count];
+            var tasks = new UniTask[locations.Count];
+            for (var i = 0; i < locations.Count; i++)
+            {
+                tasks[i] = LoadTableAssetInto(handles, i, locations[i], cancellationToken);
+            }
+
+            try
+            {
+                await UniTask.WhenAll(tasks);
+            }
+            catch
+            {
+                for (var i = 0; i < handles.Length; i++)
+                {
+                    handles[i].Dispose();
+                }
+
+                throw;
+            }
+
+            string firstError = null;
+            for (var i = 0; i < handles.Length; i++)
+            {
+                var handle = handles[i];
+                if (!handle.IsValid || !handle.Succeeded)
+                {
+                    firstError = firstError ?? $"location={locations[i]}, error={handle.Error}";
+                    handle.Dispose();
+                    continue;
+                }
+
+                _tableAssetCache[locations[i]] = handle;
+            }
+
+            if (firstError != null)
+            {
+                throw new InvalidOperationException($"[Config] Preload config failed: {firstError}");
+            }
+        }
+
+        static async UniTask LoadTableAssetInto(ResourceAssetHandle[] slots, int index, string location, CancellationToken cancellationToken)
+        {
+            slots[index] = await ResourceManager.Instance.LoadAssetAsync<TextAsset>(location, 0, cancellationToken);
         }
 
         /// <summary>

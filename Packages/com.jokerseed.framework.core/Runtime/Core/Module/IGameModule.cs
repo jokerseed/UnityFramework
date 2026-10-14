@@ -1,12 +1,14 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 
 namespace Framework.Core
 {
     /// <summary>
     /// 游戏模块契约：生命周期、依赖声明与初始化模式。
     /// 由 <c>Framework.Bootstrap.GameBootstrap</c> 调度；实现类放在各业务程序集。
+    /// 同步模块只需实现 <see cref="Initialize"/>；异步模块把 <see cref="InitMode"/> 设为 <see cref="ModuleInitMode.Asynchronous"/> 并重写 <see cref="InitializeAsync"/>。
     /// </summary>
     public interface IGameModule
     {
@@ -26,9 +28,17 @@ namespace Framework.Core
         /// <summary>同步初始化；仅在 <see cref="InitMode"/> 为 <see cref="ModuleInitMode.Synchronous"/> 时由 Bootstrap 调用。</summary>
         void Initialize();
 
-        /// <summary>异步初始化协程；仅在 <see cref="InitMode"/> 为 <see cref="ModuleInitMode.Asynchronous"/> 时由 Bootstrap 驱动。</summary>
-        /// <returns>协程枚举器；同步模块可直接调用 Initialize() 后 yield break。</returns>
-        IEnumerator InitializeAsync();
+        /// <summary>
+        /// 异步初始化；仅在 <see cref="InitMode"/> 为 <see cref="ModuleInitMode.Asynchronous"/> 时由 Bootstrap 等待。
+        /// 默认实现直接调用 <see cref="Initialize"/>。
+        /// </summary>
+        /// <param name="cancellationToken">组初始化失败、组被重置或 Bootstrap 销毁时取消。</param>
+        /// <returns>初始化完成的任务；抛出的异常会让所在组进入 Failed。</returns>
+        UniTask InitializeAsync(CancellationToken cancellationToken)
+        {
+            Initialize();
+            return UniTask.CompletedTask;
+        }
 
         /// <summary>获取模块初始化执行方式；默认同步。</summary>
         ModuleInitMode InitMode => ModuleInitMode.Synchronous;

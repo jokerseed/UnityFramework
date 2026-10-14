@@ -2,6 +2,7 @@
     "name": "Game",
     "rootNamespace": "Game",
     "references": [
+        "UniTask",
         "Framework.Audio",
         "Framework.Bootstrap",
         "Framework.Config",

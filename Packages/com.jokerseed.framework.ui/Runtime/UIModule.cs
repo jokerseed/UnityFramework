@@ -36,13 +36,6 @@ namespace Framework.UI
         }
 
         /// <inheritdoc/>
-        public IEnumerator InitializeAsync()
-        {
-            Initialize();
-            yield break;
-        }
-
-        /// <inheritdoc/>
         public void Shutdown()
         {
             if (UIManager.HasInstance)

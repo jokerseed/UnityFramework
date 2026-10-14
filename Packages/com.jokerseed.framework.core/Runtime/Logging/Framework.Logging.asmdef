@@ -2,6 +2,7 @@
     "name": "Framework.Logging",
     "rootNamespace": "Framework.Logging",
     "references": [
+        "UniTask",
         "Framework.Core"
     ],
     "includePlatforms": [],

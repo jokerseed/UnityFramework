@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Core;
 using Framework.Coroutine;
 using Framework.Logging;
@@ -151,6 +153,38 @@ namespace Framework.UI
             _pendingShows[windowType] = operation;
             operation.BindCoroutine(GameCoroutine.StartGlobal(ShowAsyncCoroutine(operation, userData, onComplete)));
             return operation;
+        }
+
+        /// <summary>
+        /// 异步打开窗口并等待结果；取消与资源回收沿用 <see cref="UIShowHandle"/> 的语义。
+        /// </summary>
+        /// <typeparam name="TWindow">窗口类型，须有无参构造。</typeparam>
+        /// <param name="userData">传入窗口的用户数据；可为 null。</param>
+        /// <param name="cancellationToken">取消时中止尚未完成的打开并释放已加载资源。</param>
+        /// <returns>窗口实例；加载或实例化失败时为 null。</returns>
+        /// <exception cref="OperationCanceledException">令牌取消，或打开过程被 <see cref="Close{TWindow}"/> / 再次打开同类型窗口取消。</exception>
+        public async UniTask<TWindow> ShowAsync<TWindow>(object userData, CancellationToken cancellationToken)
+            where TWindow : UIWindow, new()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var source = new UniTaskCompletionSource<TWindow>();
+            UIShowHandle handle = null;
+            handle = ShowAsync<TWindow>(userData, window =>
+            {
+                if (window == null && handle != null && handle.IsCancelled)
+                {
+                    source.TrySetCanceled(cancellationToken);
+                }
+                else
+                {
+                    source.TrySetResult(window);
+                }
+            });
+
+            using (cancellationToken.Register(handle.Cancel))
+            {
+                return await source.Task;
+            }
         }
 
         /// <summary>关闭指定类型窗口；若该类型仍在异步打开中则一并取消。</summary>

@@ -48,8 +48,8 @@ groupA.ProgressChanged += (g, cur, total) => Debug.Log($"{cur}/{total}");
 groupB.StateChanged += g => Debug.Log($"{g.Name} -> {g.State}");
 
 // 运行组 A，完成后可再运行组 B
-yield return bootstrap.RunAsync("launch");
-bootstrap.Run("battle"); // 或 yield return RunAsync("battle")
+await bootstrap.RunAsync("launch", this.GetCancellationTokenOnDestroy());
+bootstrap.Run("battle"); // 或 await bootstrap.RunAsync("battle")
 
 // 各组初始化完成后，从各模块自己的入口取用（非 Bootstrap 职责）
 var tables = ConfigManager.Instance.LoadTables<cfg.CfgTables>();
@@ -59,8 +59,8 @@ var manager = ResourceManager.Instance;
 | API | 说明 |
 |-----|------|
 | `SetModules(name, modules)` | 配置一组模块，返回 `ModuleGroup` |
-| `Run(name)` | 启动该组初始化（协程） |
-| `RunAsync(name)` | `yield return` 等待该组完成 |
+| `Run(name)` | 启动该组初始化，不等待（内部 `RunAsync(name).Forget()`） |
+| `RunAsync(name, ct)` | `await` 等待该组结束；失败不抛异常，查 `ModuleGroup.State`。取消或 Bootstrap 销毁时中止并回滚 |
 | `GetGroup(name)` | 获取组句柄，查 `IsReady` / 状态事件 |
 | `ResetGroup(name)` | 关闭并清空该组，可重新配置。组仍在 `Running` 时抛异常 |
 
@@ -69,14 +69,14 @@ var manager = ResourceManager.Instance;
 | 模式 | Bootstrap 行为 |
 |------|----------------|
 | `InitMode = Synchronous` | 直接调用 `Initialize()` |
-| `InitMode = Asynchronous` | 协程等待 `InitializeAsync()` |
+| `InitMode = Asynchronous` | `await InitializeAsync(CancellationToken)`（UniTask）；默认实现调用 `Initialize()` |
 
 ## 并发规则
 
-- 组内按依赖波次串行；同波次且 `AllowConcurrentInitialization = true` 可并发
+- 组内按依赖波次串行；同波次且 `AllowConcurrentInitialization = true` 可并发（`UniTask.WhenAll`），任一模块失败会取消同波次其余模块
 - 依赖可以是具体类型或接口。同一个依赖匹配到多个模块时直接失败，不会随便挑一个
 - 已经 `Ready` 的其它组可以满足当前组的依赖。还没就绪的组不算
-- **组与组之间**互不影响，可先后或分别 `Run`。`Run` 在启动协程之前就检查组名，找不到组会立刻抛 `KeyNotFoundException`
+- **组与组之间**互不影响，可先后或分别 `Run`。`Run` / `RunAsync` 在开始初始化之前就检查组名，找不到组会立刻抛 `KeyNotFoundException`
 
 ## 生命周期
 
@@ -87,7 +87,7 @@ SetModules("b", ...)  →  Idle（独立组）
 Run("b")              →  Running → Ready / Failed
 ```
 
-初始化协程里的异常（包括 `yield return` 嵌套进去的 `InitializeAsync`）由 `NestedCoroutine` 收上来，把组设为 `Failed` 并触发 `Failed` 事件。已初始化的模块按逆序 `Shutdown`；某个模块的 `Shutdown` 抛异常不会挡住后面的模块。失败会递增 `RunSerial`，迟到的完成不会再记进已初始化列表。失败后再次 `Run` 会重新初始化。不要依赖 Unity 把嵌套协程的异常抛回外层 `try`。
+`Initialize` / `InitializeAsync` 抛出的异常（含取消产生的 `OperationCanceledException`）会把组设为 `Failed` 并触发 `Failed` 事件。已初始化的模块按逆序 `Shutdown`；某个模块的 `Shutdown` 抛异常不会挡住后面的模块。失败会递增 `RunSerial`，迟到的完成（并发波次中失败后才结束的模块）不会再记进已初始化列表，而是立即 `Shutdown`。失败后再次 `Run` 会重新初始化。全部是同步模块时，`RunAsync` 在调用当帧就结束。
 
 ## 相关模块
 

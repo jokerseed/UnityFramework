@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Framework.Core;
 using Framework.Logging;
 using UnityEngine;
@@ -88,9 +90,12 @@ namespace Framework.Res
 
         /// <summary>异步初始化资源包（请求版本号 + 加载 Manifest）。</summary>
         /// <param name="options">初始化选项；不可为 null。</param>
+        /// <param name="cancellationToken">取消时停止等待并清理已创建的包。</param>
+        /// <returns>初始化完成的任务。</returns>
         /// <exception cref="ArgumentNullException"><paramref name="options"/> 为 null。</exception>
         /// <exception cref="InvalidOperationException">包初始化、版本请求或 Manifest 加载任一步骤失败。</exception>
-        public IEnumerator InitializeAsync(ResourceInitOptions options)
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask InitializeAsync(ResourceInitOptions options, CancellationToken cancellationToken = default)
         {
             if (options == null)
             {
@@ -112,30 +117,30 @@ namespace Framework.Res
             }
 
             var initOperation = CreateInitializeOperation(options);
-            yield return initOperation;
+            await WaitOrCleanup(initOperation, options.PackageName, cancellationToken);
             if (initOperation.Status != EOperationStatus.Succeeded)
             {
                 var error = initOperation.Error;
-                yield return CleanupFailedInitialize(options.PackageName);
+                await CleanupFailedInitialize(options.PackageName).ToUniTask();
                 throw new InvalidOperationException($"[Resource] Initialize package failed: {error}");
             }
 
             var versionOperation = _package.RequestPackageVersionAsync();
-            yield return versionOperation;
+            await WaitOrCleanup(versionOperation, options.PackageName, cancellationToken);
             if (versionOperation.Status != EOperationStatus.Succeeded)
             {
                 var error = versionOperation.Error;
-                yield return CleanupFailedInitialize(options.PackageName);
+                await CleanupFailedInitialize(options.PackageName).ToUniTask();
                 throw new InvalidOperationException($"[Resource] Request package version failed: {error}");
             }
 
             var manifestOperation = _package.LoadPackageManifestAsync(
                 new LoadPackageManifestOptions(versionOperation.PackageVersion, options.ManifestLoadTimeoutSeconds));
-            yield return manifestOperation;
+            await WaitOrCleanup(manifestOperation, options.PackageName, cancellationToken);
             if (manifestOperation.Status != EOperationStatus.Succeeded)
             {
                 var error = manifestOperation.Error;
-                yield return CleanupFailedInitialize(options.PackageName);
+                await CleanupFailedInitialize(options.PackageName).ToUniTask();
                 throw new InvalidOperationException($"[Resource] Load package manifest failed: {error}");
             }
 
@@ -166,22 +171,33 @@ namespace Framework.Res
         }
 
         /// <summary>
-        /// 异步加载指定寻址的资源，完成后通过回调返回句柄。
+        /// 异步加载指定寻址的资源并返回句柄。
         /// 内部进入 <see cref="ResourceScheduler"/> 分帧队列，不在调用当帧立即发起 YooAsset 加载。
         /// 同一 location + 资源类型若已在排队或加载中，会挂到同一路 InFlight，完成后每个调用方仍获得可独立 Dispose 的句柄。
         /// </summary>
         /// <typeparam name="T">资源类型，须继承 <see cref="UnityEngine.Object"/>。</typeparam>
         /// <param name="location">YooAsset 寻址字符串。</param>
-        /// <param name="onComplete">加载完成后的回调；参数为已包装的资源句柄；可为 null。失败或取消时句柄无效。</param>
         /// <param name="priority">优先级，数值越大越先处理；默认 0。</param>
+        /// <param name="cancellationToken">取消时撤销排队中的请求；已加载完成的句柄会被释放。</param>
+        /// <returns>资源句柄；加载失败时 <see cref="ResourceAssetHandle.IsValid"/> 为 false。使用完毕须 Dispose。</returns>
         /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
-        public IEnumerator LoadAssetAsync<T>(
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask<ResourceAssetHandle> LoadAssetAsync<T>(
             string location,
-            Action<ResourceAssetHandle> onComplete,
-            int priority = 0) where T : UnityEngine.Object
+            int priority = 0,
+            CancellationToken cancellationToken = default) where T : UnityEngine.Object
         {
-            var request = LoadAssetScheduled<T>(location, onComplete, priority);
-            yield return request;
+            cancellationToken.ThrowIfCancellationRequested();
+            ResourceAssetHandle loaded = default;
+            var request = LoadAssetScheduled<T>(location, h => loaded = h, priority);
+            await WaitRequest(request, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                loaded.Dispose();
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            return loaded;
         }
 
         /// <summary>
@@ -224,24 +240,37 @@ namespace Framework.Res
             return _scheduler.EnqueueInstantiate(handle, parent, worldPositionStays, onComplete, priority);
         }
 
-        /// <summary>
-        /// 协程等待调度队列完成实例化。
-        /// </summary>
+        /// <summary>等待调度队列完成实例化。</summary>
         /// <param name="handle">已成功加载的资源句柄。</param>
         /// <param name="parent">父 Transform；为 null 时实例化到场景根。</param>
-        /// <param name="onComplete">完成后的回调；失败时参数为 null。</param>
         /// <param name="worldPositionStays">是否保持世界坐标。</param>
         /// <param name="priority">优先级，数值越大越先处理；默认 0。</param>
-        /// <returns>协程迭代器。</returns>
-        public IEnumerator InstantiateAsync(
+        /// <param name="cancellationToken">取消时撤销尚未执行的实例化；已生成的对象会被销毁。</param>
+        /// <returns>实例化出的对象；失败时为 null。</returns>
+        /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask<GameObject> InstantiateAsync(
             ResourceAssetHandle handle,
             Transform parent = null,
-            Action<GameObject> onComplete = null,
             bool worldPositionStays = false,
-            int priority = 0)
+            int priority = 0,
+            CancellationToken cancellationToken = default)
         {
-            var request = InstantiateScheduled(handle, parent, onComplete, worldPositionStays, priority);
-            yield return request;
+            cancellationToken.ThrowIfCancellationRequested();
+            GameObject instance = null;
+            var request = InstantiateScheduled(handle, parent, go => instance = go, worldPositionStays, priority);
+            await WaitRequest(request, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                if (instance != null)
+                {
+                    Destroy(instance);
+                }
+
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            return instance;
         }
 
         /// <summary>
@@ -253,18 +282,23 @@ namespace Framework.Res
             _scheduler.RequestUnloadUnusedAssets();
         }
 
-        /// <summary>异步加载指定寻址的场景，完成后通过回调返回句柄。</summary>
+        /// <summary>异步加载指定寻址的场景（不登记为主场景或 Additive 场景，句柄由调用方管理）。</summary>
         /// <param name="location">YooAsset 场景寻址字符串，建议通过 <see cref="ResourceAddresses.Scene"/> 生成。</param>
         /// <param name="sceneMode">场景加载模式；默认 <see cref="LoadSceneMode.Single"/>。</param>
-        /// <param name="onComplete">加载完成后的回调；参数为已包装的场景句柄；可为 null。</param>
+        /// <param name="cancellationToken">只在发起加载前检查；场景加载一旦开始无法中途撤销。</param>
+        /// <returns>场景句柄。</returns>
         /// <exception cref="InvalidOperationException">管理器尚未初始化，或场景加载失败。</exception>
-        public IEnumerator LoadSceneAsync(
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask<ResourceSceneHandle> LoadSceneAsync(
             string location,
             LoadSceneMode sceneMode = LoadSceneMode.Single,
-            Action<ResourceSceneHandle> onComplete = null)
+            CancellationToken cancellationToken = default)
         {
             EnsureInitialized();
-            yield return LoadSceneInternal(location, sceneMode, onComplete);
+            ResourceSceneHandle loaded = default;
+            cancellationToken.ThrowIfCancellationRequested();
+            await LoadSceneInternal(location, sceneMode, handle => loaded = handle).ToUniTask();
+            return loaded;
         }
 
         /// <summary>
@@ -272,10 +306,11 @@ namespace Framework.Res
         /// 加载失败时旧句柄保持不变。并发调用会抛异常。
         /// </summary>
         /// <param name="location">YooAsset 场景寻址字符串。</param>
-        /// <param name="onComplete">加载完成后的回调；参数为新主场景句柄；可为 null。</param>
-        /// <returns>协程迭代器。</returns>
+        /// <param name="cancellationToken">只在发起加载前检查；场景加载一旦开始无法中途撤销。</param>
+        /// <returns>新主场景句柄。</returns>
         /// <exception cref="InvalidOperationException">管理器尚未初始化、已有一次主场景加载在进行，或场景加载失败。</exception>
-        public IEnumerator LoadMainSceneAsync(string location, Action<ResourceSceneHandle> onComplete = null)
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask<ResourceSceneHandle> LoadMainSceneAsync(string location, CancellationToken cancellationToken = default)
         {
             EnsureInitialized();
             if (_loadingMainScene)
@@ -283,93 +318,63 @@ namespace Framework.Res
                 throw new InvalidOperationException("[Resource] LoadMainSceneAsync is already running.");
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             _loadingMainScene = true;
             ResourceSceneHandle loaded = default;
-            var succeeded = false;
-            Exception failure = null;
-            var load = LoadSceneInternal(location, LoadSceneMode.Single, handle =>
+            try
             {
-                loaded = handle;
-                succeeded = true;
-            });
-            while (true)
-            {
-                object current = null;
-                var done = false;
-                try
-                {
-                    if (!load.MoveNext())
-                    {
-                        done = true;
-                    }
-                    else
-                    {
-                        current = load.Current;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    failure = ex;
-                    break;
-                }
-
-                if (done)
-                {
-                    break;
-                }
-
-                yield return current;
+                await LoadSceneInternal(location, LoadSceneMode.Single, handle => loaded = handle).ToUniTask();
             }
-
-            _loadingMainScene = false;
-            if (failure != null)
+            finally
             {
-                throw failure;
-            }
-
-            if (!succeeded)
-            {
-                yield break;
+                _loadingMainScene = false;
             }
 
             ReleaseMainSceneHandle();
             ReleaseAllAdditiveHandles();
             _mainSceneHandle = loaded;
-            onComplete?.Invoke(loaded);
+            return loaded;
         }
 
         /// <summary>以 Additive 模式加载场景，并将句柄登记到内部列表。</summary>
         /// <param name="location">YooAsset 场景寻址字符串。</param>
-        /// <param name="onComplete">加载完成后的回调；参数为已登记的场景句柄；可为 null。</param>
-        /// <returns>协程迭代器。</returns>
+        /// <param name="cancellationToken">只在发起加载前检查；场景加载一旦开始无法中途撤销。</param>
+        /// <returns>已登记的场景句柄。</returns>
         /// <exception cref="InvalidOperationException">管理器尚未初始化，或场景加载失败。</exception>
-        public IEnumerator LoadAdditiveSceneAsync(string location, Action<ResourceSceneHandle> onComplete = null)
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
+        public async UniTask<ResourceSceneHandle> LoadAdditiveSceneAsync(string location, CancellationToken cancellationToken = default)
         {
             EnsureInitialized();
-
             ResourceSceneHandle loaded = default;
-            yield return LoadSceneInternal(location, LoadSceneMode.Additive, handle => loaded = handle);
+            cancellationToken.ThrowIfCancellationRequested();
+            await LoadSceneInternal(location, LoadSceneMode.Additive, handle => loaded = handle).ToUniTask();
             _additiveHandles.Add(loaded);
-            onComplete?.Invoke(loaded);
+            return loaded;
         }
 
         /// <summary>
         /// 卸载并释放指定 Additive 场景句柄。须为 <see cref="LoadAdditiveSceneAsync"/> 返回的句柄。
         /// </summary>
         /// <param name="handle">要卸载的 Additive 场景句柄。</param>
-        /// <returns>协程迭代器。</returns>
+        /// <returns>卸载完成的任务。</returns>
         /// <exception cref="InvalidOperationException">管理器尚未初始化。</exception>
-        public IEnumerator UnloadAdditiveSceneAsync(ResourceSceneHandle handle)
+        public async UniTask UnloadAdditiveSceneAsync(ResourceSceneHandle handle)
         {
             EnsureInitialized();
             if (!handle.IsValid)
             {
-                yield break;
+                return;
             }
 
             RemoveAdditiveHandle(handle);
-            yield return handle.UnloadAsync();
-            handle.Dispose();
+            try
+            {
+                await handle.UnloadAsync().ToUniTask();
+            }
+            finally
+            {
+                handle.Dispose();
+            }
         }
 
         /// <summary>同步加载寻址资源的原始字节。</summary>
@@ -474,6 +479,33 @@ namespace Framework.Res
             }
 
             GameLog.Info(LogCategories.Resource, $"Manager {LogStyle.Muted("shut down")}");
+        }
+
+        async UniTask WaitOrCleanup(AsyncOperationBase operation, string packageName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await ((IEnumerator)operation).ToUniTask(cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await CleanupFailedInitialize(packageName).ToUniTask();
+                throw;
+            }
+        }
+
+        static async UniTask WaitRequest(ResourceRequestHandle request, CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.CanBeCanceled)
+            {
+                await ((IEnumerator)request).ToUniTask();
+                return;
+            }
+
+            using (cancellationToken.Register(request.Cancel))
+            {
+                await ((IEnumerator)request).ToUniTask();
+            }
         }
 
         IEnumerator CleanupFailedInitialize(string packageName)

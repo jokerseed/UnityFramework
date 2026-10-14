@@ -2,6 +2,7 @@
     "name": "Framework.Res",
     "rootNamespace": "Framework.Res",
     "references": [
+        "UniTask",
         "Framework.Core",
         "Framework.Logging",
         "YooAsset"
