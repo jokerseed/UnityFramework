@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Framework.Logging
 {
@@ -191,14 +192,24 @@ namespace Framework.Logging
             return true;
         }
 
-        /// <summary>输出 Trace 级别日志。</summary>
+        /// <summary>
+        /// 输出 Trace 级别日志。
+        /// 只在 Editor、Development Build 或定义了 <c>FRAMEWORK_LOG_VERBOSE</c> 时编译进调用方；
+        /// Release 包里整条调用（包括参数里的字符串拼接）都会被编译器移除。
+        /// </summary>
         /// <param name="category">日志分类。</param>
         /// <param name="message">日志消息。</param>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD"), Conditional("FRAMEWORK_LOG_VERBOSE")]
         public static void Trace(string category, string message) => Write(LogLevel.Trace, category, message);
 
-        /// <summary>输出 Debug 级别日志。</summary>
+        /// <summary>
+        /// 输出 Debug 级别日志。
+        /// 只在 Editor、Development Build 或定义了 <c>FRAMEWORK_LOG_VERBOSE</c> 时编译进调用方；
+        /// Release 包里整条调用（包括参数里的字符串拼接）都会被编译器移除。
+        /// </summary>
         /// <param name="category">日志分类。</param>
         /// <param name="message">日志消息。</param>
+        [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD"), Conditional("FRAMEWORK_LOG_VERBOSE")]
         public static void Debug(string category, string message) => Write(LogLevel.Debug, category, message);
 
         /// <summary>输出 Info 级别日志。</summary>

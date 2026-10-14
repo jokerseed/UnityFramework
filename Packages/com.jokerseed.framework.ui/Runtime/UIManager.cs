@@ -768,7 +768,18 @@ namespace Framework.UI
                 return;
             }
 
-            var eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            if (EventSystem.current != null)
+            {
+                _eventSystemRoot = EventSystem.current.transform;
+                return;
+            }
+
+#if FRAMEWORK_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM
+            var inputModule = typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule);
+#else
+            var inputModule = typeof(StandaloneInputModule);
+#endif
+            var eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), inputModule);
             eventSystemGo.transform.SetParent(transform, false);
             _eventSystemRoot = eventSystemGo.transform;
         }

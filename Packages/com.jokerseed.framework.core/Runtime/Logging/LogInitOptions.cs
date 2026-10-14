@@ -17,5 +17,20 @@ namespace Framework.Logging
 
         /// <summary>分类过滤规则列表；可为空数组，空时不做额外过滤。</summary>
         public LogCategoryFilter[] CategoryFilters = Array.Empty<LogCategoryFilter>();
+
+        /// <summary>是否写滚动日志文件（<see cref="FileLogSink"/>）。WebGL 下忽略。</summary>
+        public bool FileEnabled;
+
+        /// <summary>日志目录；为空时使用 <c>Application.persistentDataPath/Logs</c>。</summary>
+        public string FileDirectory = "";
+
+        /// <summary>单个日志文件大小上限（KB）。</summary>
+        public int FileMaxKilobytes = 4096;
+
+        /// <summary>保留的日志文件个数（含当前文件）。</summary>
+        public int FileMaxCount = 5;
+
+        /// <summary>是否把未处理异常（<c>AppDomain.UnhandledException</c>、未观察的 Task 异常、Unity 主线程异常）转写到 <see cref="GameLog"/>。</summary>
+        public bool CaptureUnhandledExceptions = true;
     }
 }
