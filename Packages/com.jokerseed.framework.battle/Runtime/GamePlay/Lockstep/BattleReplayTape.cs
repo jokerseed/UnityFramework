@@ -40,15 +40,27 @@ namespace Framework.GamePlay
         /// <summary>按帧号递增的录像。</summary>
         public IReadOnlyList<BattleReplayFrame> Frames { get; }
 
+        /// <summary>录制时的模拟逻辑版本（<see cref="BattleSimulationVersion.Current"/>）。</summary>
+        public int SimulationVersion { get; }
+
+        /// <summary>录像版本是否与当前模拟逻辑一致；不一致时不能对拍。</summary>
+        public bool IsCompatible => SimulationVersion == BattleSimulationVersion.Current;
+
         /// <summary>构造录像带。</summary>
         /// <param name="seed">随机种子。</param>
         /// <param name="fixedDeltaTime">固定步长（定点）。</param>
         /// <param name="frames">帧列表；不可为 null。</param>
-        public BattleReplayTape(int seed, FP fixedDeltaTime, IReadOnlyList<BattleReplayFrame> frames)
+        /// <param name="simulationVersion">录制时的模拟逻辑版本；默认当前版本。从文件反序列化时传入文件里记录的值。</param>
+        public BattleReplayTape(
+            int seed,
+            FP fixedDeltaTime,
+            IReadOnlyList<BattleReplayFrame> frames,
+            int simulationVersion = BattleSimulationVersion.Current)
         {
             Seed = seed;
             FixedDeltaTime = fixedDeltaTime;
             Frames = frames ?? Array.Empty<BattleReplayFrame>();
+            SimulationVersion = simulationVersion;
         }
     }
 }

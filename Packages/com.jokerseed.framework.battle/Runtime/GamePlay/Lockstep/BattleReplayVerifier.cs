@@ -74,6 +74,7 @@ namespace Framework.GamePlay
         /// <param name="afterFixedStep">每逻辑步模拟后的回调（如刷波）；可为 null。</param>
         /// <returns>对拍结果。</returns>
         /// <exception cref="ArgumentNullException"><paramref name="tape"/> 或 <paramref name="session"/> 为 null。</exception>
+        /// <exception cref="InvalidOperationException">录像的模拟版本与当前版本不同（<see cref="BattleReplayTape.IsCompatible"/> 为 false）。</exception>
         public static BattleReplayVerifyResult Run(
             BattleReplayTape tape,
             BattleSession session,
@@ -87,6 +88,12 @@ namespace Framework.GamePlay
             if (session == null)
             {
                 throw new ArgumentNullException(nameof(session));
+            }
+
+            if (!tape.IsCompatible)
+            {
+                throw new InvalidOperationException(
+                    $"Replay simulation version {tape.SimulationVersion} != current {BattleSimulationVersion.Current}; cannot verify.");
             }
 
             session.FixedDeltaTime = tape.FixedDeltaTime;

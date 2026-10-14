@@ -1,0 +1,43 @@
+# 每次 push / PR 自动运行，不需要 Unity 许可证。
+# 编译并测试引擎无关的模拟层（FixedMath、Lockstep、Battle.Core、ECS、GAS、BehaviourTree、GamePlay、Logging、Events），
+# 跑确定性扫描（与 Unity 菜单 Tools/Framework/Battle/Scan Determinism 同一份规则）和 golden 录像。
+# Linux 与 Windows 两个平台对同一个 golden 校验和，顺带检查跨平台一致性。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sim-tests:
+    name: Sim tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        run: dotnet test tests/Framework.Sim.Tests/Framework.Sim.Tests.csproj -c Release --logger "trx;LogFileName=sim.trx"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-results-${{ matrix.os }}
+          path: tests/Framework.Sim.Tests/TestResults

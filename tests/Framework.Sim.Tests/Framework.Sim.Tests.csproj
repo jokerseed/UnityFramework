@@ -12,6 +12,7 @@
     <IsPackable>false</IsPackable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DefineConstants>$(DefineConstants);FRAMEWORK_LOG_VERBOSE</DefineConstants>
     <NoWarn>$(NoWarn);CS1591;CS0618;CS0649;CS0414;CS0162;CS0168;CS0219;CS0169;CS0067</NoWarn>
     <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../'))</RepoRoot>
     <Battle>$(RepoRoot)Packages/com.jokerseed.framework.battle/Runtime/</Battle>
@@ -31,6 +32,7 @@
     <Compile Include="$(Battle)GamePlay/**/*.cs" />
     <Compile Include="$(Core)Logging/**/*.cs" Exclude="$(Core)Logging/LoggingManager.cs;$(Core)Logging/LoggingModule.cs" />
     <Compile Include="$(Core)Events/**/*.cs" />
+    <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.battle/Editor/Determinism/DeterminismRules.cs" />
   </ItemGroup>
 
   <ItemGroup Label="Tests">

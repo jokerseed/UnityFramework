@@ -30,7 +30,7 @@ namespace Framework.GamePlay
             _frames.Add(new BattleReplayFrame(frame.FrameIndex, copy, checksum));
         }
 
-        /// <summary>导出不可变录像快照，后续录制不影响该快照。</summary>
+        /// <summary>导出不可变录像快照（版本记为 <see cref="BattleSimulationVersion.Current"/>），后续录制不影响该快照。</summary>
         /// <param name="seed">本场随机种子。</param>
         /// <param name="fixedDeltaTime">固定步长（定点）。</param>
         /// <returns>录像带。</returns>
