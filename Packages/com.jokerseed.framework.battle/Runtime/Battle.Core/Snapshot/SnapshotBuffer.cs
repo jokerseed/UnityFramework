@@ -2,7 +2,7 @@ using System;
 using System.Text;
 using Framework.FixedMath;
 
-namespace Framework.Core.Snapshot
+namespace Framework.Battle.Snapshot
 {
     /// <summary>
     /// 可写入可复用缓冲的模拟状态。

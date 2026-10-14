@@ -3,7 +3,7 @@ namespace Framework.GamePlay
     /// <summary>战斗 AI 黑板权威键（字符串键，禁止依赖遍历顺序）。</summary>
     public static class BattleAiBlackboardKeys
     {
-        /// <summary>追击目标 <see cref="Framework.Core.ActorId.Value"/>（uint）。</summary>
+        /// <summary>追击目标 <see cref="Framework.Battle.ActorId.Value"/>（uint）。</summary>
         public const string FocusTarget = "FocusTarget";
 
         /// <summary>技能 Id（object 袋字符串；可覆盖节点 StringParam）。</summary>

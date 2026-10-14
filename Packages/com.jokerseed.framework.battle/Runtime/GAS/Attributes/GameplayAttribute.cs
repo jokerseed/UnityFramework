@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 
 namespace Framework.GAS.Attributes
@@ -8,7 +8,7 @@ namespace Framework.GAS.Attributes
     /// <summary>单个战斗属性（生命值、攻击力等），维护基础值与经修改器计算后的当前值。</summary>
     public sealed class GameplayAttribute
     {
-        /// <summary>属性名称（对应 <see cref="Core.BattleConstants"/> 中的常量）。</summary>
+        /// <summary>属性名称（对应 <see cref="Battle.BattleConstants"/> 中的常量）。</summary>
         public string Name { get; }
 
         /// <summary>基础值，未经任何修改器影响。</summary>
@@ -173,7 +173,7 @@ namespace Framework.GAS.Attributes
 
         /// <summary>把当前汇总按属性名排序写入快照。</summary>
         /// <param name="writer">写入器。</param>
-        internal void WriteTo(Framework.Core.Snapshot.SnapshotWriter writer)
+        internal void WriteTo(Framework.Battle.Snapshot.SnapshotWriter writer)
         {
             WriteMap(writer, _additive);
             WriteMap(writer, _multiplier);
@@ -183,14 +183,14 @@ namespace Framework.GAS.Attributes
         /// <summary>核对快照中的汇总与当前桶一致。</summary>
         /// <param name="reader">读取器。</param>
         /// <exception cref="InvalidOperationException">修改器汇总与快照不一致。</exception>
-        internal void ReadExpected(Framework.Core.Snapshot.SnapshotReader reader)
+        internal void ReadExpected(Framework.Battle.Snapshot.SnapshotReader reader)
         {
             ReadExpectedMap(reader, _additive, "additive");
             ReadExpectedMap(reader, _multiplier, "multiplier");
             ReadExpectedMap(reader, _override, "override");
         }
 
-        static void WriteMap(Framework.Core.Snapshot.SnapshotWriter writer, Dictionary<string, FP> map)
+        static void WriteMap(Framework.Battle.Snapshot.SnapshotWriter writer, Dictionary<string, FP> map)
         {
             var keys = new List<string>(map.Count);
             foreach (var key in map.Keys)
@@ -208,7 +208,7 @@ namespace Framework.GAS.Attributes
         }
 
         static void ReadExpectedMap(
-            Framework.Core.Snapshot.SnapshotReader reader,
+            Framework.Battle.Snapshot.SnapshotReader reader,
             Dictionary<string, FP> actual,
             string bucket)
         {

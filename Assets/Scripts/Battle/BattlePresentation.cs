@@ -3,7 +3,7 @@ using Framework.Config;
 using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.GAS.Events;
-using Framework.Core;
+using Framework.Battle;
 using Framework.Logging;
 using UnityEngine;
 

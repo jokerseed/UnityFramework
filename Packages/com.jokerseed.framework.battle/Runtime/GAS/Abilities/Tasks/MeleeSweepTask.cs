@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using Framework.Core;
-using Framework.Core.Commands;
-using Framework.Core.Snapshot;
+using Framework.Battle;
+using Framework.Battle.Commands;
+using Framework.Battle.Snapshot;
 using Framework.FixedMath;
 using Framework.GAS.Targeting;
 namespace Framework.GAS.Abilities.Tasks

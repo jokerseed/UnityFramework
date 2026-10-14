@@ -1,5 +1,5 @@
 using System;
-using Framework.Core.Snapshot;
+using Framework.Battle.Snapshot;
 
 namespace Framework.ECS
 {

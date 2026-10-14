@@ -1,7 +1,7 @@
 using System;
 using BtTree = Framework.BehaviourTree.BehaviourTree;
 using Framework.BehaviourTree;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 
 namespace Framework.GamePlay

@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Framework.BehaviourTree;
-using Framework.Core;
+using Framework.Battle;
 using Framework.Editor.Determinism;
 using Framework.Events;
 using Framework.FixedMath;

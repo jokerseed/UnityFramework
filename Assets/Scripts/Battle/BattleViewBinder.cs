@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Framework.ECS.Components;
 using Framework.FixedMath;
 using Framework.GamePlay;
-using Framework.Core;
+using Framework.Battle;
 using UnityEngine;
 
 namespace Game

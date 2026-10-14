@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Framework.Bootstrap;
+using Framework.Battle;
 using Framework.Core;
 using Framework.Events;
 using Framework.Network;

@@ -1,6 +1,6 @@
 using Framework.FixedMath;
 
-namespace Framework.Core
+namespace Framework.Battle
 {
     /// <summary>战斗框架常量：GAS 属性名、标签字符串与物理参数默认值。</summary>
     public static class BattleConstants

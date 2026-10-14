@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Framework.BehaviourTree;
-using Framework.Core;
-using Framework.Core.Snapshot;
+using Framework.Battle;
+using Framework.Battle.Snapshot;
 using Framework.ECS;
 using Framework.FixedMath;
 using Framework.GAS;

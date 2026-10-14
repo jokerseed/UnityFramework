@@ -1,4 +1,4 @@
-using Framework.Core;
+using Framework.Battle;
 using UnityEngine;
 
 namespace Game

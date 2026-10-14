@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Framework.Core.Commands
+namespace Framework.Battle.Commands
 {
     /// <summary>
     /// 每 Tick 批量刷新的命令缓冲。模拟热路径不走 EventBus，保证顺序与零订阅开销。

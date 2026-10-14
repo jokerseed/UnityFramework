@@ -8,7 +8,7 @@ namespace Framework.GAS.Cues
     public readonly struct GameplayCueParameters
     {
         /// <summary>相关 Actor。</summary>
-        public Core.ActorId Actor { get; }
+        public Battle.ActorId Actor { get; }
 
         /// <summary>位置（仿真坐标）。</summary>
         public TSVector Location { get; }
@@ -20,7 +20,7 @@ namespace Framework.GAS.Cues
         /// <param name="actor">相关 Actor。</param>
         /// <param name="location">位置（仿真坐标）。</param>
         /// <param name="direction">方向；内部归一化，零向量时取 <see cref="TSVector.forward"/>。</param>
-        public GameplayCueParameters(Core.ActorId actor, TSVector location, TSVector direction)
+        public GameplayCueParameters(Battle.ActorId actor, TSVector location, TSVector direction)
         {
             Actor = actor;
             Location = location;

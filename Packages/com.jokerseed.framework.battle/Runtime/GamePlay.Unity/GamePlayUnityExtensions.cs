@@ -1,6 +1,6 @@
 using System;
 using Framework.BehaviourTree;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 using Framework.GAS;
 using UnityEngine;

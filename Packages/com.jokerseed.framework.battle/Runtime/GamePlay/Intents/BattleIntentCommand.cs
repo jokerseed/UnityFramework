@@ -1,10 +1,10 @@
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 
 namespace Framework.GamePlay
 {
     /// <summary>
-    /// 玩家 / AI 共用的行为指令。与 <see cref="Framework.Core.Commands.BattleCommandBuffer"/> 的模拟结算命令分离。
+    /// 玩家 / AI 共用的行为指令。与 <see cref="Framework.Battle.Commands.BattleCommandBuffer"/> 的模拟结算命令分离。
     /// </summary>
     public struct BattleIntentCommand
     {

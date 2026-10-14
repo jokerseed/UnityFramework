@@ -1,6 +1,6 @@
 using Framework.FixedMath;
 
-namespace Framework.Core
+namespace Framework.Battle
 {
     /// <summary>
     /// 确定性随机源契约。战斗模拟禁止使用 <c>UnityEngine.Random</c>。

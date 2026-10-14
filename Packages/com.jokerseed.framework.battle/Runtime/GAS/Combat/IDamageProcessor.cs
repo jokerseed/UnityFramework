@@ -24,29 +24,29 @@ namespace Framework.GAS.Combat
         /// <returns>包含最终伤害量的新上下文；免疫时最终伤害为 0。</returns>
         public DamageContext Process(DamageContext context, AbilitySystemComponent source, AbilitySystemComponent target)
         {
-            if (target.Tags.HasTag(new Tags.GameplayTag(Core.BattleConstants.TagImmuneDamage)) ||
-                target.Tags.HasTag(new Tags.GameplayTag(Core.BattleConstants.TagDead)))
+            if (target.Tags.HasTag(new Tags.GameplayTag(Battle.BattleConstants.TagImmuneDamage)) ||
+                target.Tags.HasTag(new Tags.GameplayTag(Battle.BattleConstants.TagDead)))
             {
                 return context.WithPipelineResult(FP.Zero, false, FP.Zero);
             }
 
             var remaining = context.RawDamage > FP.Zero
                 ? context.RawDamage
-                : source?.Attributes.GetCurrentValue(Core.BattleConstants.Attack) ?? FP.Zero;
+                : source?.Attributes.GetCurrentValue(Battle.BattleConstants.Attack) ?? FP.Zero;
 
-            var shield = target.Attributes.GetCurrentValue(Core.BattleConstants.Shield);
+            var shield = target.Attributes.GetCurrentValue(Battle.BattleConstants.Shield);
             var absorbed = FP.Zero;
             if (shield > FP.Zero && remaining > FP.Zero)
             {
                 absorbed = remaining < shield ? remaining : shield;
                 remaining -= absorbed;
-                var shieldAttr = target.Attributes.GetOrCreate(Core.BattleConstants.Shield);
+                var shieldAttr = target.Attributes.GetOrCreate(Battle.BattleConstants.Shield);
                 shieldAttr.SetCurrentValue(shield - absorbed);
             }
 
-            var resistName = context.DamageType == Core.BattleDamageType.Magical
-                ? Core.BattleConstants.MagicDefense
-                : Core.BattleConstants.Defense;
+            var resistName = context.DamageType == Battle.BattleDamageType.Magical
+                ? Battle.BattleConstants.MagicDefense
+                : Battle.BattleConstants.Defense;
             var resist = target.Attributes.GetCurrentValue(resistName);
             remaining -= resist;
             if (remaining < FP.Zero)
@@ -57,7 +57,7 @@ namespace Framework.GAS.Combat
             if (remaining > FP.Zero)
             {
                 var takenMul = FP.One;
-                if (target.Attributes.TryGet(Core.BattleConstants.IncomingDamageMultiplier, out var takenAttr))
+                if (target.Attributes.TryGet(Battle.BattleConstants.IncomingDamageMultiplier, out var takenAttr))
                 {
                     takenMul = takenAttr.CurrentValue;
                     if (takenMul < FP.Zero)
@@ -70,14 +70,14 @@ namespace Framework.GAS.Combat
             }
 
             var isCrit = false;
-            var critChance = source?.Attributes.GetCurrentValue(Core.BattleConstants.CritChance) ?? FP.Zero;
+            var critChance = source?.Attributes.GetCurrentValue(Battle.BattleConstants.CritChance) ?? FP.Zero;
             var random = source?.Random ?? target.Random;
             if (critChance > FP.Zero && remaining > FP.Zero && random != null && random.Next01() < critChance)
             {
-                var multiplier = source.Attributes.GetCurrentValue(Core.BattleConstants.CritMultiplier);
+                var multiplier = source.Attributes.GetCurrentValue(Battle.BattleConstants.CritMultiplier);
                 if (multiplier <= FP.Zero)
                 {
-                    multiplier = Core.BattleConstants.DefaultCritMultiplier;
+                    multiplier = Battle.BattleConstants.DefaultCritMultiplier;
                 }
 
                 remaining *= multiplier;

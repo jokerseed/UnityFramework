@@ -1,4 +1,4 @@
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Abilities.Builtin;

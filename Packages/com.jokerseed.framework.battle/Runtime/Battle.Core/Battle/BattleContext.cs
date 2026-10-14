@@ -1,7 +1,7 @@
-using Framework.Core.Commands;
+using Framework.Battle.Commands;
 using Framework.Events;
 
-namespace Framework.Core
+namespace Framework.Battle
 {
     /// <summary>
     /// 战斗上下文：命令缓冲（模拟热路径）+ 表现事件总线（Cue/UI）。

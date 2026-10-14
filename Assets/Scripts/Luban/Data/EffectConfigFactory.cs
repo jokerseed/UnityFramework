@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using cfg;
 using Framework.Config;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 using Framework.GAS.Effects;
 using Framework.GAS.Tags;

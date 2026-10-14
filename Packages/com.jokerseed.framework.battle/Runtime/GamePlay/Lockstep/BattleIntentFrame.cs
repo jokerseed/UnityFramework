@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Framework.GamePlay
 {
     /// <summary>
-    /// 一个逻辑帧要执行的行为意图集合。与 <see cref="Framework.Core.Commands.BattleCommandBuffer"/> 分离。
+    /// 一个逻辑帧要执行的行为意图集合。与 <see cref="Framework.Battle.Commands.BattleCommandBuffer"/> 分离。
     /// </summary>
     public sealed class BattleIntentFrame
     {

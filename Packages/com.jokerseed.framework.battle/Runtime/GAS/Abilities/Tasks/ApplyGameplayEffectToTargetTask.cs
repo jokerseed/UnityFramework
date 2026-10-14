@@ -1,5 +1,5 @@
 using System;
-using Framework.Core;
+using Framework.Battle;
 using Framework.Events;
 using Framework.GAS.Effects;
 

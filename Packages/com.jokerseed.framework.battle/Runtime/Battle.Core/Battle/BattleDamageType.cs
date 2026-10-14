@@ -1,4 +1,4 @@
-namespace Framework.Core
+namespace Framework.Battle
 {
     /// <summary>伤害类型，决定走护甲还是魔抗。</summary>
     public enum BattleDamageType

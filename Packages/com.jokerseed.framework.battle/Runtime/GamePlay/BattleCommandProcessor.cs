@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Framework.Core;
-using Framework.Core.Commands;
+using Framework.Battle;
+using Framework.Battle.Commands;
 using Framework.Events;
 using Framework.ECS;
 using Framework.ECS.Components;

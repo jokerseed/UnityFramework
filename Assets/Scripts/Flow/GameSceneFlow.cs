@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Framework.Battle;
 using Framework.Core;
 using Framework.Coroutine;
 using Framework.Logging;

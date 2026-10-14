@@ -1,4 +1,4 @@
-namespace Framework.Core
+namespace Framework.Battle
 {
     /// <summary>战斗 Actor 的唯一标识符（值类型，0 为无效值）。</summary>
     public readonly struct ActorId : System.IEquatable<ActorId>

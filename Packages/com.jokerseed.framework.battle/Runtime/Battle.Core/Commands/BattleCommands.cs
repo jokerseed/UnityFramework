@@ -1,6 +1,6 @@
 using Framework.FixedMath;
 
-namespace Framework.Core.Commands
+namespace Framework.Battle.Commands
 {
     /// <summary>生成投射物的命令，由 GAS 技能写入 <see cref="BattleCommandBuffer"/>，ECS 系统消费。</summary>
     public struct SpawnProjectileCommand

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 using Framework.GamePlay;
 using NUnit.Framework;

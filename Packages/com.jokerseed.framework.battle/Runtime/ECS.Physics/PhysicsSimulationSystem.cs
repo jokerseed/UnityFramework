@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using Framework.Core;
-using Framework.Core.Commands;
+using Framework.Battle;
+using Framework.Battle.Commands;
 using Framework.ECS.Components;
 using Framework.FixedMath;
 

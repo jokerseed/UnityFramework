@@ -1,7 +1,7 @@
 using System;
 using Framework.FixedMath;
 
-namespace Framework.Core.Snapshot
+namespace Framework.Battle.Snapshot
 {
     /// <summary>
     /// 把 <see cref="TSRandom"/> 的 MT 状态写入快照缓冲。

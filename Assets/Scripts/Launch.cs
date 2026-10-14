@@ -1,6 +1,7 @@
 using Framework.Audio;
 using Framework.Bootstrap;
 using Framework.Config;
+using Framework.Battle;
 using Framework.Core;
 using Framework.Coroutine;
 using Framework.GamePlay;

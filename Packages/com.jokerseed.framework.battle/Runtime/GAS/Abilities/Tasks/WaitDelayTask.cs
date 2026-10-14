@@ -1,5 +1,5 @@
 using System;
-using Framework.Core.Snapshot;
+using Framework.Battle.Snapshot;
 using Framework.FixedMath;
 
 namespace Framework.GAS.Abilities.Tasks

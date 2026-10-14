@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 using Framework.GAS.Abilities;
 using Framework.GAS.Tags;

@@ -5,6 +5,7 @@ using System.Threading;
 using BtTree = Framework.BehaviourTree.BehaviourTree;
 using Framework.BehaviourTree;
 using Framework.Bootstrap;
+using Framework.Battle;
 using Framework.Core;
 using Framework.ECS;
 using Framework.Events;
