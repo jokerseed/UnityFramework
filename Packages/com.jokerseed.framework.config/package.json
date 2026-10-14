@@ -1,0 +1,26 @@
+{
+  "name": "com.jokerseed.framework.config",
+  "version": "0.1.0",
+  "displayName": "Framework Config",
+  "description": "Luban table loading and caching on top of Framework Resource, with an editor menu to run Luban generation.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "author": {
+    "name": "jokerseed",
+    "url": "https://github.com/jokerseed/UnityFramework"
+  },
+  "documentationUrl": "https://github.com/jokerseed/UnityFramework/tree/main/Packages/com.jokerseed.framework.config",
+  "changelogUrl": "https://github.com/jokerseed/UnityFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/jokerseed/UnityFramework/blob/main/LICENSE",
+  "keywords": [
+    "framework",
+    "luban",
+    "config",
+    "datatable"
+  ],
+  "dependencies": {
+    "com.jokerseed.framework.core": "0.1.0",
+    "com.jokerseed.framework.res": "0.1.0",
+    "com.code-philosophy.luban": "1.2.0"
+  }
+}

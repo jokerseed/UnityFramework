@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Framework.Core;
+using Framework.Battle;
 using Framework.Editor.Determinism;
 using Framework.FixedMath;
 using Framework.GamePlay;
@@ -75,7 +75,7 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/ECS/Fake.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/ECS/Fake.cs",
                 "var n = UnityEngine.Random.Range(0, 1);",
                 violations);
             Assert.Greater(violations.Count, 0);
@@ -86,21 +86,21 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/GAS/Fake.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/GAS/Fake.cs",
                 "GameEvent.Listen<DamageDealtEvent>(OnDamage);",
                 violations);
             Assert.Greater(violations.Count, 0);
 
             violations.Clear();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/GamePlay/Fake.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/GamePlay/Fake.cs",
                 "bus.Subscribe<DamageDealtEvent>(OnDamage);",
                 violations);
             Assert.Greater(violations.Count, 0);
 
             violations.Clear();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/GAS/Fake.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/GAS/Fake.cs",
                 "public IDisposable Subscribe<T>(Action<T> handler) where T : struct => EmptySubscription.Instance;",
                 violations);
             Assert.AreEqual(0, violations.Count);

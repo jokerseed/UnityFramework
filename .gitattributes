@@ -1,0 +1,68 @@
+# 文本文件在仓库内统一为 LF；检出时的行尾由本机 core.autocrlf / core.eol 决定。
+* text=auto
+
+*.cs        text diff=csharp
+*.asmdef    text
+*.asmref    text
+*.json      text
+*.md        text
+*.txt       text
+*.xml       text
+*.yml       text
+*.yaml      text
+*.shader    text
+*.hlsl      text
+*.cginc     text
+*.uss       text
+*.uxml      text
+*.jslib     text
+*.sh        text eol=lf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text
+
+# Unity 序列化的 YAML 资产：Unity 自己写 LF，检出也保持 LF，避免无意义的行尾改动。
+# merge=unityyamlmerge 需要在本机 git 配置合并驱动（见 CONTRIBUTING.md）；未配置时按普通文本合并。
+*.unity       text eol=lf merge=unityyamlmerge
+*.prefab      text eol=lf merge=unityyamlmerge
+*.asset       text eol=lf merge=unityyamlmerge
+*.mat         text eol=lf merge=unityyamlmerge
+*.anim        text eol=lf merge=unityyamlmerge
+*.controller  text eol=lf merge=unityyamlmerge
+*.overrideController text eol=lf merge=unityyamlmerge
+*.physicMaterial text eol=lf merge=unityyamlmerge
+*.playable    text eol=lf merge=unityyamlmerge
+*.mask        text eol=lf merge=unityyamlmerge
+*.meta        text eol=lf
+
+# 二进制资源
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.tga   binary
+*.psd   binary
+*.exr   binary
+*.hdr   binary
+*.fbx   binary
+*.FBX   binary
+*.obj   binary
+*.wav   binary
+*.mp3   binary
+*.ogg   binary
+*.ttf   binary
+*.otf   binary
+*.dll   binary
+*.so    binary
+*.a     binary
+*.bytes binary
+*.xlsx  binary
+*.zip   binary
+*.7z    binary
+
+# 第三方与上游移植代码：保留原始字节，不做行尾规范化，便于和上游逐文件比对。
+Assets/ThirdParty/**                                          -text
+ThirdParty/**                                                 -text
+LocalPackages/**                                              -text
+Assets/TextMesh?Pro/**                                        -text
+Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/Farseer/**/*.cs -text
+Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/Jitter/**/*.cs  -text

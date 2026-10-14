@@ -1,0 +1,20 @@
+{
+    "name": "Framework.Network",
+    "rootNamespace": "Framework.Network",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Logging",
+        "Framework.MemoryPool",
+        "Framework.Events"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

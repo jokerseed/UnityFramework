@@ -1,0 +1,29 @@
+{
+    "name": "Framework.UI",
+    "rootNamespace": "Framework.UI",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Logging",
+        "Framework.Localization",
+        "Framework.Res",
+        "Framework.Coroutine",
+        "Framework.Events",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0.0",
+            "define": "FRAMEWORK_INPUT_SYSTEM"
+        }
+    ],
+    "noEngineReferences": false
+}

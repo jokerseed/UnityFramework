@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Framework.ECS.Components;
 using Framework.FixedMath;
 using Framework.GamePlay;
-using Framework.Core;
+using Framework.Battle;
 using UnityEngine;
 
 namespace Game
@@ -123,7 +123,7 @@ namespace Game
                 return;
             }
 
-            var forward = framework.Registry.GetForward(actorId);
+            var forward = FPConversions.ToVector3(framework.Registry.GetSimForward(actorId));
             forward.y = 0f;
             var rotation = forward.sqrMagnitude > 0.0001f
                 ? Quaternion.LookRotation(forward) * BattleSetup.FaceCamera
@@ -135,18 +135,19 @@ namespace Game
                 _actorRenderStates[actorId.Value] = renderState;
             }
 
+            var position = FPConversions.ToVector3(actor.SimPosition);
             if (!renderState.Initialized)
             {
                 renderState.Initialized = true;
-                renderState.PreviousPosition = actor.Position;
-                renderState.CurrentPosition = actor.Position;
+                renderState.PreviousPosition = position;
+                renderState.CurrentPosition = position;
                 renderState.PreviousRotation = rotation;
                 renderState.CurrentRotation = rotation;
             }
-            else if (renderState.CurrentPosition != actor.Position || renderState.CurrentRotation != rotation)
+            else if (renderState.CurrentPosition != position || renderState.CurrentRotation != rotation)
             {
                 renderState.PreviousPosition = renderState.CurrentPosition;
-                renderState.CurrentPosition = actor.Position;
+                renderState.CurrentPosition = position;
                 renderState.PreviousRotation = renderState.CurrentRotation;
                 renderState.CurrentRotation = rotation;
             }
@@ -198,7 +199,7 @@ namespace Game
                 }
 
                 _projectileStamps[entityId] = stamp;
-                view.transform.position = transform.ToUnityPosition();
+                view.transform.position = FPConversions.ToVector3(transform.Position);
             }
 
             _projectileViewRemoveScratch.Clear();

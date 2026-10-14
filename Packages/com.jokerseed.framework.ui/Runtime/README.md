@@ -1,0 +1,155 @@
+# Framework.UI
+
+参考 [TEngine UIModule](https://github.com/Alex-Rachel/TEngine) 的轻量 UI 框架：纯 C# 驱动、窗口栈、层级管理、资源自动释放。
+
+## 程序集
+
+| 项 | 值 |
+|---|---|
+| 程序集 | `Framework.UI` |
+| 命名空间 | `Framework.UI` |
+| 依赖 | `UniTask`、`Framework.Core`、`Framework.Logging`、`Framework.Localization`、`Framework.Res`、`Framework.Coroutine`、`Framework.Events` |
+
+## 核心类型
+
+| 类型 | 职责 |
+|------|------|
+| `UIManager` | 打开/关闭窗口、层级栈、全屏遮挡、资源句柄生命周期 |
+| `UIShowHandle` | `ShowAsync` 返回值：`Cancel` / `IsRunning` / `IsCancelled` |
+| `UIBase` | UI 基类与生命周期（`OnCreate` / `OnRefresh` / `OnUpdate` / `OnDestroy`） |
+| `UIWindow` | 窗口级 UI |
+| `UIWindowAttribute` | 层级 / 全屏 / 寻址 / 释放策略 |
+| `UIReleasePolicy` | 关闭时 Destroy / Hide / Cache / 延迟卸载 |
+| `UISafeArea` | 把内容节点约束到屏幕安全区 |
+| `LocalizedText` | 按本地化 key 显示文本，切换语言自动刷新 |
+| `UIModule` | Bootstrap 模块入口 |
+
+## 生命周期
+
+```
+Show → OnCreate → ScriptGenerator → BindMemberProperty → RegisterEvent → OnRefresh
+每帧 OnUpdate（可见窗口）
+Close → 按 UIReleasePolicy 处理（Destroy / 缓存 / 延迟卸载）
+ForceDestroy → 忽略策略，立即 Destroy + Dispose
+```
+
+## 典型用法
+
+```csharp
+using Framework.Res;
+using Framework.UI;
+using UnityEngine.UI;
+
+[UIWindow(UILayer.UI, fullScreen: true, location: "bundles/prefabs/ui/main.unity3d")]
+public sealed class SettingsUIWindow : UIWindow { }
+
+// 主界面：关后隐藏 60s，期间再开直接复用；超时自动卸资源
+[UIWindow(
+    UILayer.UI,
+    fullScreen: true,
+    location: "bundles/prefabs/ui/main.unity3d",
+    releasePolicy: UIReleasePolicy.HideAndDelayUnload,
+    delayUnloadSeconds: 60f)]
+public sealed class MainUIWindow : UIWindow
+{
+    Button _startButton;
+
+    public override void ScriptGenerator()
+    {
+        _startButton = FindChildComponent<Button>("Button");
+        if (_startButton != null)
+        {
+            _startButton.onClick.AddListener(OnClickStart);
+        }
+    }
+
+    void OnClickStart()
+    {
+        GameLog.Info(LogCategories.Launch, "Start clicked");
+    }
+
+    protected override void OnDestroy()
+    {
+        if (_startButton != null)
+        {
+            _startButton.onClick.RemoveListener(OnClickStart);
+        }
+    }
+}
+
+// 模块就绪后
+UIManager.Instance.Show<MainUIWindow>();
+
+// 异步打开；失败或取消时 window 为 null
+var show = UIManager.Instance.ShowAsync<MainUIWindow>(onComplete: window => { /* ... */ });
+
+// UniTask 版本：失败返回 null；令牌取消或被 Close / 再次打开取消时抛 OperationCanceledException
+var main = await UIManager.Instance.ShowAsync<MainUIWindow>(null, this.GetCancellationTokenOnDestroy());
+show.Cancel(); // 或 show.Stop() / Dispose()，释放未完成的加载与实例
+
+// Close / CloseAll / 再次 Show(Async) 同类型时，会取消进行中的异步打开
+```
+
+## 资源寻址
+
+默认规则（`UIPaths.Window<T>()`）：
+
+```
+MainUIWindow → bundles/ui/mainuiwindow.unity3d
+```
+
+可通过 `[UIWindow(..., location: "...")]` 覆盖。
+
+## 释放策略
+
+在 `[UIWindow(..., releasePolicy: ..., delayUnloadSeconds: ...)]` 声明：
+
+| 策略 | Close 行为 | 再次 Show | `IsOpen` / `IsCached` |
+|------|------------|-----------|------------------------|
+| `DestroyImmediate`（默认） | Destroy 实例 + Dispose Handle | 重新 Load | 均 false |
+| `HideOnly` | 隐藏并移出栈，保留实例与 Handle | 走已打开分支，`OnRefresh` | `IsOpen` true；不进缓存 |
+| `Cached` | 移出栈并缓存 | `TryReviveCached` 快速复用 | `IsOpen` false；`IsCached` true |
+| `HideAndDelayUnload` | 先缓存；超时未再打开则 Destroy + Dispose | 超时前 `TryReviveCached`；超时后重新 Load | 等待中 `IsCached` true |
+
+`ForceDestroy<T>()` 可无视策略立即销毁（含缓存）。`Shutdown()` 销毁全部窗口与缓存。`OnCreate` 抛异常时会先 `InternalDestroy`（清掉已经注册的事件），再销毁已经实例化的对象并释放加载句柄。句柄不延后一帧释放，避免和下一轮加载抢引用计数。`InternalDestroy` 抛异常时仍然 `Destroy` 对象并 `Dispose` 句柄。
+
+## 返回键
+
+`[UIWindow(..., CloseOnBack = true)]` 的窗口按 Esc / Android Back 时关闭。`UIManager.Update` 每帧检测（`BackKeyEnabled` 可关），也可以自己调 `HandleBack()`（如手势返回）：
+
+- 从最上层窗口往下调用 `OnBack()`，第一个返回 true 的窗口消费；遇到全屏窗口就停止
+- 重写 `protected override bool OnBack()` 可自定义（如先关二级面板），返回 false 交给下层
+- 没有窗口处理时触发 `BackUnhandled`，通常用来弹「退出游戏」确认
+- 输入被屏蔽时不分发
+
+## 输入屏蔽
+
+```csharp
+using (UIManager.Instance.BlockInput())
+{
+    await RequestAsync();   // 期间所有 UI 点击被最顶层透明遮罩吃掉
+}
+```
+
+可嵌套，全部 `Dispose` 后才移除遮罩；`Shutdown` 之前拿到的句柄在之后释放无效果。
+
+## 安全区
+
+在窗口预制体的内容节点上挂 `UISafeArea`，锚点会约束到 `Screen.safeArea`（刘海、圆角、手势条），屏幕旋转或尺寸变化时自动重算。背景放在窗口根节点，仍铺满全屏。四条边可分别开关。
+
+## Bootstrap
+
+```csharp
+new ResourceModule(),
+new UIModule(),      // Dependencies: Logging + Resource + Coroutine
+new ConfigModule(),
+```
+
+## 设计说明
+
+- **纯 C#**：窗口逻辑不挂 MonoBehaviour，由 `UIManager.Update` 驱动
+- **五层 Canvas**：`Bottom` / `UI` / `Top` / `Tips` / `System`
+- **全屏遮挡**：`fullScreen: true` 时隐藏其下方的已打开窗口（不销毁）
+- **事件绑定**：`AddUIEvent<T>` 在窗口销毁时自动取消订阅
+- **资源管理**：按 `UIReleasePolicy` 释放；`HideOnly` 关后仍算已打开，`Cached` / `HideAndDelayUnload` 关后进缓存由 `TryReviveCached` 复用
+- **异步取消**：`ShowAsync` 返回 `UIShowHandle`；`Cancel` 会停协程、取消 Res 调度请求，并销毁未绑定的实例

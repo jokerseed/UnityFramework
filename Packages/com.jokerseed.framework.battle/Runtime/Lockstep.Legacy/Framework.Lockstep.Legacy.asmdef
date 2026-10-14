@@ -1,0 +1,17 @@
+{
+    "name": "Framework.Lockstep.Legacy",
+    "rootNamespace": "Framework.Lockstep",
+    "references": [
+        "Framework.FixedMath",
+        "Framework.Lockstep"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

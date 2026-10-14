@@ -1,0 +1,19 @@
+{
+    "name": "Framework.Res",
+    "rootNamespace": "Framework.Res",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Logging",
+        "YooAsset"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

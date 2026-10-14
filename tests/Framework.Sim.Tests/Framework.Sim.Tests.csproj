@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    纯 .NET 编译并测试引擎无关的模拟层（不需要 Unity，也不需要 Unity 许可证）。
+    直接引用 Packages/ 下的源码，与 Unity 里编译的是同一份代码。
+    Unity 专属的少数文件（模块入口、MonoBehaviour 管理器）在下面排除。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DefineConstants>$(DefineConstants);FRAMEWORK_LOG_VERBOSE</DefineConstants>
+    <NoWarn>$(NoWarn);CS1591;CS0618;CS0649;CS0414;CS0162;CS0168;CS0219;CS0169;CS0067</NoWarn>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../'))</RepoRoot>
+    <Battle>$(RepoRoot)Packages/com.jokerseed.framework.battle/Runtime/</Battle>
+    <Core>$(RepoRoot)Packages/com.jokerseed.framework.core/Runtime/</Core>
+  </PropertyGroup>
+
+  <ItemGroup Label="Engine-free framework sources">
+    <Compile Include="$(Battle)FixedMath/**/*.cs" />
+    <Compile Include="$(Battle)Lockstep/**/*.cs" />
+    <Compile Include="$(Battle)LockstepPhysics/Farseer/**/*.cs" />
+    <Compile Include="$(Battle)LockstepPhysics/Stubs/**/*.cs" />
+    <Compile Include="$(Battle)Battle.Core/**/*.cs" />
+    <Compile Include="$(Battle)ECS/**/*.cs" />
+    <Compile Include="$(Battle)ECS.Physics/**/*.cs" />
+    <Compile Include="$(Battle)GAS/**/*.cs" />
+    <Compile Include="$(Battle)BehaviourTree/**/*.cs" />
+    <Compile Include="$(Battle)GamePlay/**/*.cs" />
+    <Compile Include="$(Core)Logging/**/*.cs" Exclude="$(Core)Logging/LoggingManager.cs;$(Core)Logging/LoggingModule.cs" />
+    <Compile Include="$(Core)Events/**/*.cs" />
+    <Compile Include="$(Core)Fsm/Fsm.cs;$(Core)Fsm/FsmState.cs" />
+    <Compile Include="$(Core)DebugConsole/DebugCommandRegistry.cs" />
+    <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.battle/Editor/Determinism/DeterminismRules.cs" />
+  </ItemGroup>
+
+  <ItemGroup Label="Tests">
+    <Compile Include="**/*.cs" Exclude="bin/**;obj/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+  </ItemGroup>
+
+</Project>

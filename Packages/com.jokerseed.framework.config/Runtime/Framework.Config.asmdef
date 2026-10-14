@@ -1,0 +1,20 @@
+{
+    "name": "Framework.Config",
+    "rootNamespace": "Framework.Config",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Res",
+        "Framework.Logging",
+        "Luban.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

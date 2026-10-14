@@ -1,5 +1,4 @@
 using Framework.Logging;
-using Framework.Res;
 using Framework.UI;
 using UnityEngine.UI;
 
@@ -11,7 +10,7 @@ namespace Game
 [UIWindow(
     UILayer.UI,
     fullScreen: true,
-    location: ResourceAddresses.MainPrefab,
+    location: GameAddresses.MainPrefab,
     releasePolicy: UIReleasePolicy.HideAndDelayUnload,
     delayUnloadSeconds: 60f)]
 public sealed class MainUIWindow : UIWindow

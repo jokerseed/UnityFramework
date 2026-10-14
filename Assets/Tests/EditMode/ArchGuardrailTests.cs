@@ -3,7 +3,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Framework.BehaviourTree;
-using Framework.Core;
+using Framework.Battle;
 using Framework.Editor.Determinism;
 using Framework.Events;
 using Framework.FixedMath;
@@ -13,7 +13,7 @@ using NUnit.Framework;
 
 namespace Framework.Tests
 {
-    /// <summary>阶段 6：扫描器范围、普通伤害结算和固定帧等待。不改模拟公式。</summary>
+    /// <summary>扫描器范围、普通伤害结算和固定帧等待。不改模拟公式。</summary>
     public sealed class ArchGuardrailTests
     {
         [Test]
@@ -21,7 +21,7 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/BehaviourTree/BtSample.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/BtSample.cs",
                 "float speed = 1f;",
                 violations);
             Assert.Greater(violations.Count, 0);
@@ -32,21 +32,36 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/BehaviourTree/Config/BtConfigNode.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/Config/BtConfigNode.cs",
                 "public float FloatValue;",
                 violations);
             Assert.IsEmpty(violations);
         }
 
         [Test]
-        public void ScannerAllowsTickFloatBridge()
+        public void SimAssembliesDoNotReferenceUnityEngine()
         {
-            var violations = new List<string>();
-            SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/Core/Tick/ITickable.cs",
-                "void Tick(float deltaTime);",
-                violations);
-            Assert.IsEmpty(violations);
+            var projectRoot = Path.GetDirectoryName(FindAssetsFolder());
+            var battle = Path.Combine(projectRoot, "Packages", "com.jokerseed.framework.battle", "Runtime");
+            string[] simAsmdefs =
+            {
+                Path.Combine(battle, "FixedMath", "Framework.FixedMath.asmdef"),
+                Path.Combine(battle, "Lockstep", "Framework.Lockstep.asmdef"),
+                Path.Combine(battle, "LockstepPhysics", "Framework.LockstepPhysics.asmdef"),
+                Path.Combine(battle, "Battle.Core", "Framework.Battle.Core.asmdef"),
+                Path.Combine(battle, "ECS", "Framework.ECS.asmdef"),
+                Path.Combine(battle, "ECS.Physics", "Framework.ECS.Physics.asmdef"),
+                Path.Combine(battle, "GAS", "Framework.GAS.asmdef"),
+                Path.Combine(battle, "BehaviourTree", "Framework.BehaviourTree.asmdef"),
+                Path.Combine(battle, "GamePlay", "Framework.GamePlay.asmdef"),
+            };
+            for (var i = 0; i < simAsmdefs.Length; i++)
+            {
+                var text = File.ReadAllText(simAsmdefs[i]);
+                Assert.IsTrue(
+                    Regex.IsMatch(text, "\"noEngineReferences\"\\s*:\\s*true"),
+                    Path.GetFileName(simAsmdefs[i]) + " 必须开启 noEngineReferences，模拟层不能直接用 UnityEngine。");
+            }
         }
 
         [Test]
@@ -80,9 +95,12 @@ namespace Framework.Tests
         [Test]
         public void FrameworkAssembliesAreAcyclicAndGamePlayDoesNotReferenceLuban()
         {
-            var assets = FindAssetsFolder();
+            var projectRoot = Path.GetDirectoryName(FindAssetsFolder());
             var graph = new Dictionary<string, List<string>>();
-            foreach (var file in Directory.GetFiles(assets, "*.asmdef", SearchOption.AllDirectories))
+            var asmdefs = new List<string>();
+            asmdefs.AddRange(Directory.GetFiles(Path.Combine(projectRoot, "Assets"), "*.asmdef", SearchOption.AllDirectories));
+            asmdefs.AddRange(Directory.GetFiles(Path.Combine(projectRoot, "Packages"), "*.asmdef", SearchOption.AllDirectories));
+            foreach (var file in asmdefs)
             {
                 var text = File.ReadAllText(file);
                 var name = Regex.Match(text, "\"name\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
@@ -103,6 +121,7 @@ namespace Framework.Tests
 
             Assert.IsTrue(graph.ContainsKey("Game"));
             Assert.IsFalse(graph["Framework.Core"].Contains("Framework.Events"));
+            Assert.IsFalse(graph["Framework.Core"].Contains("Framework.FixedMath"), "Core 不应把定点数学带给不做帧同步的项目。");
             Assert.IsFalse(graph["Framework.GamePlay"].Contains("Generated.Luban"));
             Assert.IsTrue(graph["Framework.GamePlay.Luban"].Contains("Luban.Runtime"));
             Assert.IsTrue(graph["Framework.ECS.Physics"].Contains("Framework.LockstepPhysics"));
@@ -157,25 +176,25 @@ namespace Framework.Tests
         public void ScannerRootsCoverSplitSimAssemblies()
         {
             var roots = new List<string>(SimDeterminismScanner.ScanRoots);
+            var battle = SimDeterminismScanner.BattleRuntimeRoot;
             string[] required =
             {
-                "Framework/ECS",
-                "Framework/ECS.Physics",
-                "Framework/GAS",
-                "Framework/FixedMath",
-                "Framework/GamePlay",
-                "Framework/GamePlay.Luban",
-                "Framework/BehaviourTree",
-                "Framework/Core",
-                "Framework/Battle.Core",
-                "Framework/Lockstep",
+                battle + "/ECS",
+                battle + "/ECS.Physics",
+                battle + "/GAS",
+                battle + "/FixedMath",
+                battle + "/GamePlay",
+                battle + "/BehaviourTree",
+                battle + "/Battle.Core",
+                battle + "/Lockstep",
+                "Assets/Scripts/Luban",
             };
             for (var i = 0; i < required.Length; i++)
             {
                 Assert.IsTrue(roots.Contains(required[i]), required[i]);
             }
 
-            Assert.IsFalse(roots.Contains("Framework/LockstepPhysics"));
+            Assert.IsFalse(roots.Contains(battle + "/LockstepPhysics"));
         }
 
         static string FindAssetsFolder()
@@ -204,7 +223,8 @@ namespace Framework.Tests
                 for (var i = 0; i < 8 && !string.IsNullOrEmpty(current); i++)
                 {
                     var candidate = Path.Combine(current, "Assets");
-                    if (File.Exists(Path.Combine(candidate, "Framework", "Core", "Framework.Core.asmdef")))
+                    var coreAsmdef = Path.Combine(current, "Packages", "com.jokerseed.framework.core", "Runtime", "Core", "Framework.Core.asmdef");
+                    if (Directory.Exists(candidate) && File.Exists(coreAsmdef))
                     {
                         return candidate;
                     }
@@ -213,7 +233,7 @@ namespace Framework.Tests
                 }
             }
 
-            Assert.Inconclusive("找不到含 Framework.Core.asmdef 的 Assets 目录。");
+            Assert.Inconclusive("找不到含 Packages/com.jokerseed.framework.core 的工程目录。");
             return null;
         }
     }

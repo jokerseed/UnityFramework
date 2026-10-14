@@ -1,0 +1,20 @@
+{
+    "name": "Framework.Res.Editor",
+    "rootNamespace": "Framework.Editor",
+    "references": [
+        "Framework.Logging",
+        "Framework.Core.Editor",
+        "YooAsset.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

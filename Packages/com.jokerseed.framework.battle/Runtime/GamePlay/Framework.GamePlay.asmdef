@@ -1,0 +1,24 @@
+{
+    "name": "Framework.GamePlay",
+    "rootNamespace": "Framework.GamePlay",
+    "references": [
+        "Framework.Battle.Core",
+        "Framework.Events",
+        "Framework.GAS",
+        "Framework.ECS",
+        "Framework.ECS.Physics",
+        "Framework.Logging",
+        "Framework.BehaviourTree",
+        "Framework.FixedMath",
+        "Framework.Lockstep"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -1,6 +1,7 @@
 using Framework.Audio;
 using Framework.Bootstrap;
 using Framework.Config;
+using Framework.Battle;
 using Framework.Core;
 using Framework.Coroutine;
 using Framework.GamePlay;
@@ -35,7 +36,7 @@ public sealed class Launch : MonoBehaviour
             new ResourceModule(),
             new AudioModule(),
             new UIModule(),
-            new ConfigModule(),
+            ConfigModule.Create(loader => new cfg.CfgTables(loader)),
             new GamePlayModule(),
         });
         launch.StateChanged += OnGroupStateChanged;

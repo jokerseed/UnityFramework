@@ -1,0 +1,24 @@
+{
+  "name": "com.jokerseed.framework.network",
+  "version": "0.1.0",
+  "displayName": "Framework Network",
+  "description": "TCP and WebSocket (including WebGL) channels with pluggable packet helpers, heartbeats, main-thread dispatch and request/response RPC with timeouts.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "author": {
+    "name": "jokerseed",
+    "url": "https://github.com/jokerseed/UnityFramework"
+  },
+  "documentationUrl": "https://github.com/jokerseed/UnityFramework/tree/main/Packages/com.jokerseed.framework.network",
+  "changelogUrl": "https://github.com/jokerseed/UnityFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/jokerseed/UnityFramework/blob/main/LICENSE",
+  "keywords": [
+    "framework",
+    "network",
+    "tcp",
+    "websocket"
+  ],
+  "dependencies": {
+    "com.jokerseed.framework.core": "0.1.0"
+  }
+}

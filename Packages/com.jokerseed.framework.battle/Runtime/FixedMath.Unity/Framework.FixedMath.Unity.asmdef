@@ -1,0 +1,16 @@
+{
+    "name": "Framework.FixedMath.Unity",
+    "rootNamespace": "Framework.FixedMath",
+    "references": [
+        "Framework.FixedMath"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

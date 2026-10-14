@@ -1,0 +1,20 @@
+{
+    "name": "Framework.ECS.Physics",
+    "rootNamespace": "Framework.ECS",
+    "references": [
+        "Framework.Battle.Core",
+        "Framework.ECS",
+        "Framework.FixedMath",
+        "Framework.Lockstep",
+        "Framework.LockstepPhysics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

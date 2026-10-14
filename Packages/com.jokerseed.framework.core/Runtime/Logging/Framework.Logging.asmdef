@@ -1,0 +1,17 @@
+{
+    "name": "Framework.Logging",
+    "rootNamespace": "Framework.Logging",
+    "references": [
+        "UniTask",
+        "Framework.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

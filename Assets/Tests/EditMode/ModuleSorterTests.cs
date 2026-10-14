@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Framework.Bootstrap;
+using Framework.Battle;
 using Framework.Core;
 using NUnit.Framework;
 
@@ -109,11 +110,6 @@ namespace Framework.Tests
             {
             }
 
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
-            }
-
             public void Shutdown()
             {
             }
@@ -139,11 +135,6 @@ namespace Framework.Tests
 
             public void Initialize()
             {
-            }
-
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
             }
 
             public void Shutdown()
@@ -180,11 +171,6 @@ namespace Framework.Tests
             {
             }
 
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
-            }
-
             public void Shutdown()
             {
             }
@@ -210,11 +196,6 @@ namespace Framework.Tests
 
             public void Initialize()
             {
-            }
-
-            public IEnumerator InitializeAsync()
-            {
-                yield break;
             }
 
             public void Shutdown()

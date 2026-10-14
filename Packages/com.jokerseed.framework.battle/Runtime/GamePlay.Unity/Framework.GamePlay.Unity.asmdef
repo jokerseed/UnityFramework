@@ -1,0 +1,26 @@
+{
+    "name": "Framework.GamePlay.Unity",
+    "rootNamespace": "Framework.GamePlay",
+    "references": [
+        "UniTask",
+        "Framework.GamePlay",
+        "Framework.Core",
+        "Framework.Battle.Core",
+        "Framework.GAS",
+        "Framework.Logging",
+        "Framework.Res",
+        "Framework.BehaviourTree",
+        "Framework.BehaviourTree.Unity",
+        "Framework.FixedMath",
+        "Framework.FixedMath.Unity"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

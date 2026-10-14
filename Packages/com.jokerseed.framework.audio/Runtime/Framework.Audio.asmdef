@@ -1,0 +1,20 @@
+{
+    "name": "Framework.Audio",
+    "rootNamespace": "Framework.Audio",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Logging",
+        "Framework.Res",
+        "Framework.Coroutine"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

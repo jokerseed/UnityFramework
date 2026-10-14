@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using BtTree = Framework.BehaviourTree.BehaviourTree;
 using Framework.BehaviourTree;
-using Framework.Core;
+using Framework.Battle;
 using Framework.FixedMath;
 using Framework.GamePlay;
 using NUnit.Framework;

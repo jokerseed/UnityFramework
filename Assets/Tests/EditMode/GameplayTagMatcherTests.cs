@@ -1,4 +1,4 @@
-using Framework.Core;
+using Framework.Battle;
 using Framework.GAS;
 using Framework.GAS.Tags;
 using NUnit.Framework;

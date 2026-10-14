@@ -1,6 +1,6 @@
 ---
 description: 运行时资源加载、释放、初始化与寻址必须走 Framework.Res 封装
-globs: Assets/**/*.cs
+globs: Assets/**/*.cs,Packages/**/*.cs
 alwaysApply: false
 ---
 

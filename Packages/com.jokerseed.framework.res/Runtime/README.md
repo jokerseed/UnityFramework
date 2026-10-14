@@ -1,0 +1,225 @@
+# Framework.Res
+
+YooAsset 资源管线封装：**通用**加载、释放、反序列化统一入口。Luban 配置表见 `Framework.Config`。
+
+异步路径由 **`ResourceScheduler` 分帧调度**：Load / Instantiate / Unload 统一排队，**时间预算为主、个数上限为辅**。
+
+## 程序集
+
+| 项 | 值 |
+|---|---|
+| 程序集 | `Framework.Res` |
+| 命名空间 | `Framework.Res` |
+| 依赖 | `Framework.Core`、`Framework.Logging`、`YooAsset` |
+
+## 核心类型
+
+| 类型 | 职责 |
+|------|------|
+| `ResourceModule` | `IGameModule` 实现，初始化 YooAsset 并注册 `ResourceManager` |
+| `ResourceManager` | 常驻单例：包初始化、加载/实例化/卸载入口，每帧驱动调度器 |
+| `ResourceScheduler` | 内部调度器（业务不直接调用） |
+| `ResourceSchedulerOptions` | 每帧时间预算与个数上限 |
+| `ResourceRequestHandle` | 调度请求：等待完成 / 取消 |
+| `ResourceInitOptions` | 包名、运行模式（EditorSimulate / Offline / Host） |
+| `ResourceAddresses` | 寻址规则 |
+| `ResourceAssetHandle` | 资源句柄，`Dispose` / `InstantiateSync` |
+| `ResourceSceneHandle` | 场景句柄 |
+| `ResourceScope` | 作用域批量持有 Asset 句柄，`Dispose` 统一释放 |
+
+## 调度思路
+
+### 为什么要调度
+
+同一帧内连开很多 `LoadAssetAsync`、连 `Instantiate` 多个 Prefab、或反复 `UnloadUnusedAssets`，会造成主线程尖峰。调度器把这三类工作放进队列，**按预算分帧消化**。
+
+### 为什么不用「每帧固定 N 个」
+
+Instantiate 可能 3ms 也可能 30ms；发起一次 Load 几乎不占主线程。固定 N 个无法稳住帧时间。
+
+实际规则：
+
+```
+本帧能处理多少 = min(
+    时间预算还够,
+    各类型 Count 上限还剩多少,
+    队列里还有几个
+)
+```
+
+- **时间（ms）是主控**
+- **个数上限是安全阀**（防并发过高、防回调扎堆）
+- **同地址合并**：`location + Type` 已在 Pending / InFlight / 待回调时，后来的请求挂到同一组，不占新的 Start / InFlight 名额
+- 某一类本帧一个都还没跑、且总预算还没用完时，**至少执行 1 个**（避免超重 Instantiate 永远排不上）
+
+### 三类工作
+
+| 类型 | 怎么限 | 说明 |
+|------|--------|------|
+| **Load** | 分三阶段 | Start 有个数+并发上限；InFlight 不占主线程；Complete 回调走时间预算 |
+| **Instantiate** | 专用 ms + 个数上限 | 内部仍是 `InstantiateSync`，只是换帧执行 |
+| **UnloadUnusedAssets** | 合并请求，默认空闲才跑 | 多次 `Request` 合成 1 次；不和 UI 开窗口抢预算 |
+
+Load 三阶段：
+
+```
+Enqueue → Pending（同 location + Type 挂到已有组）
+  Tick: 每组只发起 1 次 YooAsset LoadAssetAsync
+  InFlight: 轮询 IsDone，后来者直接挂到该组
+  Tick: 完成后为每个等待者派发独立句柄（可各自 Dispose）
+```
+
+### 谁走调度、谁旁路
+
+| API | 是否进调度 |
+|-----|------------|
+| `LoadAssetAsync` / `LoadAssetScheduled` | 是 |
+| `InstantiateAsync` / `InstantiateScheduled` | 是 |
+| `RequestUnloadUnusedAssets` | 是（合并） |
+| `LoadAssetSync` | **否**（热路径 / 启动读表） |
+| `LoadBytes` / `LoadBinary` | **否** |
+| `LoadSceneAsync` | **否**（底层 API；业务优先用下方场景生命周期 API） |
+| `LoadMainSceneAsync` / `LoadAdditiveSceneAsync` | **否**（切场景本身就是整帧级操作） |
+| `ResourceAssetHandle.InstantiateSync` | **否**（调用方当帧立刻实例化） |
+
+`UIManager.Show` 仍同步加载+同步实例化；`ShowAsync` 走调度（Load 再 Instantiate）。
+
+## 加载 API
+
+```csharp
+var res = ResourceManager.Instance;
+
+// 同步（旁路调度）
+using var handle = res.LoadAssetSync<GameObject>("bundles/prefabs/ui/main.unity3d");
+
+// 异步（UniTask，内部入队）；ct 取消时撤销排队请求、释放已完成的句柄并抛 OperationCanceledException
+var ct = this.GetCancellationTokenOnDestroy();
+using var prefab = await res.LoadAssetAsync<GameObject>(location, priority: 0, cancellationToken: ct);
+
+// 回调式：入队并拿到请求句柄（可 Cancel，亦可在协程里 yield return 等待）
+var request = res.LoadAssetScheduled<AudioClip>(location, clipHandle => { }, priority: 0);
+request.Cancel();
+
+// 分帧实例化；取消时销毁已生成的实例
+var instance = await res.InstantiateAsync(prefab, parent, priority: 10, cancellationToken: ct);
+
+// 合并卸载未使用资源（禁止业务直接调 YooAsset UnloadUnusedAssets）
+res.RequestUnloadUnusedAssets();
+
+// 主场景（Single：自动 Dispose 旧主场景 + 全部 Additive 句柄）
+await res.LoadMainSceneAsync(ResourceAddresses.Scene("Battle"), ct);
+
+// Additive 子场景（天气 / 房间等）
+var weather = await res.LoadAdditiveSceneAsync(ResourceAddresses.Scene("Weather"), ct);
+await res.UnloadAdditiveSceneAsync(weather);
+
+var active = res.ActiveScene;
+var main = res.CurrentMainScene;
+```
+
+### 资源作用域（Scope 持 Asset）
+
+```csharp
+using var battle = ResourceScope.Create("Battle");
+
+// 同步 / 异步加载会自动登记句柄
+var heroPrefab = battle.LoadSync<GameObject>(heroLocation);
+var clip = await battle.LoadAsync<AudioClip>(location, cancellationToken: ct);
+
+var instance = heroPrefab.InstantiateSync(); // Instance 由业务 / Pool 管理
+Destroy(instance);
+
+// 出战斗：批量 Release 本域全部 Asset
+battle.Dispose();
+```
+
+约定：**Scope 持 Asset（Prefab / Clip 等 Handle），ObjectPool 持 Instance（GameObject）**。Scope 结束前应先清空池或 Destroy 实例，再 `Dispose`。
+
+`priority` 越大越先处理；同优先级 FIFO。UI 异步打开默认 `10`。同一 `location + Type` 的多次 `LoadAssetAsync` / `LoadAssetScheduled` 会合并为一次 YooAsset 加载，取消其中一笔不影响其他等待者。
+
+## 预算配置
+
+挂在 `ResourceManager` Inspector 的 `Scheduler Options`：
+
+| 字段 | 默认 | 含义 |
+|------|------|------|
+| `MaxFrameBudgetMs` | 4 | 本帧调度总时间上限 |
+| `MaxLoadStartsPerFrame` | 2 | 每帧新发起加载数 |
+| `MaxLoadInFlight` | 8 | 同时进行中的加载上限 |
+| `CallbackBudgetMs` | 1 | 完成回调时间预算 |
+| `MaxCallbacksPerFrame` | 5 | 完成回调个数上限 |
+| `InstantiateBudgetMs` | 3 | Instantiate 时间预算 |
+| `MaxInstantiatesPerFrame` | 3 | Instantiate 个数上限 |
+| `MaxUnloadPerFrame` | 1 | Unload 启动上限 |
+| `UnloadOnlyWhenIdle` | true | 仅当 Load/Instantiate 队列空时才 Unload |
+
+## 生命周期与释放
+
+| 操作 | API |
+|------|-----|
+| 作用域批量持有 Asset | `ResourceScope.Create(name)` → `LoadSync` / `LoadAsync` / `Track` → `Dispose` |
+| 单次加载释放 | `using var handle = ...` 或 `handle.Dispose()` |
+| 通用 bytes 缓存释放 | `ResourceManager.Instance.ReleaseCache()` |
+| 卸载未使用资源 | `ResourceManager.Instance.RequestUnloadUnusedAssets()` |
+| 配置 TextAsset 缓存 | `ConfigManager.ReleaseTableAssetCache()` |
+| 模块/应用关闭 | `ResourceModule.Shutdown()` → 取消调度队列 → `ResourceManager.Shutdown()` |
+
+`ResourceScope.LoadSync` 和 `LoadAsync` 失败时都不登记句柄。句柄若仍然有效，由调用方 `Dispose`，失败原因留在 `Error` 上。
+
+### 场景生命周期
+
+| 操作 | API |
+|------|-----|
+| 切换主场景（Single） | `LoadMainSceneAsync(location)` — 新场景成功后才 `Dispose` 旧主场景句柄与全部 Additive 句柄；失败保留旧句柄。进行中再次调用会抛异常 |
+| 加载 Additive | `LoadAdditiveSceneAsync(location)` — 登记到内部列表 |
+| 卸载 Additive | `UnloadAdditiveSceneAsync(handle)` — `UnloadAsync` + `Dispose` + 移出列表 |
+| 查询 | `ActiveScene`（Unity 激活场景）、`CurrentMainScene` / `CurrentMainSceneHandle` |
+| 底层直调 | `LoadSceneAsync(location, mode)` — 不维护生命周期，业务优先用上面三个 |
+
+Single 切走后 Unity 会卸旧场景，但 **YooAsset 句柄须手动 `Dispose`**；Additive 列表由 `ResourceManager` 维护，不能指望 Unity 卸场景就自动 Release。
+
+Shutdown 时 Pending / InFlight 请求会被 **Cancelled**，`await` / 协程等待会结束；`onComplete` 收到无效句柄或 null。场景句柄在 Shutdown 时一并释放。
+
+**禁止**在业务代码中直接调用 YooAsset 的 `Release` / `Destroy` / `UnloadUnusedAssets`。
+
+## 运行模式
+
+| 模式 | 场景 |
+|------|------|
+| `EditorSimulateMode` | Editor 下调试，无需打真实 Bundle |
+| `OfflinePlayMode` | 本地离线包 |
+| `HostPlayMode` | 热更新 CDN 模式 |
+
+## 补丁下载（HostPlayMode）
+
+`InitializeAsync` 已经请求了最新版本并加载了对应 Manifest，之后用 `ResourcePatcher` 统计并下载需要更新的 Bundle：
+
+```csharp
+var patcher = ResourcePatcher.Create(tags: null);   // null = 全部资源；也可传 new[] { "base" }
+if (patcher.NeedDownload)
+{
+    // 先让玩家确认：ResourcePatcher.FormatBytes(patcher.TotalBytes)
+    var progress = new Progress<ResourcePatchProgress>(p => bar.value = p.Progress);
+    await patcher.DownloadAsync(progress, this.GetCancellationTokenOnDestroy());
+}
+```
+
+- 非 Host 模式下 `NeedDownload` 为 false，同一段代码可以在所有模式下运行
+- 下载失败抛 `InvalidOperationException`（带首个出错文件）；取消时停止下载并抛 `OperationCanceledException`，已下载的文件留在缓存里
+- 一个 `ResourcePatcher` 只能下载一次；重试时重新 `Create`，已缓存的文件不会再算进去
+- 目前只管理一个主资源包（`ResourceInitOptions.PackageName`）；DLC 式的多包加载需要扩展 `ResourceManager`
+
+## Bootstrap 集成
+
+```csharp
+new ResourceModule(),
+```
+
+初始化选项与调度预算都在 `ResourceManager` Inspector 上配置。`InitializeAsync` 任一步失败会清掉本次的选项和调度器，并尝试销毁这次用到的包裹，方便下一次重新初始化。销毁失败只记日志，原始初始化异常仍会抛出。
+
+## 被谁使用
+
+- `Framework.Config` — 默认 `LoadAssetSync<TextAsset>`（不走调度）；`PreloadTableAssetsAsync` 走 `LoadAssetAsync` 预热缓存
+- `Framework.UI` — `Show` 同步旁路；`ShowAsync` 走调度
+- `Framework.Audio` — `PlayBgmAsync` 等走 `LoadAssetScheduled`
+- `Assets/Scripts/Launch.cs` — 注册 `ResourceModule`

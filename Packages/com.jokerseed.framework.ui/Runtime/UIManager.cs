@@ -1,0 +1,1022 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Framework.Core;
+using Framework.Coroutine;
+using Framework.Logging;
+using Framework.Res;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+
+namespace Framework.UI
+{
+    /// <summary>
+    /// UI 管理器：维护层级根节点、窗口栈、同步/异步打开与资源生命周期。
+    /// 参考 TEngine UIModule 设计，纯 C# 驱动窗口生命周期。
+    /// </summary>
+    public sealed class UIManager : PersistentSingleton<UIManager>
+    {
+        const int LayerOrderStep = 50;
+        const int WindowOrderStep = 10;
+
+        readonly List<UIWindow> _stack = new List<UIWindow>(16);
+        readonly Dictionary<Type, UIWindow> _opened = new Dictionary<Type, UIWindow>(16);
+        readonly Dictionary<Type, UIWindow> _cached = new Dictionary<Type, UIWindow>(8);
+        readonly Dictionary<Type, UIShowHandle> _pendingShows = new Dictionary<Type, UIShowHandle>(8);
+        readonly Dictionary<Type, ICoroutineHandle> _delayUnloadTimers = new Dictionary<Type, ICoroutineHandle>(4);
+        readonly Dictionary<UILayer, Transform> _layerRoots = new Dictionary<UILayer, Transform>(8);
+
+        const int InputBlockerSortingOrder = 30000;
+
+        Transform _uiRoot;
+        Transform _eventSystemRoot;
+        GameObject _inputBlocker;
+        int _inputBlockCount;
+        int _inputBlockGeneration;
+        bool _initialized;
+
+        /// <summary>当前打开的窗口数量。</summary>
+        public int OpenCount => _stack.Count;
+
+        /// <summary>是否每帧检测返回键（Esc / Android Back）并调用 <see cref="HandleBack"/>；默认 true。</summary>
+        public bool BackKeyEnabled { get; set; } = true;
+
+        /// <summary>返回键没有任何窗口处理时触发（例如弹出「退出游戏」确认）。</summary>
+        public event Action BackUnhandled;
+
+        /// <summary>是否有 <see cref="BlockInput"/> 尚未释放。</summary>
+        public bool IsInputBlocked => _inputBlockCount > 0;
+
+        /// <summary>初始化 UI 根节点与五层 Canvas。</summary>
+        public void Initialize()
+        {
+            if (_initialized)
+            {
+                return;
+            }
+
+            _uiRoot = new GameObject("UIRoot").transform;
+            _uiRoot.SetParent(transform, false);
+            _uiRoot.localPosition = Vector3.zero;
+            _uiRoot.localRotation = Quaternion.identity;
+            _uiRoot.localScale = Vector3.one;
+
+            EnsureLayer(UILayer.Bottom);
+            EnsureLayer(UILayer.UI);
+            EnsureLayer(UILayer.Top);
+            EnsureLayer(UILayer.Tips);
+            EnsureLayer(UILayer.System);
+            EnsureEventSystem();
+            CreateInputBlocker();
+
+            _initialized = true;
+            GameLog.Info(LogCategories.UI, LogStyle.Ok("ready"));
+        }
+
+        /// <summary>同步打开窗口；若已打开则仅刷新。会取消同类型尚未完成的 <see cref="ShowAsync{TWindow}"/>。</summary>
+        /// <typeparam name="TWindow">窗口类型，须有无参构造。</typeparam>
+        /// <param name="userData">传入窗口的用户数据；可为 null。</param>
+        /// <returns>打开的窗口实例。</returns>
+        /// <exception cref="InvalidOperationException">资源加载或实例化失败。</exception>
+        public TWindow Show<TWindow>(object userData = null) where TWindow : UIWindow, new()
+        {
+            EnsureInitialized();
+
+            var windowType = typeof(TWindow);
+            CancelPendingShow(windowType);
+            CancelDelayedUnload(windowType);
+            if (TryReviveCached<TWindow>(windowType, userData, out var revived))
+            {
+                return revived;
+            }
+
+            if (_opened.TryGetValue(windowType, out var existing))
+            {
+                existing.UserData = userData;
+                existing.OnRefresh();
+                BringToTop(existing);
+                RefreshVisibility();
+                return (TWindow)existing;
+            }
+
+            var metadata = ResolveMetadata(windowType);
+            var loadHandle = ResourceManager.Instance.LoadAssetSync<GameObject>(metadata.Location);
+            if (!loadHandle.IsValid || !loadHandle.Succeeded)
+            {
+                var error = loadHandle.Error;
+                loadHandle.Dispose();
+                throw new InvalidOperationException(
+                    $"[UI] Load window failed: {windowType.Name}, location={metadata.Location}, error={error}");
+            }
+
+            TWindow window;
+            try
+            {
+                window = CreateWindowInstance<TWindow>(loadHandle, metadata, userData);
+            }
+            catch
+            {
+                if (loadHandle.IsValid)
+                {
+                    loadHandle.Dispose();
+                }
+
+                throw;
+            }
+
+            window.AssetHandle = loadHandle;
+            return window;
+        }
+
+        /// <summary>异步打开窗口。调用返回句柄的 <see cref="UIShowHandle.Cancel"/> 可中止尚未完成的打开。</summary>
+        /// <typeparam name="TWindow">窗口类型，须有无参构造。</typeparam>
+        /// <param name="userData">传入窗口的用户数据；可为 null。</param>
+        /// <param name="onComplete">完成回调；成功为窗口实例，失败或取消为 null。</param>
+        /// <returns>异步打开句柄；窗口已打开时返回已结束的空句柄。</returns>
+        public UIShowHandle ShowAsync<TWindow>(object userData = null, Action<TWindow> onComplete = null)
+            where TWindow : UIWindow, new()
+        {
+            EnsureInitialized();
+
+            var windowType = typeof(TWindow);
+            CancelDelayedUnload(windowType);
+            if (TryReviveCached<TWindow>(windowType, userData, out var cached))
+            {
+                onComplete?.Invoke(cached);
+                return UIShowHandle.Settled;
+            }
+
+            if (_opened.TryGetValue(windowType, out var existing))
+            {
+                existing.UserData = userData;
+                existing.OnRefresh();
+                BringToTop(existing);
+                RefreshVisibility();
+                onComplete?.Invoke((TWindow)existing);
+                return UIShowHandle.Settled;
+            }
+
+            CancelPendingShow(windowType);
+
+            var operation = new UIShowHandle(
+                windowType,
+                () => onComplete?.Invoke(null),
+                DetachPendingShow);
+            _pendingShows[windowType] = operation;
+            operation.BindCoroutine(GameCoroutine.StartGlobal(ShowAsyncCoroutine(operation, userData, onComplete)));
+            return operation;
+        }
+
+        /// <summary>
+        /// 异步打开窗口并等待结果；取消与资源回收沿用 <see cref="UIShowHandle"/> 的语义。
+        /// </summary>
+        /// <typeparam name="TWindow">窗口类型，须有无参构造。</typeparam>
+        /// <param name="userData">传入窗口的用户数据；可为 null。</param>
+        /// <param name="cancellationToken">取消时中止尚未完成的打开并释放已加载资源。</param>
+        /// <returns>窗口实例；加载或实例化失败时为 null。</returns>
+        /// <exception cref="OperationCanceledException">令牌取消，或打开过程被 <see cref="Close{TWindow}"/> / 再次打开同类型窗口取消。</exception>
+        public async UniTask<TWindow> ShowAsync<TWindow>(object userData, CancellationToken cancellationToken)
+            where TWindow : UIWindow, new()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var source = new UniTaskCompletionSource<TWindow>();
+            UIShowHandle handle = null;
+            handle = ShowAsync<TWindow>(userData, window =>
+            {
+                if (window == null && handle != null && handle.IsCancelled)
+                {
+                    source.TrySetCanceled(cancellationToken);
+                }
+                else
+                {
+                    source.TrySetResult(window);
+                }
+            });
+
+            using (cancellationToken.Register(handle.Cancel))
+            {
+                return await source.Task;
+            }
+        }
+
+        /// <summary>关闭指定类型窗口；若该类型仍在异步打开中则一并取消。</summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>关闭了已打开窗口或取消了进行中的异步打开时返回 true。</returns>
+        public bool Close<TWindow>() where TWindow : UIWindow
+        {
+            return Close(typeof(TWindow));
+        }
+
+        /// <summary>关闭指定类型窗口；若该类型仍在异步打开中则一并取消。</summary>
+        /// <param name="windowType">窗口类型，不可为 null。</param>
+        /// <returns>关闭了已打开窗口或取消了进行中的异步打开时返回 true。</returns>
+        public bool Close(Type windowType)
+        {
+            if (windowType == null)
+            {
+                return false;
+            }
+
+            var cancelledPending = CancelPendingShow(windowType);
+            if (!_opened.TryGetValue(windowType, out var window))
+            {
+                return cancelledPending;
+            }
+
+            CloseWindow(window);
+            return true;
+        }
+
+        /// <summary>
+        /// 强制销毁指定类型窗口（忽略 <see cref="UIReleasePolicy"/> 缓存/延迟卸载）。
+        /// </summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>销毁了已打开或已缓存实例时返回 true。</returns>
+        public bool ForceDestroy<TWindow>() where TWindow : UIWindow
+        {
+            return ForceDestroy(typeof(TWindow));
+        }
+
+        /// <summary>
+        /// 强制销毁指定类型窗口（忽略 <see cref="UIReleasePolicy"/> 缓存/延迟卸载）。
+        /// </summary>
+        /// <param name="windowType">窗口类型，不可为 null。</param>
+        /// <returns>销毁了已打开或已缓存实例时返回 true。</returns>
+        public bool ForceDestroy(Type windowType)
+        {
+            if (windowType == null)
+            {
+                return false;
+            }
+
+            var cancelledPending = CancelPendingShow(windowType);
+            CancelDelayedUnload(windowType);
+
+            var destroyed = false;
+            if (_opened.TryGetValue(windowType, out var opened))
+            {
+                DestroyWindow(opened, force: true);
+                destroyed = true;
+            }
+
+            if (_cached.TryGetValue(windowType, out var cached))
+            {
+                DestroyWindow(cached, force: true);
+                destroyed = true;
+            }
+
+            return destroyed || cancelledPending;
+        }
+
+        /// <summary>关闭全部已打开窗口，并取消尚未完成的异步打开；各窗口按自身释放策略处理。</summary>
+        public void CloseAll()
+        {
+            CancelAllPendingShows();
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                CloseWindow(_stack[i]);
+            }
+        }
+
+        /// <summary>获取已打开的窗口实例。</summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>已打开则返回实例，否则返回 null。</returns>
+        public TWindow Get<TWindow>() where TWindow : UIWindow
+        {
+            return _opened.TryGetValue(typeof(TWindow), out var window) ? (TWindow)window : null;
+        }
+
+        /// <summary>指定类型窗口是否已打开。</summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>已打开返回 true。</returns>
+        public bool IsOpen<TWindow>() where TWindow : UIWindow
+        {
+            return _opened.ContainsKey(typeof(TWindow));
+        }
+
+        /// <summary>指定类型窗口是否已缓存（<see cref="UIReleasePolicy.Cached"/> / <see cref="UIReleasePolicy.HideAndDelayUnload"/> 等待复用或延迟卸载中）。</summary>
+        /// <typeparam name="TWindow">窗口类型。</typeparam>
+        /// <returns>已缓存返回 true。</returns>
+        public bool IsCached<TWindow>() where TWindow : UIWindow
+        {
+            return _cached.ContainsKey(typeof(TWindow));
+        }
+
+        /// <summary>
+        /// 分发一次返回操作：从最上层窗口往下调用 <see cref="UIWindow.OnBack"/>，第一个返回 true 的窗口消费；
+        /// 遇到全屏窗口即停止（其下方窗口不可见）。输入被 <see cref="BlockInput"/> 屏蔽时不分发。
+        /// </summary>
+        /// <returns>有窗口处理返回 true。</returns>
+        public bool HandleBack()
+        {
+            if (!_initialized || IsInputBlocked)
+            {
+                return false;
+            }
+
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                var window = _stack[i];
+                if (window.OnBack())
+                {
+                    return true;
+                }
+
+                if (window.FullScreen)
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 屏蔽全部 UI 输入（最顶层透明遮罩），直到返回的句柄 Dispose。可嵌套，全部释放后才移除遮罩。
+        /// 典型用于网络请求、场景切换、异步打开窗口期间防止重复点击。
+        /// </summary>
+        /// <returns>释放屏蔽的句柄；重复 Dispose 无效果。</returns>
+        public IDisposable BlockInput()
+        {
+            EnsureInitialized();
+            if (_inputBlockCount++ == 0)
+            {
+                _inputBlocker.SetActive(true);
+            }
+
+            return new InputBlockScope(this, _inputBlockGeneration);
+        }
+
+        /// <summary>关闭并销毁全部窗口（含缓存），释放 UI 根节点。</summary>
+        public void Shutdown()
+        {
+            CancelAllPendingShows();
+            CancelAllDelayedUnloads();
+            _inputBlockCount = 0;
+            _inputBlockGeneration++;
+            _inputBlocker = null;
+
+            var toDestroy = new HashSet<UIWindow>(_opened.Values);
+            foreach (var window in _cached.Values)
+            {
+                toDestroy.Add(window);
+            }
+
+            _stack.Clear();
+            _opened.Clear();
+            _cached.Clear();
+
+            foreach (var window in toDestroy)
+            {
+                DestroyWindow(window, force: true);
+            }
+
+            foreach (var pair in _layerRoots)
+            {
+                if (pair.Value != null)
+                {
+                    Destroy(pair.Value.gameObject);
+                }
+            }
+
+            _layerRoots.Clear();
+
+            if (_eventSystemRoot != null)
+            {
+                Destroy(_eventSystemRoot.gameObject);
+                _eventSystemRoot = null;
+            }
+
+            if (_uiRoot != null)
+            {
+                Destroy(_uiRoot.gameObject);
+                _uiRoot = null;
+            }
+
+            _initialized = false;
+            GameLog.Info(LogCategories.UI, LogStyle.Muted("shut down"));
+        }
+
+        void Update()
+        {
+            if (!_initialized)
+            {
+                return;
+            }
+
+            if (BackKeyEnabled && BackPressedThisFrame() && !IsInputBlocked && !HandleBack())
+            {
+                BackUnhandled?.Invoke();
+            }
+
+            var deltaTime = Time.deltaTime;
+            for (var i = 0; i < _stack.Count; i++)
+            {
+                var window = _stack[i];
+                if (window != null && window.IsCreated && window.GameObject != null && window.GameObject.activeSelf)
+                {
+                    window.OnUpdate(deltaTime);
+                }
+            }
+        }
+
+        IEnumerator ShowAsyncCoroutine<TWindow>(UIShowHandle operation, object userData, Action<TWindow> onComplete)
+            where TWindow : UIWindow, new()
+        {
+            var windowType = typeof(TWindow);
+            var metadata = ResolveMetadata(windowType);
+            try
+            {
+                var loadRequest = ResourceManager.Instance.LoadAssetScheduled<GameObject>(
+                    metadata.Location,
+                    loaded => operation.SetAssetHandle(loaded),
+                    priority: 10);
+                operation.SetRequest(loadRequest);
+                yield return loadRequest;
+
+                if (operation.IsCancelled)
+                {
+                    yield break;
+                }
+
+                var handle = loadRequest.AssetHandle;
+                if (!handle.IsValid || !handle.Succeeded)
+                {
+                    var error = string.IsNullOrEmpty(handle.Error) ? loadRequest.Error : handle.Error;
+                    GameLog.Error(LogCategories.UI,
+                        $"Load window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)} error={error}");
+                    operation.MarkFailed();
+                    onComplete?.Invoke(null);
+                    yield break;
+                }
+
+                operation.SetAssetHandle(handle);
+
+                GameObject instance = null;
+                var instantiateRequest = ResourceManager.Instance.InstantiateScheduled(
+                    handle,
+                    _layerRoots[metadata.Layer],
+                    go =>
+                    {
+                        instance = go;
+                        operation.SetInstance(go);
+                    },
+                    priority: 10);
+                operation.SetRequest(instantiateRequest);
+                yield return instantiateRequest;
+
+                if (operation.IsCancelled)
+                {
+                    yield break;
+                }
+
+                if (instance == null)
+                {
+                    instance = instantiateRequest.Instance;
+                }
+
+                if (instance == null)
+                {
+                    GameLog.Error(LogCategories.UI,
+                        $"Instantiate window failed: {LogStyle.Name(windowType.Name)} location={LogStyle.Value(metadata.Location)}");
+                    operation.MarkFailed();
+                    onComplete?.Invoke(null);
+                    yield break;
+                }
+
+                var window = BindWindowInstance<TWindow>(instance, metadata, userData);
+                window.AssetHandle = handle;
+                operation.MarkBound();
+                onComplete?.Invoke(window);
+            }
+            finally
+            {
+                operation.AbortIfStillIncomplete();
+            }
+        }
+
+        bool CancelPendingShow(Type windowType)
+        {
+            if (windowType == null || !_pendingShows.TryGetValue(windowType, out var pending))
+            {
+                return false;
+            }
+
+            pending.Cancel();
+            return true;
+        }
+
+        void CancelAllPendingShows()
+        {
+            if (_pendingShows.Count == 0)
+            {
+                return;
+            }
+
+            var pending = new List<UIShowHandle>(_pendingShows.Values);
+            for (var i = 0; i < pending.Count; i++)
+            {
+                pending[i].Cancel();
+            }
+        }
+
+        void DetachPendingShow(UIShowHandle operation)
+        {
+            if (operation?.WindowType == null)
+            {
+                return;
+            }
+
+            if (_pendingShows.TryGetValue(operation.WindowType, out var current) && current == operation)
+            {
+                _pendingShows.Remove(operation.WindowType);
+            }
+        }
+
+        TWindow CreateWindowInstance<TWindow>(
+            ResourceAssetHandle handle,
+            WindowMetadata metadata,
+            object userData) where TWindow : UIWindow, new()
+        {
+            var layerRoot = _layerRoots[metadata.Layer];
+            var instance = handle.InstantiateSync(layerRoot);
+            if (instance == null)
+            {
+                throw new InvalidOperationException(
+                    $"[UI] Instantiate window failed: {typeof(TWindow).Name}, location={metadata.Location}");
+            }
+
+            return BindWindowInstance<TWindow>(instance, metadata, userData);
+        }
+
+        TWindow BindWindowInstance<TWindow>(
+            GameObject instance,
+            WindowMetadata metadata,
+            object userData) where TWindow : UIWindow, new()
+        {
+            var layerRoot = _layerRoots[metadata.Layer];
+            var sortingOrder = (int)metadata.Layer * LayerOrderStep + _stack.Count * WindowOrderStep;
+            var window = new TWindow();
+            window.ReleasePolicy = metadata.ReleasePolicy;
+            window.DelayUnloadSeconds = metadata.DelayUnloadSeconds;
+            window.CloseOnBack = metadata.CloseOnBack;
+            try
+            {
+                window.InternalCreate(this, instance, null, userData);
+                window.SetupWindow(layerRoot, metadata.Layer, metadata.FullScreen, sortingOrder);
+                RegisterWindow(window);
+                return window;
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.UI, ex, $"Create window failed: {typeof(TWindow).Name}");
+                try
+                {
+                    window.InternalDestroy();
+                }
+                catch (Exception inner)
+                {
+                    GameLog.Exception(LogCategories.UI, inner, $"Destroy window after create failure: {typeof(TWindow).Name}");
+                }
+
+                if (instance != null)
+                {
+                    Destroy(instance);
+                }
+
+                if (_opened.TryGetValue(typeof(TWindow), out var recorded) && ReferenceEquals(recorded, window))
+                {
+                    _opened.Remove(typeof(TWindow));
+                }
+
+                _stack.Remove(window);
+                throw;
+            }
+        }
+
+        bool TryReviveCached<TWindow>(Type windowType, object userData, out TWindow window)
+            where TWindow : UIWindow, new()
+        {
+            if (!_cached.TryGetValue(windowType, out var cached))
+            {
+                window = null;
+                return false;
+            }
+
+            _cached.Remove(windowType);
+            cached.UserData = userData;
+            cached.SetVisible(true);
+            RegisterWindow(cached);
+            cached.OnRefresh();
+            window = (TWindow)cached;
+            GameLog.Info(LogCategories.UI,
+                $"Revive cached {LogStyle.Name(windowType.Name)} policy={LogStyle.Value(cached.ReleasePolicy)}");
+            return true;
+        }
+
+        void CloseWindow(UIWindow window)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            switch (window.ReleasePolicy)
+            {
+                case UIReleasePolicy.HideOnly:
+                    HideWindow(window);
+                    break;
+                case UIReleasePolicy.Cached:
+                    CacheWindow(window);
+                    break;
+                case UIReleasePolicy.HideAndDelayUnload:
+                    ScheduleDelayedUnload(window);
+                    break;
+                default:
+                    DestroyWindow(window, force: true);
+                    break;
+            }
+        }
+
+        void HideWindow(UIWindow window)
+        {
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            _stack.Remove(window);
+            window.SetVisible(false);
+            GameLog.Info(LogCategories.UI,
+                $"Hide {LogStyle.Name(windowType.Name)} policy={LogStyle.Value(window.ReleasePolicy)}");
+            RefreshVisibility();
+        }
+
+        void CacheWindow(UIWindow window)
+        {
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            _stack.Remove(window);
+            _opened.Remove(windowType);
+            window.SetVisible(false);
+            _cached[windowType] = window;
+            GameLog.Info(LogCategories.UI,
+                $"Close {LogStyle.Name(windowType.Name)} cached policy={LogStyle.Value(window.ReleasePolicy)}");
+            RefreshVisibility();
+        }
+
+        void ScheduleDelayedUnload(UIWindow window)
+        {
+            CacheWindow(window);
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            var handle = GameCoroutine.StartGlobal(DelayedUnloadCoroutine(windowType, window.DelayUnloadSeconds));
+            _delayUnloadTimers[windowType] = handle;
+        }
+
+        IEnumerator DelayedUnloadCoroutine(Type windowType, float delaySeconds)
+        {
+            yield return new WaitForSeconds(delaySeconds);
+            _delayUnloadTimers.Remove(windowType);
+            if (!_cached.TryGetValue(windowType, out var window))
+            {
+                yield break;
+            }
+
+            _cached.Remove(windowType);
+            DestroyWindow(window, force: true);
+            GameLog.Info(LogCategories.UI,
+                $"Delay unload {LogStyle.Name(windowType.Name)} after {LogStyle.Value(delaySeconds)}s");
+        }
+
+        void CancelDelayedUnload(Type windowType)
+        {
+            if (windowType == null || !_delayUnloadTimers.TryGetValue(windowType, out var handle))
+            {
+                return;
+            }
+
+            handle.Stop();
+            _delayUnloadTimers.Remove(windowType);
+        }
+
+        void CancelAllDelayedUnloads()
+        {
+            if (_delayUnloadTimers.Count == 0)
+            {
+                return;
+            }
+
+            var timers = new List<ICoroutineHandle>(_delayUnloadTimers.Values);
+            for (var i = 0; i < timers.Count; i++)
+            {
+                timers[i].Stop();
+            }
+
+            _delayUnloadTimers.Clear();
+        }
+
+        void DestroyWindow(UIWindow window, bool force)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            if (!force && window.ReleasePolicy != UIReleasePolicy.DestroyImmediate)
+            {
+                CloseWindow(window);
+                return;
+            }
+
+            var windowType = window.GetType();
+            CancelDelayedUnload(windowType);
+            _opened.Remove(windowType);
+            _stack.Remove(window);
+            _cached.Remove(windowType);
+
+            var gameObject = window.GameObject;
+            var assetHandle = window.AssetHandle;
+            try
+            {
+                window.InternalDestroy();
+            }
+            finally
+            {
+                if (gameObject != null)
+                {
+                    Destroy(gameObject);
+                }
+
+                // 句柄立即释放。延后一帧会和下一轮加载的引用计数抢同一份资源。
+                if (assetHandle.IsValid)
+                {
+                    assetHandle.Dispose();
+                }
+            }
+
+            GameLog.Info(LogCategories.UI, $"Destroy {LogStyle.Name(windowType.Name)}");
+            RefreshVisibility();
+        }
+
+        void RegisterWindow(UIWindow window)
+        {
+            var windowType = window.GetType();
+            _opened[windowType] = window;
+            BringToTop(window);
+            RefreshVisibility();
+            GameLog.Info(LogCategories.UI, $"Open {LogStyle.Name(windowType.Name)} layer={LogStyle.Value(window.Layer)}");
+        }
+
+        void BringToTop(UIWindow window)
+        {
+            _stack.Remove(window);
+            var insertIndex = _stack.Count;
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                if ((int)_stack[i].Layer <= (int)window.Layer)
+                {
+                    insertIndex = i + 1;
+                    break;
+                }
+
+                insertIndex = i;
+            }
+
+            _stack.Insert(insertIndex, window);
+            RecalculateSortingOrders();
+        }
+
+        void RecalculateSortingOrders()
+        {
+            var layerCounters = new Dictionary<UILayer, int>();
+            for (var i = 0; i < _stack.Count; i++)
+            {
+                var window = _stack[i];
+                if (!layerCounters.TryGetValue(window.Layer, out var counter))
+                {
+                    counter = 0;
+                }
+
+                var sortingOrder = (int)window.Layer * LayerOrderStep + counter * WindowOrderStep;
+                window.SortingOrder = sortingOrder;
+
+                var canvas = window.GameObject != null ? window.GameObject.GetComponent<Canvas>() : null;
+                if (canvas != null)
+                {
+                    canvas.sortingOrder = sortingOrder;
+                }
+
+                layerCounters[window.Layer] = counter + 1;
+            }
+        }
+
+        void RefreshVisibility()
+        {
+            var blockBelow = false;
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                var window = _stack[i];
+                var visible = !blockBelow;
+                window.SetVisible(visible);
+
+                if (visible && window.FullScreen)
+                {
+                    blockBelow = true;
+                }
+            }
+        }
+
+        void EnsureLayer(UILayer layer)
+        {
+            if (_layerRoots.ContainsKey(layer))
+            {
+                return;
+            }
+
+            var layerGo = new GameObject(layer.ToString(), typeof(RectTransform));
+            var rect = layerGo.GetComponent<RectTransform>();
+            rect.SetParent(_uiRoot, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.localScale = Vector3.one;
+
+            var canvas = layerGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = (int)layer * LayerOrderStep;
+
+            var scaler = layerGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            layerGo.AddComponent<GraphicRaycaster>();
+            _layerRoots[layer] = rect;
+        }
+
+        void CreateInputBlocker()
+        {
+            var blocker = new GameObject("InputBlocker", typeof(RectTransform));
+            var rect = blocker.GetComponent<RectTransform>();
+            rect.SetParent(_uiRoot, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var canvas = blocker.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = InputBlockerSortingOrder;
+            blocker.AddComponent<GraphicRaycaster>();
+            var image = blocker.AddComponent<Image>();
+            image.color = Color.clear;
+            image.raycastTarget = true;
+            blocker.SetActive(false);
+            _inputBlocker = blocker;
+        }
+
+        void ReleaseInputBlock(int generation)
+        {
+            if (generation != _inputBlockGeneration || _inputBlockCount == 0)
+            {
+                return;
+            }
+
+            if (--_inputBlockCount == 0)
+            {
+                _inputBlocker.SetActive(false);
+            }
+        }
+
+        static bool BackPressedThisFrame()
+        {
+#if FRAMEWORK_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                return true;
+            }
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
+        /// <summary>一次 <see cref="BlockInput"/> 的释放句柄；所属 UIManager Shutdown 后释放无效果。</summary>
+        sealed class InputBlockScope : IDisposable
+        {
+            readonly UIManager _owner;
+            readonly int _generation;
+            bool _disposed;
+
+            public InputBlockScope(UIManager owner, int generation)
+            {
+                _owner = owner;
+                _generation = generation;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _owner.ReleaseInputBlock(_generation);
+            }
+        }
+
+        void EnsureEventSystem()
+        {
+            if (_eventSystemRoot != null)
+            {
+                return;
+            }
+
+            var existing = transform.Find("EventSystem");
+            if (existing != null)
+            {
+                _eventSystemRoot = existing;
+                return;
+            }
+
+            if (EventSystem.current != null)
+            {
+                _eventSystemRoot = EventSystem.current.transform;
+                return;
+            }
+
+#if FRAMEWORK_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM
+            var inputModule = typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule);
+#else
+            var inputModule = typeof(StandaloneInputModule);
+#endif
+            var eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), inputModule);
+            eventSystemGo.transform.SetParent(transform, false);
+            _eventSystemRoot = eventSystemGo.transform;
+        }
+
+        void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                Initialize();
+            }
+        }
+
+        static WindowMetadata ResolveMetadata(Type windowType)
+        {
+            var attribute = (UIWindowAttribute)Attribute.GetCustomAttribute(windowType, typeof(UIWindowAttribute));
+            return new WindowMetadata(
+                attribute?.Layer ?? UILayer.UI,
+                attribute?.FullScreen ?? false,
+                string.IsNullOrEmpty(attribute?.Location) ? UIPaths.Window(windowType) : attribute.Location,
+                attribute?.ReleasePolicy ?? UIReleasePolicy.DestroyImmediate,
+                attribute?.DelayUnloadSeconds ?? 30f,
+                attribute?.CloseOnBack ?? false);
+        }
+
+        readonly struct WindowMetadata
+        {
+            public WindowMetadata(
+                UILayer layer,
+                bool fullScreen,
+                string location,
+                UIReleasePolicy releasePolicy,
+                float delayUnloadSeconds,
+                bool closeOnBack)
+            {
+                Layer = layer;
+                FullScreen = fullScreen;
+                Location = location;
+                ReleasePolicy = releasePolicy;
+                DelayUnloadSeconds = delayUnloadSeconds;
+                CloseOnBack = closeOnBack;
+            }
+
+            public bool CloseOnBack { get; }
+
+            public UILayer Layer { get; }
+            public bool FullScreen { get; }
+            public string Location { get; }
+            public UIReleasePolicy ReleasePolicy { get; }
+            public float DelayUnloadSeconds { get; }
+        }
+
+        /// <inheritdoc />
+        protected override void OnDestroy()
+        {
+            Shutdown();
+            base.OnDestroy();
+        }
+    }
+}

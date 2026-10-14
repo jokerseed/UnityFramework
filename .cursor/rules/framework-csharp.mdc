@@ -1,6 +1,6 @@
 ---
 description: Framework C# 与 Unity 代码规范
-globs: Assets/**/*.cs
+globs: Assets/**/*.cs,Packages/**/*.cs
 alwaysApply: false
 ---
 
@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## 对外 API 注释（强制）
 
-`Assets/Framework/**` 下各模块**对外暴露**的类型与成员，必须使用 XML 文档注释（`///`），且**精确到每个参数 / 返回值 / 泛型参数 / 异常（若会抛）**。
+`Packages/com.jokerseed.framework.*/**` 下各模块**对外暴露**的类型与成员，必须使用 XML 文档注释（`///`），且**精确到每个参数 / 返回值 / 泛型参数 / 异常（若会抛）**。
 
 ### 范围（必须写）
 
@@ -89,7 +89,7 @@ public sealed class MyModule : IGameModule
 
 ### `Dependencies` 维护（修改模块时必做）
 
-凡改动 `Assets/Framework/**` 下实现 `IGameModule` 的模块，**必须同步更新 `Dependencies`**，不能只改 `Initialize` / `InitializeAsync` 而留空依赖。
+凡改动 `Packages/com.jokerseed.framework.*/**` 下实现 `IGameModule` 的模块，**必须同步更新 `Dependencies`**，不能只改 `Initialize` / `InitializeAsync` 而留空依赖。
 
 | 情况 | 要求 |
 |------|------|
@@ -139,17 +139,17 @@ public sealed class AudioManager : PersistentSingleton<AudioManager> { }
 
 ## 日志输出
 
-- **自有代码**（`Assets/Framework`、`Assets/Scripts`）运行时日志**只能**用 `GameLog`
+- **自有代码**（`Packages/com.jokerseed.framework.*`、`Assets/Scripts`）运行时日志**只能**用 `GameLog`
 - 须先 `LoggingModule` 初始化；分类用 `LogCategories`；重点用 `LogStyle.Name` / `Value` / `Ok` / `Fail`
 - **禁止**业务代码直接 `Debug.Log` / `LogWarning` / `LogError`（三方库、`Generated`、Logging 底层 Sink 除外）
-- 详见 `framework-logging.mdc`、`Assets/Framework/Logging/README.md`
+- 详见 `framework-logging.mdc`、`Packages/com.jokerseed.framework.core/Runtime/Logging/README.md`
 
 ## 协程生命周期
 
 - **自有代码**协程的启动/停止**只能**用 `GameCoroutine`（须先 `CoroutineModule`）
 - Unity 的 `StartCoroutine` / `StopCoroutine` / `StopAllCoroutines` **仅允许** `Framework.Coroutine` 与 `Framework.Bootstrap` 调用
 - 使用协程的 `IGameModule` 须在 `Dependencies` 声明 `typeof(CoroutineModule)`
-- 详见 `framework-coroutine.mdc`、`Assets/Framework/Coroutine/README.md`
+- 详见 `framework-coroutine.mdc`、`Packages/com.jokerseed.framework.core/Runtime/Coroutine/README.md`
 
 ## 禁止
 

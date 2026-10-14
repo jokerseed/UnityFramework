@@ -1,0 +1,17 @@
+{
+    "name": "Framework.ECS",
+    "rootNamespace": "Framework.ECS",
+    "references": [
+        "Framework.Battle.Core",
+        "Framework.FixedMath"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -2,6 +2,7 @@
     "name": "Game",
     "rootNamespace": "Game",
     "references": [
+        "UniTask",
         "Framework.Audio",
         "Framework.Bootstrap",
         "Framework.Config",
@@ -11,10 +12,12 @@
         "Framework.ECS",
         "Framework.Events",
         "Framework.GamePlay",
+        "Framework.GamePlay.Unity",
         "Framework.GamePlay.Luban",
         "Framework.ECS.Physics",
         "Framework.GAS",
         "Framework.FixedMath",
+        "Framework.FixedMath.Unity",
         "Framework.Logging",
         "Framework.MemoryPool",
         "Framework.Network",
@@ -23,7 +26,8 @@
         "Framework.UI",
         "Unity.InputSystem",
         "Generated.input",
-        "Generated.Luban"
+        "Generated.Luban",
+        "Luban.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

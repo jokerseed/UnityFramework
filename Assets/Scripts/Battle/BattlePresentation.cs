@@ -1,8 +1,9 @@
 using System;
 using Framework.Config;
+using Framework.FixedMath;
 using Framework.GamePlay;
 using Framework.GAS.Events;
-using Framework.Core;
+using Framework.Battle;
 using Framework.Logging;
 using UnityEngine;
 
@@ -35,7 +36,7 @@ namespace Game
             _framework = framework;
             _heroId = heroId;
 
-            var tables = ConfigManager.Instance.GetTables();
+            var tables = ConfigManager.Instance.GetTables<cfg.CfgTables>();
             _cuePresenter.Bind(tables.CfgTbCue);
 
             _onDamageDealt = OnDamageDealt;
@@ -103,7 +104,7 @@ namespace Game
         {
             if (_framework != null && _framework.Registry.TryGet(actorId, out var actor))
             {
-                return actor.Position;
+                return FPConversions.ToVector3(actor.SimPosition);
             }
 
             return null;
