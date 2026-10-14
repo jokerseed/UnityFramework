@@ -53,5 +53,23 @@ namespace Framework.Logging
 
         /// <summary>事件总线。</summary>
         public const string Events = "Events";
+
+        /// <summary>流程状态机。</summary>
+        public const string Procedure = "Procedure";
+
+        /// <summary>定时器。</summary>
+        public const string Timer = "Timer";
+
+        /// <summary>存档与设置。</summary>
+        public const string Save = "Save";
+
+        /// <summary>本地化。</summary>
+        public const string Localization = "Localization";
+
+        /// <summary>调试控制台。</summary>
+        public const string Debug = "Debug";
+
+        /// <summary>资源补丁（版本检查与下载）。</summary>
+        public const string Patch = "Patch";
     }
 }

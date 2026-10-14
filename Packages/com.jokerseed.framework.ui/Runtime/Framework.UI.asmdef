@@ -5,6 +5,7 @@
         "UniTask",
         "Framework.Core",
         "Framework.Logging",
+        "Framework.Localization",
         "Framework.Res",
         "Framework.Coroutine",
         "Framework.Events",

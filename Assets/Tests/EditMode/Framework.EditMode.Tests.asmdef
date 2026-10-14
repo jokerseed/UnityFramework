@@ -23,6 +23,11 @@
         "Framework.Bootstrap",
         "Framework.MemoryPool",
         "Framework.Network",
+        "Framework.Fsm",
+        "Framework.Timer",
+        "Framework.Save",
+        "Framework.Localization",
+        "Framework.DebugConsole",
         "Generated.Luban",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

@@ -1,0 +1,18 @@
+{
+    "name": "Framework.Save",
+    "rootNamespace": "Framework.Save",
+    "references": [
+        "UniTask",
+        "Framework.Core",
+        "Framework.Logging"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

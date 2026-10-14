@@ -32,6 +32,8 @@
     <Compile Include="$(Battle)GamePlay/**/*.cs" />
     <Compile Include="$(Core)Logging/**/*.cs" Exclude="$(Core)Logging/LoggingManager.cs;$(Core)Logging/LoggingModule.cs" />
     <Compile Include="$(Core)Events/**/*.cs" />
+    <Compile Include="$(Core)Fsm/Fsm.cs;$(Core)Fsm/FsmState.cs" />
+    <Compile Include="$(Core)DebugConsole/DebugCommandRegistry.cs" />
     <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.battle/Editor/Determinism/DeterminismRules.cs" />
   </ItemGroup>
 
