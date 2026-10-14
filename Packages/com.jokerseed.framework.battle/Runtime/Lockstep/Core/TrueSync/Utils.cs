@@ -41,8 +41,11 @@ namespace Framework.Lockstep
 			Encoder encoder = Encoding.Unicode.GetEncoder();
 			byte[] array = new byte[str.Length * 2];
 			encoder.GetBytes(str.ToCharArray(), 0, str.Length, array, 0, true);
-			MD5 mD = new MD5CryptoServiceProvider();
-			byte[] array2 = mD.ComputeHash(array);
+			byte[] array2;
+			using (MD5 mD = MD5.Create())
+			{
+				array2 = mD.ComputeHash(array);
+			}
 			StringBuilder stringBuilder = new StringBuilder();
 			for (int i = 0; i < array2.Length; i++)
 			{
