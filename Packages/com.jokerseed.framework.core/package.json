@@ -2,7 +2,7 @@
   "name": "com.jokerseed.framework.core",
   "version": "0.1.0",
   "displayName": "Framework Core",
-  "description": "Module bootstrap with dependency ordering, logging, zero-GC event bus, coroutine lifetime, memory pool and object pool.",
+  "description": "Module bootstrap with dependency ordering (UniTask), logging, zero-GC event bus, coroutine lifetime, pools, FSM/procedures, timers, save/settings storage, localization and a runtime debug console.",
   "unity": "2021.3",
   "license": "MIT",
   "author": {

@@ -1,286 +1,200 @@
-# Framework.Battle
+# UnityFramework
 
-Unity **2021.3 LTS** 战斗框架：**GAS 规则权威 + ECS 模拟 + Luban 配置 + YooAsset 资源 + 帧同步基座**。
+[English](README.en.md) · [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md) · [MIT License](LICENSE)
 
-面向需要「配置驱动战斗、可渐进接入锁步」的 Unity 项目。这是**模块化战斗基座**，不是 ET 式整包服务端框架。
+Unity **2021.3 LTS** 客户端框架：模块化启动、资源与热更、配置表、UI、网络、音频，以及一套可选的**确定性战斗套件**（定点数、锁步回滚、GAS、ECS、行为树）。异步统一使用 **UniTask**，可以跑在移动端、PC 与 WebGL / 小游戏上。
 
-> **当前能力边界：** 支持等输入锁步基座（FixedMath / Lockstep 类型迁移）与逻辑帧行为树；**预测回滚未接线**（已有 `ISnapshotable`，ECS 与确定性随机可往返，GAS / 物理接触 / 行为树还不能还原）；**反作弊未接线**（checksum 类型已迁，内存混淆 `Obscured*` 刻意未进 FixedMath）。详见 [帧同步与回滚](#帧同步与回滚)、[反作弊](#反作弊)。
+框架代码按功能拆成 7 个嵌入式 UPM 包（`Packages/com.jokerseed.framework.*`），每个功能一个 asmdef，按需引用。`Assets/Scripts` 是演示业务层，不被框架引用。
 
-[快速开始](#快速开始) · [架构](#架构) · [帧同步与回滚](#帧同步与回滚) · [反作弊](#反作弊) · [模块](#模块) · [行为树](#行为树-ai) · [AI 选型](#ai-选型说明) · [对比](#与常见方案对比) · [Roadmap](#roadmap) · [文档](#文档)
-
----
-
-## 为什么用这个框架
-
-| 特点 | 说明 |
-|------|------|
-| **规则与模拟分离** | GAS 管伤害/技能/Tag；ECS 管位置、碰撞、弹道 |
-| **国内项目常用栈** | Luban 打表 + YooAsset 热更；Editor 菜单一键工具链 |
-| **模块可组合** | `IGameModule` + `GameBootstrap` 拓扑启动，按 asmdef 按需引用 |
-| **帧同步可演进** | 单机已有 `LocalLockstepHost`；网络 `ICommunicator` 与预测回滚未接 |
-| **文档即示例** | 各模块 README 承载演示与验证，不单独维护 Samples 程序集 |
+[快速开始](#快速开始) · [包与模块](#包与模块) · [启动流程](#启动流程) · [战斗套件](#战斗套件) · [工具链](#工具链) · [测试与-ci](#测试与-ci) · [依赖](#依赖) · [许可](#许可)
 
 ---
-
-## 帧同步与回滚
-
-| 项 | 状态 |
-|----|------|
-| 定点数学（`Framework.FixedMath`） | ✅ 已迁移 |
-| 锁步调度类型（`DefaultLockstep` / `RollbackLockstep` / `StateTracker`） | ✅ 已迁移（底层） |
-| `LockstepHost` / 与 GamePlay 对接 | ✅ `LockstepHost` 等输入；`LoopbackHub` 供测试。真实网络未接。`LocalLockstepHost` 仍是单机意图帧 |
-| 战斗演示（Battle） | ⚠️ 本地固定步长 + 意图帧 + F8 对拍；尚未联机 |
-| **预测回滚 / 状态快照** | ✅ `LockstepHost` 按检查点回滚重放。检查点含 GAS、ECS、随机数和 Farseer 接触克隆。行为树游标未纳入。旧 `RollbackLockstep` 仍未接线 |
-| 本地录像对拍 Demo | ⚠️ 战斗内 F8 影子 Session 对拍（非独立示例工程） |
-
-说明：Client 原项目亦使用 `rollbackWindow: 0`（等输入锁步，不开回滚）。Framework 当前目标与之对齐；回滚快照在 Roadmap 中单独规划。
-
-详情：[Lockstep/README.md](Assets/Framework/Lockstep/README.md)
-
-## 反作弊
-
-锁步战斗的主权威在「同输入 → 同结果」；反作弊分两层：**同步完整性**（检测不同步/篡改）与 **内存混淆**（防改内存）。
-
-| 项 | 状态 | 说明 |
-|----|------|------|
-| 帧校验和类型（`ChecksumExtractor` / `SyncedInfo` / `checksumOk`） | ⚠️ 已迁移底层 | 未接 `LockstepHost` / GamePlay；尚无线上对拍 |
-| 录像对拍（`ReplayRecord*`） | ⚠️ 类型已迁 | 无 Demo；与 `NullCommunicator` 一并规划 |
-| 内存混淆（Client `Obscured*` ↔ `FP`） | ❌ **未接入** | 迁 FixedMath 时刻意剥离，保持数学库无反作弊依赖 |
-| 可选 `Obscured` ↔ `FP` 适配层 | ❌ 未做 | 仅在进出定点边界转换；不进热路径 |
-| 服务端权威校验 / 风控服务 | ❌ 未做 | 属业务侧；框架不内置 |
-
-设计约定：
-
-- **`Framework.FixedMath` 保持纯数学**：不引用 Anti-Cheat 程序集；数值路径与 Client 定点算法一致。
-- 若业务需要内存混淆：在业务或薄适配层用 `Obscured*` 存盘，进出逻辑时 `GetDecrypted()` → `FP`（与 Client 原「边界转换」模式一致），**不要**把混淆塞进 `Sin`/`TSVector` 内部。
-- 锁步场景优先靠 **checksum + 录像回放对拍** 发现作弊/不同步；内存混淆是补充，不是替代。
-
-详情：[FixedMath/README.md](Assets/Framework/FixedMath/README.md)、[Lockstep/README.md](Assets/Framework/Lockstep/README.md)
 
 ## 快速开始
 
-### 环境要求
+### 环境
 
-- Unity **2021.3 LTS**（项目当前：`2021.3.21f1`）
-- 克隆后用 Unity 打开仓库根目录 `Framework/`（含 `Assets/`、`Framework.sln`）
+- Unity **2021.3**（当前 `2021.3.21f1`）
+- .NET 8 SDK（打表与 `dotnet test`；只跑游戏可以不装）
 
-### 1. 生成 Luban 配置
+### 运行演示
 
-```bat
-Config\Luban\gen_client.bat
+1. 用 Unity 打开仓库根目录
+2. 打开 `Assets/Bundles/Scenes/Launch.unity` 并 Play
+3. Console 中看到模块组 `launch` Ready，弹出主界面；进入 Battle 可看到 GAS 施法 + ECS 弹道
+
+Editor 下 `ResourceManager` 默认 `EditorSimulateMode`，不需要先打 Bundle。
+
+### 在自己的项目里使用
+
+把需要的包目录拷到你工程的 `Packages/` 下（或用 Git URL 引用），并在 `manifest.json` 中加入它们依赖的 UniTask / YooAsset / Luban：
+
+```json
+"com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.11",
+"com.tuyoogame.yooasset": "3.0.5",
+"com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git"
 ```
 
-或在 Unity：**Tools → Luban → Generate Client Config**
+最小启动代码：
 
-产出：
+```csharp
+using Cysharp.Threading.Tasks;
+using Framework.Bootstrap;
+using Framework.Config;
+using Framework.Core;
+using Framework.Coroutine;
+using Framework.Logging;
+using Framework.Res;
+using Framework.UI;
+using UnityEngine;
 
-| 类型 | 路径 |
+public sealed class Launch : MonoBehaviour
+{
+    async UniTaskVoid Start()
+    {
+        var bootstrap = GameBootstrap.Instance;
+        var group = bootstrap.SetModules("launch", new IGameModule[]
+        {
+            new LoggingModule(),
+            new CoroutineModule(),
+            new ResourceModule(),
+            new UIModule(),
+            ConfigModule.Create(loader => new cfg.CfgTables(loader)),
+        });
+        await bootstrap.RunAsync("launch", this.GetCancellationTokenOnDestroy());
+        if (group.State == ModuleGroupState.Ready)
+        {
+            UIManager.Instance.Show<MainUIWindow>();
+        }
+    }
+}
+```
+
+`RunAsync` 不因模块失败而抛异常，结果看 `ModuleGroup.State`，或订阅它的 `Ready` / `Failed` 事件。完整示例见 `Assets/Scripts/Launch.cs`。
+
+---
+
+## 包与模块
+
+| 包 | 模块 | 说明 |
+|----|------|------|
+| **core** | [Bootstrap](Packages/com.jokerseed.framework.core/Runtime/Bootstrap/README.md) | `IGameModule` 按依赖拓扑排序，分波并行异步初始化，失败回滚 |
+| | [Core](Packages/com.jokerseed.framework.core/Runtime/Core/README.md) | 模块契约、`PersistentSingleton<T>` |
+| | [Logging](Packages/com.jokerseed.framework.core/Runtime/Logging/README.md) | `GameLog` 分级 / 分类 / 多 Sink |
+| | [Events](Packages/com.jokerseed.framework.core/Runtime/Events/README.md) | 零 GC 事件总线、`GameEvent` |
+| | [Coroutine](Packages/com.jokerseed.framework.core/Runtime/Coroutine/README.md) | 协程生命周期（Global / Scene / GameObject） |
+| | [MemoryPool](Packages/com.jokerseed.framework.core/Runtime/MemoryPool/README.md) / [ObjectPool](Packages/com.jokerseed.framework.core/Runtime/ObjectPool/README.md) | 内存池、对象池 |
+| | [Fsm](Packages/com.jokerseed.framework.core/Runtime/Fsm/README.md) | 通用状态机与流程（Procedure） |
+| | [Timer](Packages/com.jokerseed.framework.core/Runtime/Timer/README.md) | 延时 / 重复 / 下一帧定时器，可绑定 owner 自动取消 |
+| | [Save](Packages/com.jokerseed.framework.core/Runtime/Save/README.md) | 存档与设置（原子写文件、可替换存储与序列化） |
+| | [Localization](Packages/com.jokerseed.framework.core/Runtime/Localization/README.md) | 多语言、回退语言、格式化 |
+| | [DebugConsole](Packages/com.jokerseed.framework.core/Runtime/DebugConsole/README.md) | 运行时日志查看与命令行 |
+| **res** | [Res](Packages/com.jokerseed.framework.res/Runtime/README.md) | YooAsset 封装：分帧调度加载、场景、作用域、`ResourcePatcher` 补丁下载 |
+| | [HotUpdate](Packages/com.jokerseed.framework.res/Runtime/HotUpdate/README.md) | HybridCLR 热更程序集加载（可选） |
+| **config** | [Config](Packages/com.jokerseed.framework.config/Runtime/README.md) | Luban 表按需加载与缓存，WebGL 下异步预热 |
+| **ui** | [UI](Packages/com.jokerseed.framework.ui/Runtime/README.md) | 五层窗口栈、释放策略、异步打开、返回键、输入屏蔽、安全区、本地化文本 |
+| **audio** | [Audio](Packages/com.jokerseed.framework.audio/Runtime/README.md) | BGM / SFX 双通道 |
+| **network** | [Network](Packages/com.jokerseed.framework.network/Runtime/README.md) | TCP / WebSocket（含 WebGL）频道、心跳、`NetworkRpcClient` |
+| **battle** | 见 [战斗套件](#战斗套件) | 确定性战斗，可以完全不用 |
+
+架构与依赖关系见 [docs/architecture.md](docs/architecture.md)。
+
+---
+
+## 启动流程
+
+`GameBootstrap` 只负责调度：模块在 `Dependencies` 里声明依赖，按拓扑分波初始化；同一波的模块都声明了 `AllowConcurrentInitialization` 时并行初始化；任一模块失败或被取消时，已初始化的模块按逆序 `Shutdown`，模块组进入 `Failed`，`RunAsync` 不抛异常，结果通过 `ModuleGroup` 事件和状态查询。
+
+典型的热更启动顺序：
+
+```
+ResourceManager.InitializeAsync      // 请求最新版本 + 加载 Manifest
+  → ResourcePatcher.DownloadAsync    // 统计并下载需要更新的 Bundle（可提示大小、显示进度）
+  → HotUpdateLoader.LoadAsync        // 可选：HybridCLR 补充元数据 + 加载热更 DLL
+  → ConfigManager.PreloadTableAssetsAsync
+  → ProcedureManager.StartProcedure<MainMenuProcedure>()
+```
+
+---
+
+## 战斗套件
+
+`com.jokerseed.framework.battle` 是一套独立的确定性战斗基座，面向需要「配置驱动战斗 + 可联机锁步」的项目：
+
+| 部分 | 状态 |
 |------|------|
-| C#（Luban） | `Assets/Generated/Luban/` |
-| C#（Input） | `Assets/Generated/Input/` |
-| 二进制 | `Assets/Bundles/Configs/*.bytes` |
-| JSON（调试） | `Config/Luban/Output/json/` |
+| 定点数学 `FP` / `TSVector`（LUT 三角函数） | ✅ 跨平台逐位一致，CI 在 Linux / Windows 上对同一 golden 录像校验 |
+| GAS（技能、效果、属性、Tag） | ✅ 规则权威，Luban 装配 |
+| ECS（位置、碰撞、投射物） | ✅ 只存模拟数据 |
+| 确定性物理（Farseer 2D，Jitter 3D 可选） | ✅ ID 计数器按 World 隔离，可多场并存 |
+| 行为树（逻辑帧 Tick，可视化编辑器） | ✅ |
+| `LockstepHost` 等输入锁步 + 检查点回滚 | ✅ 检查点含 GAS / ECS / 随机数 / 物理 / 行为树；输入带 `BattleSimulationVersion`，版本不一致立即停止 |
+| 录像与对拍 | ✅ `BattleReplayRecorder` / `BattleReplayVerifier` |
+| 真实联机传输 | ⚠️ 框架只定义 `ICommunicator`；测试使用内存环回，网关需项目自行接入（可基于 `Framework.Network`） |
+| 内存反作弊 | ❌ 不内置；`FixedMath` 保持纯数学，需要时在边界转换 |
 
-### 2. 生成 YooAsset Collector
-
-**Tools → YooAsset → Generate Collector**
-
-### 3. 运行 Launch 场景
-
-1. 打开 `Assets/Bundles/Scenes/Launch.unity`
-2. Play
-3. Console 应看到模块组 `launch` Ready，并弹出主界面
-
-> Editor 下 `ResourceManager` 可使用 **EditorSimulateMode**，不必先打真实 Bundle。
-
-### 4. （可选）战斗演示
-
-1. 从主界面进入 Battle（或打开 `Assets/Bundles/Scenes/Battle.unity`）
-2. 由 `BattleBootstrap` 驱动：`GamePlayFramework` + GAS 施放 Fireball + ECS 弹道 + 表现层跟随
+改变逐帧结果的改动必须把 `BattleSimulationVersion.Current` 加一并更新 golden 录像，否则 CI 失败。详见 [GamePlay](Packages/com.jokerseed.framework.battle/Runtime/GamePlay/README.md)、[Lockstep](Packages/com.jokerseed.framework.battle/Runtime/Lockstep/README.md)、[GAS](Packages/com.jokerseed.framework.battle/Runtime/GAS/README.md)、[ECS](Packages/com.jokerseed.framework.battle/Runtime/ECS/README.md)、[BehaviourTree](Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/README.md)、[FixedMath](Packages/com.jokerseed.framework.battle/Runtime/FixedMath/README.md)。
 
 ---
 
-## 架构
+## 工具链
 
-```
-GameBootstrap (Host)
-    │
-    ├── Logging / Coroutine / MemoryPool / ObjectPool
-    ├── ResourceManager (YooAsset 唯一运行时入口)
-    │       ├── ConfigManager (Luban)
-    │       └── GamePlayFramework
-    │               ├── GAS（规则权威）
-    │               └── ECS（模拟层）
-    │
-    └── FixedMath / Lockstep / LockstepPhysics / BehaviourTree（按需引用，非 IGameModule）
-```
+编辑器工具都在 **Tools → Framework** 下，路径配置在 **Project Settings → Framework**：
 
-**战斗 Tick 顺序：**
-
-```
-GAS Tick → Flush Spawn → ECS Tick → Flush Damage → Sync Positions
-```
-
-更完整的模块依赖图见 [Assets/Framework/README.md](Assets/Framework/README.md)。
-
----
-
-## 模块
-
-| 程序集 | 职责 |
-|--------|------|
-| `Framework.Bootstrap` | 多组模块编排、`IGameModule` 拓扑启动 |
-| `Framework.GAS` | ASC、技能、Effect、Tag、伤害管线 |
-| `Framework.ECS` | World、System、空间哈希、投射物 |
-| `Framework.GamePlay` | 玩法入口；Luban → GAS 装配 |
-| `Framework.Config` | Luban 按需加载与 Tables 缓存 |
-| `Framework.Res` | YooAsset 封装（加载/释放唯一入口） |
-| `Framework.Events` | `IEventBus` / 零 GC 事件 |
-| `Framework.Logging` | `GameLog` 统一日志 |
-| `Framework.Coroutine` | 协程生命周期管理 |
-| `Framework.MemoryPool` / `ObjectPool` | 内存池 / 对象池 |
-| `Framework.UI` | `UIManager` / `UIWindow` |
-| `Framework.FixedMath` | 确定性定点数（锁步基座 A） |
-| `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） |
-| `Framework.LockstepPhysics` | Farseer 2D（基座 D）；Jitter 3D 为可选程序集 `Framework.LockstepPhysics.Jitter` |
-| `Framework.BehaviourTree` | 帧同步行为树运行时 + 可视化编辑器 |
-| `Framework.Editor` | Luban / YooAsset Editor 工具 |
-
----
-
-## 行为树 AI
-
-帧同步友好的轻量行为树：**逻辑帧手动 Tick**，禁止 Unity 时间/协程作为权威路径。
-
-| 能力 | 入口 |
+| 菜单 | 作用 |
 |------|------|
-| 可视化编辑 | **Tools → Behaviour Tree → Editor** |
-| 创建配置资产 | **Tools → Behaviour Tree → Create Tree Asset** |
-| JSON 导出 | 编辑器工具栏 **Export JSON**（`*.bt.json`） |
-| 运行时加载 | `BtTreeLoader.Load(asset, customRegistry)` |
+| Config → Generate Luban Config | 调用 `dotnet Luban.dll` 打表并校验生成代码前缀（Windows / macOS 一致，不需要 Python） |
+| Res → Generate YooAsset Collector | 按设置生成 Collector |
+| Behaviour Tree → Editor | 行为树编辑器 |
+| Battle → Scan Determinism | 扫描模拟层的非确定性 API |
 
-自定义业务节点：实现 `IBtNodeRegistry`，在编辑器中使用 **Custom Action / Custom Condition**。
-
-详见 [Assets/Framework/BehaviourTree/README.md](Assets/Framework/BehaviourTree/README.md)。
+命令行打表：`Config/Luban/gen_client.bat` / `gen_client.sh`。详见 [docs/editor-tools.md](docs/editor-tools.md)。
 
 ---
 
-## AI 选型说明
+## 测试与 CI
 
-本框架 **当前 AI 权威路径是行为树**（`Framework.BehaviourTree` + 可选第三方 Behavior Designer Manual Tick）。下列 Unity 生态「AI」能力职责不同，**默认不接入**，仅作选型记录，避免与生成式 AI / 寻路 / 训练混为一谈。
+| 套件 | 位置 | 运行 |
+|------|------|------|
+| 引擎无关层（FixedMath、Lockstep、ECS、GAS、FSM 等）+ golden 录像 | `tests/Framework.Sim.Tests` | `dotnet test tests/Framework.Sim.Tests` |
+| Unity EditMode | `Assets/Tests/EditMode` | Test Runner，或 `Unity -batchmode -runTests -testPlatform EditMode` |
 
-| 能力 | 干什么 | 与本框架关系 | 版本注意 |
-|------|--------|--------------|----------|
-| **BehaviourTree / BD** | 决策：打谁、放技能、切换状态 | ✅ **已用 / 主路径**是 `Framework.BehaviourTree`；BD 1.7.4 编辑器代码另放，许可见 BehaviourTree README | 2021.3 可用；BD 无定点，数值仍靠 FixedMath/GAS |
-| **NavMesh** | 传统寻路：走到目标、绕障 | ❌ 未接；3D 关卡移动时再评 | 各版本均有；**不替代**行为树决策 |
-| **ML-Agents** | 强化学习：在编辑器里**训练**智能体 | ❌ 未规划；成本高，商用不如 BT 常见 | 看具体包版本；与锁步确定性冲突大 |
-| **Sentis** | 运行时**推理**神经网络（ONNX 等） | ❌ 未规划；有现成模型再评 | 2021.3 / 2022.3 / Unity 6 均可；接替 Barracuda |
-| **Unity AI（原 Muse）** | 编辑器内生成式辅助（Chat 等） | ❌ 国内难用正规路径 | **仅 Unity 6.0+**；国内 Unity 6 已下架，对应看 **团结 CodeAI** |
-| **Cursor + Unity MCP** | 工程外 AI 写代码 / 控编辑器 | ✅ 开发期可用，与运行时无关 | 不依赖 Unity 大版本 |
-
-对照记忆：
-
-- **NavMesh** = 怎么走过去  
-- **行为树** = 要不要打、放哪个技能（本框架默认）  
-- **ML-Agents** = 花大力气把决策「练」出来  
-- **Sentis** = 把现成神经网络塞进包体里算  
-- **Unity AI / 团结 CodeAI** = 帮人写资源与代码，不是战斗 AI  
+`.github/workflows/ci.yml` 在每次 push / PR 上于 Linux 与 Windows 运行 `dotnet test` 和确定性扫描；`editmode-tests.yml` 需要手动触发，并要先在仓库 Secret 中配置 Unity 许可证。
 
 ---
 
-## 与常见方案对比
+## 依赖
 
-| | **Framework.Battle** | ET | 纯 GAS 插件 | Behavior Designer |
-|--|----------------------|-----|-------------|-------------------|
-| **定位** | 战斗 + 锁步基座 | 全栈游戏框架 | 仅 GAS | 仅 AI 编辑器 |
-| **配置** | Luban | Luban / 自研 | 各异 | SO / JSON |
-| **资源** | YooAsset 统一封装 | 自研 / 多种 | 无 | 无 |
-| **帧同步** | 等输入锁步基座已迁移；**回滚快照未实现** | 有 LS 体系 | 通常无 | 需 Manual Tick |
-| **预测回滚** | ❌ 未实现 | 视项目而定 | 无 | 无 |
-| **上手成本** | 中等（工具链完整） | 高 | 低（仅 GAS） | 低（仅 AI） |
+| 包 | 用途 | 许可 |
+|----|------|------|
+| [UniTask](https://github.com/Cysharp/UniTask) 2.5.11 | 异步 | MIT |
+| [YooAsset](https://github.com/tuyoogame/YooAsset) 3.0.5 | 资源包管理（`LocalPackages/` 本地包） | Apache-2.0 |
+| [luban_unity](https://github.com/focus-creative-games/luban_unity) | 配置表运行时 | MIT |
+| [HybridCLR](https://github.com/focus-creative-games/hybridclr) | 热更（可选，未内置） | MIT |
+| Newtonsoft.Json（Unity 官方包） | 行为树 JSON | MIT |
+
+完整清单见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+> **注意：** `Assets/ThirdParty/` 下的 Animancer、Odin Inspector、DOTween Pro、Spine、Behavior Designer 等是商业 / Asset Store 插件，仅用于作者本地开发与演示，**不在 MIT 许可范围内**，也不能随本仓库再分发给你使用。框架包本身不依赖它们。
 
 ---
 
 ## 目录结构
 
 ```
-Framework/
-├── Assets/
-│   ├── Scripts/                    # 业务程序集 Game（Launch、BattleBootstrap）
-│   ├── Framework/                  # 框架源码（各模块 README）
-│   ├── Generated/                  # 工具生成代码（勿手改）
-│   │   ├── Luban/                  # Luban 配置 C#
-│   │   └── Input/                  # Input System 包装类
-│   ├── Settings/Input/             # Input Actions 资产
-│   └── Bundles/                    # 场景、配置、Prefab（YooAsset 收集）
-├── Config/Luban/                   # 策划表 & 打表脚本
-├── Packages/manifest.json          # UPM：Luban Runtime、YooAsset
-└── README.md
+├── Packages/com.jokerseed.framework.*/   # 框架包（Runtime / Editor / README）
+├── Assets/Scripts/                       # 演示业务层（程序集 Game）
+├── Assets/Tests/EditMode/                # Unity 测试
+├── Assets/Generated/                     # 生成代码（Luban / Input），勿手改
+├── Assets/Bundles/                       # 场景、配置、Prefab（YooAsset 收集）
+├── Config/Luban/                         # 策划表（Excel 为唯一数据源）与打表脚本
+├── tests/Framework.Sim.Tests/            # dotnet 测试
+├── tools/Framework.LutTools/             # 定点 LUT 维护工具
+└── docs/                                 # 架构与工具文档
 ```
 
 ---
 
-## 依赖
+## 许可
 
-| 包 | 来源 | 用途 |
-|----|------|------|
-| `com.code-philosophy.luban` | Git UPM | 运行时 `ByteBuf` |
-| `com.tuyoogame.yooasset` | OpenUPM | 资源包管理 |
-
----
-
-## Roadmap
-
-- [x] GAS + ECS + Luban + YooAsset 主链路
-- [x] Launch 模块启动 + Battle 演示（Fireball / 弹道）
-- [x] FixedMath / Lockstep / LockstepPhysics 基座（自 Client TrueSync 迁移）
-- [x] BehaviourTree 运行时 + 可视化编辑器 + JSON 导出
-- [x] 行为树热更资源：`.bt.json` 导出 / YooAsset 加载 / 模板缓存 / `BattleAgent` 运行时替换
-- [x] 单机玩法打磨：控制/死亡/Tag 计数、冷却 GE、伤害管线、AOE/弹道变体、移动、BT 接线
-- [x] 单机 `LocalLockstepHost` + 意图帧队列 + 本地录像对拍（F8）
-- [x] `LockstepHost` + `ILockstepSimulation` + `LoopbackHub`（等输入；无真实套接字）
-- [ ] 联机网关（Photon / 自研传输）。测试只用内存环回
-- [x] GamePlay 固定逻辑帧 + FP 战斗对接（`BattleSession.Step`）
-- [x] **预测回滚**：`LockstepHost` 用 GAS / ECS / 随机数 / `BattlePhysicsSnapshot` 检查点重放。行为树游标和旧 `RollbackLockstep` 仍未接
-- [ ] **反作弊：帧 checksum 接线**（接 Host，暴露 `checksumOk` / 对拍告警）
-- [ ] **反作弊：可选 Obscured ↔ FP 适配**（边界转换；FixedMath 仍保持无依赖）
-- [ ] 根目录 LICENSE、CONTRIBUTING、CI 编译
-- [ ] （可选）3D 关卡需求出现时评估 **NavMesh** 与 BT/移动对接
-- [ ] （可选，默认不做）**Sentis** / **ML-Agents** 选型评审（与锁步确定性冲突需单独设计）
-- [ ] （可选）引擎升级路径记录：国际版 **2022.3 LTS** vs 国内 **团结**；Unity AI 仅 6.0+ / 国内看团结 CodeAI
-
----
-
-## 文档
-
-| 文档 | 说明 |
-|------|------|
-| [Assets/Framework/README.md](Assets/Framework/README.md) | 框架总览、依赖图、工具链 |
-| [GAS](Assets/Framework/GAS/README.md) | 技能、效果、ASC |
-| [ECS](Assets/Framework/ECS/README.md) | 模拟层 |
-| [GamePlay](Assets/Framework/GamePlay/README.md) | 玩法入口与战斗示例 |
-| [Lockstep](Assets/Framework/Lockstep/README.md) | 锁步基座与缺口说明 |
-| [BehaviourTree](Assets/Framework/BehaviourTree/README.md) | AI 行为树 |
-| [Generated](Assets/Generated/README.md) | Luban / Input 生成代码说明 |
-
----
-
-## 贡献
-
-欢迎 Issue 与 Pull Request。
-
-- 请先阅读各模块 README 与 `.cursor/rules/` 中的项目约定（若你也在用 Cursor 协作）
-- 新增 `IGameModule` 时须同步维护 `Dependencies`
-- 运行时资源 / 日志 / 协程请走框架统一入口（`ResourceManager` / `GameLog` / `GameCoroutine`）
-
-> **License 与 CONTRIBUTING 待补充**（计划 MIT，确认后将添加 `LICENSE` 文件）。
-
----
-
-## 截图（待补充）
-
-建议后续添加：
-
-1. Launch 运行 — 模块 Ready + 主界面
-2. Battle Demo — Hero 施放 Fireball
-3. Behaviour Tree 编辑器节点图
+框架自研代码使用 [MIT License](LICENSE)。第三方组件保留各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [行为准则](CODE_OF_CONDUCT.md)；安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。

@@ -2,7 +2,7 @@
   "name": "com.jokerseed.framework.ui",
   "version": "0.1.0",
   "displayName": "Framework UI",
-  "description": "uGUI window manager: layers, window stack, release policies and async opening through Framework Resource.",
+  "description": "uGUI window manager: layers, window stack, release policies, async opening, back-key routing, input blocking, safe area and localized text.",
   "unity": "2021.3",
   "license": "MIT",
   "author": {

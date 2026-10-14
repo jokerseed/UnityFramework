@@ -23,6 +23,7 @@
 
 | 组件 | 位置 / 获取方式 | 许可 | 来源 |
 |---|---|---|---|
+| UniTask 2.5.11 | `Packages/manifest.json` Git 依赖 | MIT | https://github.com/Cysharp/UniTask |
 | YooAsset 3.0.5 | `LocalPackages/YooAsset-3.0.5`（本地包） | Apache-2.0 | https://github.com/tuyoogame/YooAsset |
 | Luban 4.11.0（打表工具） | `ThirdParty/luban-4.11.0` | MIT | https://github.com/focus-creative-games/luban |
 | luban_unity（`Luban.Runtime`） | `Packages/manifest.json` Git 依赖 | MIT | https://github.com/focus-creative-games/luban_unity |

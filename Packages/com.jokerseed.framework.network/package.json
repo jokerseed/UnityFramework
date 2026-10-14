@@ -2,7 +2,7 @@
   "name": "com.jokerseed.framework.network",
   "version": "0.1.0",
   "displayName": "Framework Network",
-  "description": "Network channels with pluggable packet helpers, heartbeats and main-thread dispatch.",
+  "description": "TCP and WebSocket (including WebGL) channels with pluggable packet helpers, heartbeats, main-thread dispatch and request/response RPC with timeouts.",
   "unity": "2021.3",
   "license": "MIT",
   "author": {
