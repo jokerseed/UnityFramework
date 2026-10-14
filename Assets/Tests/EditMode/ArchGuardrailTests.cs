@@ -13,7 +13,7 @@ using NUnit.Framework;
 
 namespace Framework.Tests
 {
-    /// <summary>阶段 6：扫描器范围、普通伤害结算和固定帧等待。不改模拟公式。</summary>
+    /// <summary>扫描器范围、普通伤害结算和固定帧等待。不改模拟公式。</summary>
     public sealed class ArchGuardrailTests
     {
         [Test]

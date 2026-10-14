@@ -6,8 +6,8 @@ using NUnit.Framework;
 
 namespace Framework.Tests
 {
-    /// <summary>阶段 3：叠层乘法和黑板恢复不要留下更新的对象。</summary>
-    public sealed class BattleP1Tests
+    /// <summary>叠层乘法和黑板恢复不要留下更新的对象。</summary>
+    public sealed class GasEffectRegressionTests
     {
         [Test]
         public void SingleStackMultiplyStaysLinearAndExtraStacksDoNotScaleTheWholeFactor()

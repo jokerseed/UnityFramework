@@ -13,8 +13,8 @@ using UnityEngine.TestTools;
 
 namespace Framework.Tests
 {
-    /// <summary>阶段 5：事件分发、模块依赖和嵌套协程的 EditMode 覆盖。</summary>
-    public sealed class InfraP1Tests
+    /// <summary>事件分发、模块依赖和嵌套协程的 EditMode 覆盖。</summary>
+    public sealed class CoreInfrastructureTests
     {
         struct ProbeEvent
         {

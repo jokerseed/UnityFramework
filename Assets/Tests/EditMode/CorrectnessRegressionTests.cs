@@ -23,8 +23,8 @@ using UnityEngine.TestTools;
 
 namespace Framework.Tests
 {
-    /// <summary>阶段 1 的 P0：伤害为 0、空间查询、冷却、启动失败、单例退出标志、内存池锁。</summary>
-    public sealed class P0CorrectnessTests
+    /// <summary>回归用例：伤害为 0、空间查询、冷却、启动失败、单例退出标志、内存池锁。</summary>
+    public sealed class CorrectnessRegressionTests
     {
         [Test]
         public void ZeroPipelineDamageStaysZero()
