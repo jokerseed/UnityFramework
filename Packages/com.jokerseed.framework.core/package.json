@@ -1,0 +1,23 @@
+{
+  "name": "com.jokerseed.framework.core",
+  "version": "0.1.0",
+  "displayName": "Framework Core",
+  "description": "Module bootstrap with dependency ordering, logging, zero-GC event bus, coroutine lifetime, memory pool and object pool.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "author": {
+    "name": "jokerseed",
+    "url": "https://github.com/jokerseed/UnityFramework"
+  },
+  "documentationUrl": "https://github.com/jokerseed/UnityFramework/tree/main/Packages/com.jokerseed.framework.core",
+  "changelogUrl": "https://github.com/jokerseed/UnityFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/jokerseed/UnityFramework/blob/main/LICENSE",
+  "keywords": [
+    "framework",
+    "bootstrap",
+    "event",
+    "pool",
+    "logging"
+  ],
+  "dependencies": {}
+}

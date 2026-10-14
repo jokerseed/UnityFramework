@@ -1,0 +1,28 @@
+{
+  "name": "com.jokerseed.framework.battle",
+  "version": "0.1.0",
+  "displayName": "Framework Battle",
+  "description": "Deterministic battle kit: fixed-point math, lockstep host with rollback, deterministic 2D/3D physics, GAS, lightweight ECS and frame-driven behaviour trees.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "author": {
+    "name": "jokerseed",
+    "url": "https://github.com/jokerseed/UnityFramework"
+  },
+  "documentationUrl": "https://github.com/jokerseed/UnityFramework/tree/main/Packages/com.jokerseed.framework.battle",
+  "changelogUrl": "https://github.com/jokerseed/UnityFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/jokerseed/UnityFramework/blob/main/THIRD_PARTY_NOTICES.md",
+  "keywords": [
+    "framework",
+    "lockstep",
+    "deterministic",
+    "fixed-point",
+    "gas",
+    "ecs",
+    "behaviour-tree"
+  ],
+  "dependencies": {
+    "com.jokerseed.framework.core": "0.1.0",
+    "com.jokerseed.framework.res": "0.1.0"
+  }
+}

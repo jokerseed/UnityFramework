@@ -19,22 +19,25 @@ namespace Framework.Editor.Determinism
     /// </summary>
     public static class SimDeterminismScanner
     {
+        /// <summary>战斗包运行时代码的根目录（相对工程根）。</summary>
+        public const string BattleRuntimeRoot = "Packages/com.jokerseed.framework.battle/Runtime";
+
         /// <summary>
-        /// 相对 <c>Assets</c> 的扫描根。
-        /// 不含 <c>Framework/LockstepPhysics</c>：那里仍有不参与战斗 Tick 的 float 路径，纳入后当前扫描无法通过。
+        /// 相对工程根目录的扫描根。
+        /// 不含 <c>LockstepPhysics</c>：那里仍有不参与战斗 Tick 的 float 路径，纳入后当前扫描无法通过。
         /// </summary>
         public static readonly string[] ScanRoots =
         {
-            "Framework/ECS",
-            "Framework/ECS.Physics",
-            "Framework/GAS",
-            "Framework/FixedMath",
-            "Framework/GamePlay",
-            "Framework/GamePlay.Luban",
-            "Framework/BehaviourTree",
-            "Framework/Core",
-            "Framework/Battle.Core",
-            "Framework/Lockstep",
+            BattleRuntimeRoot + "/ECS",
+            BattleRuntimeRoot + "/ECS.Physics",
+            BattleRuntimeRoot + "/GAS",
+            BattleRuntimeRoot + "/FixedMath",
+            BattleRuntimeRoot + "/GamePlay",
+            BattleRuntimeRoot + "/BehaviourTree",
+            BattleRuntimeRoot + "/Battle.Core",
+            BattleRuntimeRoot + "/Lockstep",
+            "Packages/com.jokerseed.framework.core/Runtime/Core",
+            "Assets/Scripts/Luban",
         };
 
         static readonly Regex Forbidden = new Regex(
@@ -47,12 +50,14 @@ namespace Framework.Editor.Determinism
             @"\bGameEvent\b|\bGlobalEventBus\b|\.Subscribe\s*[<(]|\.Listen\s*<",
             RegexOptions.Compiled);
 
-        /// <summary>扫描 Assets 下的战斗逻辑目录。</summary>
-        /// <param name="assetsPath"><c>Application.dataPath</c>；为空时用当前编辑器路径。</param>
+        /// <summary>扫描工程里的战斗逻辑目录。</summary>
+        /// <param name="projectRoot">工程根目录（<c>Assets</c> 的上一级）；为空时用当前编辑器工程。</param>
         /// <returns>违规说明；空列表表示通过。</returns>
-        public static List<string> Scan(string assetsPath = null)
+        public static List<string> Scan(string projectRoot = null)
         {
-            var root = string.IsNullOrEmpty(assetsPath) ? Application.dataPath : assetsPath;
+            var root = string.IsNullOrEmpty(projectRoot)
+                ? Path.GetDirectoryName(Application.dataPath)
+                : projectRoot;
             var violations = new List<string>();
             for (var i = 0; i < ScanRoots.Length; i++)
             {
@@ -65,13 +70,13 @@ namespace Framework.Editor.Determinism
                 var files = Directory.GetFiles(directory, "*.cs", SearchOption.AllDirectories);
                 for (var f = 0; f < files.Length; f++)
                 {
-                var relative = files[f].Replace('\\', '/');
-                if (relative.Contains("/Editor/"))
-                {
-                    continue;
-                }
+                    var relative = files[f].Substring(root.Length).TrimStart('\\', '/').Replace('\\', '/');
+                    if (relative.Contains("/Editor/"))
+                    {
+                        continue;
+                    }
 
-                var source = File.ReadAllText(files[f]);
+                    var source = File.ReadAllText(files[f]);
                     CollectViolations(relative, source, violations);
                 }
             }
@@ -151,8 +156,8 @@ namespace Framework.Editor.Determinism
             }
         }
 
-        /// <summary>菜单：Tools/Determinism/Scan Battle Sim。</summary>
-        [MenuItem("Tools/Determinism/Scan Battle Sim")]
+        /// <summary>菜单：Tools/Framework/Battle/Scan Determinism。</summary>
+        [MenuItem("Tools/Framework/Battle/Scan Determinism")]
         public static void ScanFromMenu()
         {
             var violations = Scan();
@@ -181,19 +186,20 @@ namespace Framework.Editor.Determinism
                 return false;
             }
 
-            if (path.Contains("Framework/ECS") ||
-                path.Contains("Framework/Core") ||
-                path.Contains("Framework/Battle.Core"))
+            if (path.Contains("/Runtime/ECS/") ||
+                path.Contains("/Runtime/ECS.Physics/") ||
+                path.Contains("/Runtime/Core/") ||
+                path.Contains("/Runtime/Battle.Core/"))
             {
                 return true;
             }
 
-            if (path.Contains("Framework/BehaviourTree"))
+            if (path.Contains("/Runtime/BehaviourTree/"))
             {
-                return !path.Contains("Framework/BehaviourTree/Config/");
+                return !path.Contains("/Runtime/BehaviourTree/Config/");
             }
 
-            if (path.Contains("Framework/Lockstep"))
+            if (path.Contains("/Runtime/Lockstep/"))
             {
                 return !path.EndsWith("TrueSyncStats.cs", System.StringComparison.Ordinal)
                     && !path.EndsWith("Drawing.cs", System.StringComparison.Ordinal)

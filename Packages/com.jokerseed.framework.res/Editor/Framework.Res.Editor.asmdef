@@ -1,5 +1,5 @@
 {
-    "name": "Framework.Editor",
+    "name": "Framework.Res.Editor",
     "rootNamespace": "Framework.Editor",
     "references": [
         "Framework.Logging",

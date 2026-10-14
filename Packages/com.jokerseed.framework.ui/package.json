@@ -1,0 +1,26 @@
+{
+  "name": "com.jokerseed.framework.ui",
+  "version": "0.1.0",
+  "displayName": "Framework UI",
+  "description": "uGUI window manager: layers, window stack, release policies and async opening through Framework Resource.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "author": {
+    "name": "jokerseed",
+    "url": "https://github.com/jokerseed/UnityFramework"
+  },
+  "documentationUrl": "https://github.com/jokerseed/UnityFramework/tree/main/Packages/com.jokerseed.framework.ui",
+  "changelogUrl": "https://github.com/jokerseed/UnityFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/jokerseed/UnityFramework/blob/main/LICENSE",
+  "keywords": [
+    "framework",
+    "ui",
+    "ugui",
+    "window"
+  ],
+  "dependencies": {
+    "com.jokerseed.framework.core": "0.1.0",
+    "com.jokerseed.framework.res": "0.1.0",
+    "com.unity.ugui": "1.0.0"
+  }
+}

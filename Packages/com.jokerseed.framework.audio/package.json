@@ -1,0 +1,24 @@
+{
+  "name": "com.jokerseed.framework.audio",
+  "version": "0.1.0",
+  "displayName": "Framework Audio",
+  "description": "BGM and SFX channels with clip caching and volume settings, loading clips through Framework Resource.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "author": {
+    "name": "jokerseed",
+    "url": "https://github.com/jokerseed/UnityFramework"
+  },
+  "documentationUrl": "https://github.com/jokerseed/UnityFramework/tree/main/Packages/com.jokerseed.framework.audio",
+  "changelogUrl": "https://github.com/jokerseed/UnityFramework/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/jokerseed/UnityFramework/blob/main/LICENSE",
+  "keywords": [
+    "framework",
+    "audio",
+    "sound"
+  ],
+  "dependencies": {
+    "com.jokerseed.framework.core": "0.1.0",
+    "com.jokerseed.framework.res": "0.1.0"
+  }
+}

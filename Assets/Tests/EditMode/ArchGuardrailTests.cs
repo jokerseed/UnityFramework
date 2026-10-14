@@ -21,7 +21,7 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/BehaviourTree/BtSample.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/BtSample.cs",
                 "float speed = 1f;",
                 violations);
             Assert.Greater(violations.Count, 0);
@@ -32,7 +32,7 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/BehaviourTree/Config/BtConfigNode.cs",
+                "Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/Config/BtConfigNode.cs",
                 "public float FloatValue;",
                 violations);
             Assert.IsEmpty(violations);
@@ -43,7 +43,7 @@ namespace Framework.Tests
         {
             var violations = new List<string>();
             SimDeterminismScanner.CollectViolations(
-                "Assets/Framework/Core/Tick/ITickable.cs",
+                "Packages/com.jokerseed.framework.core/Runtime/Core/Tick/ITickable.cs",
                 "void Tick(float deltaTime);",
                 violations);
             Assert.IsEmpty(violations);
@@ -80,9 +80,12 @@ namespace Framework.Tests
         [Test]
         public void FrameworkAssembliesAreAcyclicAndGamePlayDoesNotReferenceLuban()
         {
-            var assets = FindAssetsFolder();
+            var projectRoot = Path.GetDirectoryName(FindAssetsFolder());
             var graph = new Dictionary<string, List<string>>();
-            foreach (var file in Directory.GetFiles(assets, "*.asmdef", SearchOption.AllDirectories))
+            var asmdefs = new List<string>();
+            asmdefs.AddRange(Directory.GetFiles(Path.Combine(projectRoot, "Assets"), "*.asmdef", SearchOption.AllDirectories));
+            asmdefs.AddRange(Directory.GetFiles(Path.Combine(projectRoot, "Packages"), "*.asmdef", SearchOption.AllDirectories));
+            foreach (var file in asmdefs)
             {
                 var text = File.ReadAllText(file);
                 var name = Regex.Match(text, "\"name\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
@@ -157,25 +160,26 @@ namespace Framework.Tests
         public void ScannerRootsCoverSplitSimAssemblies()
         {
             var roots = new List<string>(SimDeterminismScanner.ScanRoots);
+            var battle = SimDeterminismScanner.BattleRuntimeRoot;
             string[] required =
             {
-                "Framework/ECS",
-                "Framework/ECS.Physics",
-                "Framework/GAS",
-                "Framework/FixedMath",
-                "Framework/GamePlay",
-                "Framework/GamePlay.Luban",
-                "Framework/BehaviourTree",
-                "Framework/Core",
-                "Framework/Battle.Core",
-                "Framework/Lockstep",
+                battle + "/ECS",
+                battle + "/ECS.Physics",
+                battle + "/GAS",
+                battle + "/FixedMath",
+                battle + "/GamePlay",
+                battle + "/BehaviourTree",
+                battle + "/Battle.Core",
+                battle + "/Lockstep",
+                "Packages/com.jokerseed.framework.core/Runtime/Core",
+                "Assets/Scripts/Luban",
             };
             for (var i = 0; i < required.Length; i++)
             {
                 Assert.IsTrue(roots.Contains(required[i]), required[i]);
             }
 
-            Assert.IsFalse(roots.Contains("Framework/LockstepPhysics"));
+            Assert.IsFalse(roots.Contains(battle + "/LockstepPhysics"));
         }
 
         static string FindAssetsFolder()
@@ -204,7 +208,8 @@ namespace Framework.Tests
                 for (var i = 0; i < 8 && !string.IsNullOrEmpty(current); i++)
                 {
                     var candidate = Path.Combine(current, "Assets");
-                    if (File.Exists(Path.Combine(candidate, "Framework", "Core", "Framework.Core.asmdef")))
+                    var coreAsmdef = Path.Combine(current, "Packages", "com.jokerseed.framework.core", "Runtime", "Core", "Framework.Core.asmdef");
+                    if (Directory.Exists(candidate) && File.Exists(coreAsmdef))
                     {
                         return candidate;
                     }
@@ -213,7 +218,7 @@ namespace Framework.Tests
                 }
             }
 
-            Assert.Inconclusive("找不到含 Framework.Core.asmdef 的 Assets 目录。");
+            Assert.Inconclusive("找不到含 Packages/com.jokerseed.framework.core 的工程目录。");
             return null;
         }
     }

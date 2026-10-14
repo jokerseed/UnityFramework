@@ -12,7 +12,7 @@
         "Framework.GamePlay.Luban",
         "Framework.Lockstep",
         "Framework.LockstepPhysics",
-        "Framework.Editor",
+        "Framework.Battle.Editor",
         "Framework.Logging",
         "Framework.Events",
         "Framework.BehaviourTree",
