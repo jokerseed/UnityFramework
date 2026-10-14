@@ -2,7 +2,7 @@
   "name": "com.jokerseed.framework.network",
   "version": "0.1.0",
   "displayName": "Framework Network",
-  "description": "TCP and WebSocket (including WebGL) channels with pluggable packet helpers, heartbeats, main-thread dispatch and request/response RPC with timeouts.",
+  "description": "TCP, WebSocket (including WebGL) and KCP channels with pluggable packet helpers, heartbeats, main-thread dispatch and request/response RPC. HTTP short requests are separate from channels.",
   "unity": "2021.3",
   "license": "MIT",
   "author": {
@@ -16,7 +16,9 @@
     "framework",
     "network",
     "tcp",
-    "websocket"
+    "websocket",
+    "kcp",
+    "http"
   ],
   "dependencies": {
     "com.jokerseed.framework.core": "0.1.0"

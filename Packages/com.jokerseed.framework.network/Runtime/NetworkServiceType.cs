@@ -8,5 +8,8 @@ namespace Framework.Network
 
         /// <summary>WebSocket 二进制帧，一帧一包；WebGL / 小游戏走浏览器 WebSocket。</summary>
         WebSocket = 1,
+
+        /// <summary>KCP over UDP。WebGL / 小游戏没有 UDP，创建时失败。</summary>
+        Kcp = 2,
     }
 }

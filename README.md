@@ -94,7 +94,7 @@ public sealed class Launch : MonoBehaviour
 | **config** | [Config](Packages/com.jokerseed.framework.config/Runtime/README.md) | Luban 表按需加载与缓存，WebGL 下异步预热 |
 | **ui** | [UI](Packages/com.jokerseed.framework.ui/Runtime/README.md) | 五层窗口栈、释放策略、异步打开、返回键、输入屏蔽、安全区、本地化文本 |
 | **audio** | [Audio](Packages/com.jokerseed.framework.audio/Runtime/README.md) | BGM / SFX 双通道 |
-| **network** | [Network](Packages/com.jokerseed.framework.network/Runtime/README.md) | TCP / WebSocket（含 WebGL）频道、心跳、`NetworkRpcClient` |
+| **network** | [Network](Packages/com.jokerseed.framework.network/Runtime/README.md) | TCP / WebSocket / KCP 频道、心跳、`NetworkRpcClient`；HTTP 短请求 |
 | **battle** | 见 [战斗套件](#战斗套件) | 确定性战斗，可以完全不用 |
 
 架构与依赖关系见 [docs/architecture.md](docs/architecture.md)。
