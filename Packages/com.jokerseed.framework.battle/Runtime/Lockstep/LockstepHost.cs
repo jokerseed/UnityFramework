@@ -15,15 +15,20 @@ namespace Framework.Lockstep
         /// <summary>输入载荷。主机保存的是副本。</summary>
         public byte[] Payload { get; }
 
+        /// <summary>发送端的模拟逻辑版本；与接收端不同则两端不能同场。</summary>
+        public int SimulationVersion { get; }
+
         /// <summary>构造一帧输入。</summary>
         /// <param name="tick">逻辑步。</param>
         /// <param name="playerId">玩家 ID。</param>
         /// <param name="payload">载荷；null 当作空数组。</param>
-        public LockstepInputMessage(int tick, int playerId, byte[] payload)
+        /// <param name="simulationVersion">发送端的模拟逻辑版本。</param>
+        public LockstepInputMessage(int tick, int playerId, byte[] payload, int simulationVersion)
         {
             Tick = tick;
             PlayerId = playerId;
             Payload = payload ?? Array.Empty<byte>();
+            SimulationVersion = simulationVersion;
         }
     }
 
@@ -31,6 +36,7 @@ namespace Framework.Lockstep
     /// 等输入锁步，外加按检查点回滚。
     /// 某一步在所有玩家的输入到齐之前不会调用 <see cref="ILockstepSimulation.Simulate"/>。
     /// 已经模拟过的步若收到不同输入，会恢复不大于该步的检查点并重放。
+    /// 每条输入带模拟逻辑版本；收到版本不同的输入时触发 <see cref="SimulationVersionMismatch"/>，之后 <see cref="TryAdvance"/> 抛异常。
     /// 真实传输不在这里；测试使用 <see cref="LoopbackCommunicator"/>。
     /// </summary>
     public sealed class LockstepHost
@@ -43,6 +49,7 @@ namespace Framework.Lockstep
         readonly int _localPlayerId;
         readonly int _localIndex;
         readonly int _interval;
+        readonly int _simulationVersion;
         readonly int[] _playerIds;
         readonly List<byte[][]> _inputs = new List<byte[][]>();
         readonly List<bool[]> _predicted = new List<bool[]>();
@@ -54,6 +61,7 @@ namespace Framework.Lockstep
         /// <param name="playerIds">本场玩家。两端必须传同一组 ID，内部会排序。</param>
         /// <param name="snapshotInterval">每隔多少步保存一次检查点，至少为 1。0 号步总会保存。</param>
         /// <param name="simulation">模拟；不可为 null。</param>
+        /// <param name="simulationVersion">本端模拟逻辑版本（战斗层传 <c>BattleSimulationVersion.Current</c>）。</param>
         /// <exception cref="ArgumentNullException">通讯端、玩家列表或模拟为 null。</exception>
         /// <exception cref="ArgumentException">间隔小于 1，或本端不在玩家列表中，或玩家 ID 重复。</exception>
         public LockstepHost(
@@ -61,7 +69,8 @@ namespace Framework.Lockstep
             int localPlayerId,
             int[] playerIds,
             int snapshotInterval,
-            ILockstepSimulation simulation)
+            ILockstepSimulation simulation,
+            int simulationVersion)
         {
             if (communicator == null)
             {
@@ -87,6 +96,7 @@ namespace Framework.Lockstep
             _simulation = simulation;
             _localPlayerId = localPlayerId;
             _interval = snapshotInterval;
+            _simulationVersion = simulationVersion;
             _playerIds = new int[playerIds.Length];
             Array.Copy(playerIds, _playerIds, playerIds.Length);
             Array.Sort(_playerIds);
@@ -113,6 +123,15 @@ namespace Framework.Lockstep
         /// <summary>已经模拟的每一步校验和，下标就是逻辑步。</summary>
         public IReadOnlyList<long> Checksums => _checksums;
 
+        /// <summary>本端模拟逻辑版本。</summary>
+        public int SimulationVersion => _simulationVersion;
+
+        /// <summary>是否收到过版本不同的输入；为 true 时本场无法继续。</summary>
+        public bool HasVersionMismatch { get; private set; }
+
+        /// <summary>首次收到某玩家版本不同的输入时触发：参数为玩家 ID 与对方版本。</summary>
+        public event Action<int, int> SimulationVersionMismatch;
+
         /// <summary>提交本端这一步的输入，并广播给其他玩家。</summary>
         /// <param name="tick">逻辑步。</param>
         /// <param name="payload">载荷；null 当作空数组。</param>
@@ -128,7 +147,7 @@ namespace Framework.Lockstep
             Store(_localIndex, tick, copy, predicted: false);
             _communicator.OpRaiseEvent(
                 InputEventCode,
-                new LockstepInputMessage(tick, _localPlayerId, copy),
+                new LockstepInputMessage(tick, _localPlayerId, copy, _simulationVersion),
                 true,
                 null);
         }
@@ -166,8 +185,14 @@ namespace Framework.Lockstep
 
         /// <summary>若当前步所有玩家的输入都已到齐，则模拟一帧。</summary>
         /// <returns>模拟了一帧时返回 true。</returns>
+        /// <exception cref="InvalidOperationException">已收到版本不同的输入，本场无法继续。</exception>
         public bool TryAdvance()
         {
+            if (HasVersionMismatch)
+            {
+                throw new InvalidOperationException("Simulation version mismatch; this match cannot continue.");
+            }
+
             if (!HasAll(ConfirmedTick))
             {
                 return false;
@@ -193,6 +218,17 @@ namespace Framework.Lockstep
             var index = IndexOf(message.PlayerId);
             if (index < 0 || message.Tick < 0)
             {
+                return;
+            }
+
+            if (message.SimulationVersion != _simulationVersion)
+            {
+                if (!HasVersionMismatch)
+                {
+                    HasVersionMismatch = true;
+                    SimulationVersionMismatch?.Invoke(message.PlayerId, message.SimulationVersion);
+                }
+
                 return;
             }
 

@@ -128,7 +128,7 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `MinimalBattle` 是无视图样本：种子 42，队伍 0 在原点放弹道，队伍 1 在 +X 1.6 米放近战，默认 48 个逻辑步。`MinimalBattle.Run` 返回逐步 `BattleFrameChecksum`。它直接 `GiveAbility`，不经过配置目录。业务层把 `Game.MinimalBattleSample` 挂到空场景任意物体上，Play 后在日志里看末帧校验和；本仓库没有另存 `.unity`，因为没有编辑器就写不出合法的脚本引用。EditMode `MinimalBattleTests` 把同一场跑两遍并逐项对比。
 
-`LockstepHost` 等所有玩家的输入到齐再推进一步。`BattleLockstepSimulation` 把 `BattleSession` 交给它，检查点含随机数、ECS、`GasSnapshot`、`BattlePhysicsSnapshot`，以及当时已绑定 Agent 的行为树快照（含随机源，不含 object 袋）。`PredictRemote` 先填占位，正式输入不同就从最近的检查点重放。`LocalLockstepHost` 仍是单机意图帧，不走 `ICommunicator`。同一进程的两场物理世界共用 Farseer 静态 ID。
+`LockstepHost` 等所有玩家的输入到齐再推进一步。`BattleLockstepSimulation` 把 `BattleSession` 交给它，检查点含随机数、ECS、`GasSnapshot`、`BattlePhysicsSnapshot`，以及当时已绑定 Agent 的行为树快照（含随机源，不含 object 袋）。`PredictRemote` 先填占位，正式输入不同就从最近的检查点重放。`LocalLockstepHost` 仍是单机意图帧，不走 `ICommunicator`。Farseer 的 Body / Fixture ID 计数器挂在各自的 `World` 上，同一进程的多场物理世界互不影响。构造 `LockstepHost` 时传 `BattleSimulationVersion.Current`，版本不同的两端不能同场。
 
 EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返、最小战斗两遍对拍，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。可选 GitHub Actions 工作流 `.github/workflows/editmode-tests.yml` 只用手动触发，需要 `UNITY_LICENSE` / `UNITY_EMAIL` / `UNITY_PASSWORD`，不是必需检查。
 

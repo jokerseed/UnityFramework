@@ -55,6 +55,8 @@
 
 `LockstepHost` 在某一步收齐所有玩家的 `LockstepInputMessage` 之前不会调用 `Simulate`。`PredictRemote` 可以先填占位；正式输入若不同，就从最近的检查点重放。检查点间隔至少为 1，第 0 步一定会存。
 
+每条 `LockstepInputMessage` 带发送端的模拟逻辑版本（构造 `LockstepHost` 时传入，战斗层用 `BattleSimulationVersion.Current`）。收到版本不同的输入时丢弃该输入，触发一次 `SimulationVersionMismatch(playerId, remoteVersion)`，之后 `TryAdvance` 抛 `InvalidOperationException`：逐帧结果不同的两端继续跑只会不同步，应当直接结束对局并提示更新。
+
 战斗侧是 `BattleLockstepSimulation`：随机数、ECS、`GasSnapshot`（版本 3）、`BattlePhysicsSnapshot`，以及当时已绑定 Agent 的行为树快照记在同一次检查点里。`World.Restore` 之后要重新绑定 Actor。Farseer 的刚体 ID 仍是进程全局的，同一进程里两场世界同时回滚并不隔离刚体 ID。效果 Spec 的 RuntimeId、技能实例 ID 和活跃效果句柄在每个 ASC 上，随该 ASC 的快照回写。测试只比较已经记下的校验和，开局之后不再创建刚体。
 
 `AbstractLockstep` 每场有自己的 `SyncedData` 池，输入工厂绑在这个池上，不再跟随后创建的另一场去改写已经取出的对象。`SyncedData.pool` 和 `AbstractLockstep.instance` 仍留给 `ReplayRecord` 和没传入池的旧调用。`ReplayRecord.replayMode` 仍是进程级开关。网络事件 199/198/196/197 先做长度和玩家校验，畸形包计入 `RejectedNetworkInputs` 后丢弃。掉线票按来源玩家去重，同一个客户端重复发送不会把票数刷过门槛。`StateTracker` 不再接回战斗。
