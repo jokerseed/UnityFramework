@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+#if UNITY_5_3_OR_NEWER
 using UnityEngine;
+#endif
 
 namespace Framework.Events
 {
@@ -24,10 +26,12 @@ namespace Framework.Events
         /// <summary>
         /// 进入 Play 时清空静态通道。关闭 Domain Reload 后静态监听会留到下一次 Play。
         /// </summary>
+#if UNITY_5_3_OR_NEWER
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetOnSubsystemRegistration()
         {
             ClearAll();
         }
+#endif
     }
 }

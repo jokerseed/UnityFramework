@@ -46,6 +46,15 @@ sysinfo.txt
 !ThirdParty/luban-4.11.0/**/*.csproj
 !ThirdParty/luban-4.11.0/**/*.sln
 
+# 纯 .NET 测试与工具工程（手写，非 Unity 自动生成）
+!tests/**/*.csproj
+!tests/**/*.sln
+!tools/**/*.csproj
+tests/**/bin/
+tests/**/obj/
+tools/**/bin/
+tools/**/obj/
+
 # =============================================================================
 # OS
 # =============================================================================
