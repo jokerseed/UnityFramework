@@ -1,12 +1,12 @@
-# Framework.GamePlay.Luban
+# Game.Luban
 
-把 Luban 表装进玩法框架。类型仍在 `Framework.GamePlay.Data`，所以原来的 `using` 不用改。`Framework.GamePlay` 不引用本程序集，也不引用 `Generated.Luban`。
+把 Luban 表装进玩法框架。这是演示工程里的程序集，不是框架包的一部分；类型仍在 `Framework.GamePlay.Data`，所以原来的 `using` 不用改。`Framework.GamePlay` 不引用本程序集，也不引用 `Generated.Luban`。
 
 ## 程序集
 
 | 项 | 值 |
 |---|---|
-| 程序集 | `Framework.GamePlay.Luban` |
+| 程序集 | `Game.Luban` |
 | 命名空间 | `Framework.GamePlay.Data` |
 | 依赖 | `Framework.Core`、`Framework.Events`、`Framework.Battle.Core`、`Framework.Config`、`Framework.FixedMath`、`Framework.GamePlay`、`Framework.GAS`、`Generated.Luban`、`Luban.Runtime` |
 

@@ -1,5 +1,5 @@
 {
-    "name": "Framework.GamePlay.Luban",
+    "name": "Game.Luban",
     "rootNamespace": "Framework.GamePlay.Data",
     "references": [
         "Framework.Core",

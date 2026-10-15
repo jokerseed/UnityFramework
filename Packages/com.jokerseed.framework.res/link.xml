@@ -1,0 +1,5 @@
+<linker>
+  <!-- HotUpdateLoader 用 Assembly.Load 与反射找入口。热更 DLL 里的类型由业务自己的 link.xml 保留。 -->
+  <assembly fullname="Framework.HotUpdate" preserve="all"/>
+  <assembly fullname="Framework.Res" preserve="all"/>
+</linker>

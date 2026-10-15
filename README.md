@@ -27,13 +27,34 @@ Editor 下 `ResourceManager` 默认 `EditorSimulateMode`，不需要先打 Bundl
 
 ### 在自己的项目里使用
 
-把需要的包目录拷到你工程的 `Packages/` 下（或用 Git URL 引用），并在 `manifest.json` 中加入它们依赖的 UniTask / YooAsset / Luban：
+把需要的包目录拷到你工程的 `Packages/` 下（或用 Git URL 引用）。KCP 已经在 network 包内，不必再拷 `Assets/ThirdParty/KCP`。UniTask、YooAsset、Luban 仍要在 `manifest.json` 里声明。YooAsset 不在 Unity 默认注册表，版本号单独写 `"3.0.5"` 解析不到。
+
+OpenUPM（与本仓库锁定的 3.0.5 一致）：
 
 ```json
-"com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.11",
-"com.tuyoogame.yooasset": "3.0.5",
-"com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git"
+{
+  "scopedRegistries": [
+    {
+      "name": "OpenUPM",
+      "url": "https://package.openupm.com",
+      "scopes": ["com.tuyoogame"]
+    }
+  ],
+  "dependencies": {
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.11",
+    "com.tuyoogame.yooasset": "3.0.5",
+    "com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git#061314200e2f03307c4d90b448e1de7b85431905"
+  }
+}
 ```
+
+也可以不用 OpenUPM，把 YooAsset 指到 Git（路径必须是仓库里的 `Assets/YooAsset`）：
+
+```json
+"com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#3.0.5"
+```
+
+本仓库自己用的是 `LocalPackages/YooAsset-3.0.5` 的 `file:` 引用，不依赖上面的注册表。TCP 和 KCP 默认明文，只有 WebSocket 能用 `wss://`。
 
 最小启动代码：
 
@@ -126,7 +147,7 @@ ResourceManager.InitializeAsync      // 请求最新版本 + 加载 Manifest
 | 定点数学 `FP` / `TSVector`（LUT 三角函数） | ✅ 跨平台逐位一致，CI 在 Linux / Windows 上对同一 golden 录像校验 |
 | GAS（技能、效果、属性、Tag） | ✅ 规则权威，Luban 装配 |
 | ECS（位置、碰撞、投射物） | ✅ 只存模拟数据 |
-| 确定性物理（Farseer 2D，Jitter 3D 可选） | ✅ ID 计数器按 World 隔离，可多场并存 |
+| 确定性物理（Farseer 2D，Jitter 3D 可选） | ✅ Farseer 的刚体 ID 按 World 隔离。Jitter 的 `instanceCount` 仍是进程静态字段，单场回滚会随快照还原；不要同时跑两场 Jitter 世界 |
 | 行为树（逻辑帧 Tick，可视化编辑器） | ✅ |
 | `LockstepHost` 等输入锁步 + 检查点回滚 | ✅ 检查点含 GAS / ECS / 随机数 / 物理 / 行为树；输入带 `BattleSimulationVersion`，版本不一致立即停止 |
 | 录像与对拍 | ✅ `BattleReplayRecorder` / `BattleReplayVerifier` |
@@ -159,7 +180,7 @@ ResourceManager.InitializeAsync      // 请求最新版本 + 加载 Manifest
 | 引擎无关层（FixedMath、Lockstep、ECS、GAS、FSM 等）+ golden 录像 | `tests/Framework.Sim.Tests` | `dotnet test tests/Framework.Sim.Tests` |
 | Unity EditMode | `Assets/Tests/EditMode` | Test Runner，或 `Unity -batchmode -runTests -testPlatform EditMode` |
 
-`.github/workflows/ci.yml` 在每次 push / PR 上于 Linux 与 Windows 运行 `dotnet test` 和确定性扫描；`editmode-tests.yml` 需要手动触发，并要先在仓库 Secret 中配置 Unity 许可证。
+`.github/workflows/ci.yml` 在每次 push / PR 上于 Linux 与 Windows 运行 `dotnet test` 和确定性扫描；`editmode-tests.yml` 在每天定时以及手动触发时跑 Unity EditMode 和 PlayMode。没有配置 Unity 许可证 Secret 时，定时任务会跳过，不要把它设成分支保护的必需检查。
 
 ---
 

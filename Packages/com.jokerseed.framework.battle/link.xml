@@ -1,0 +1,4 @@
+<linker>
+  <!-- 行为树 JSON 走 Newtonsoft 反射字段。自定义 PreserveAttribute 只对标了该特性的类型生效，这里把配置程序集整份留下。 -->
+  <assembly fullname="Framework.BehaviourTree" preserve="all"/>
+</linker>

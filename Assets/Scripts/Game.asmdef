@@ -13,7 +13,7 @@
         "Framework.Events",
         "Framework.GamePlay",
         "Framework.GamePlay.Unity",
-        "Framework.GamePlay.Luban",
+        "Game.Luban",
         "Framework.ECS.Physics",
         "Framework.GAS",
         "Framework.FixedMath",

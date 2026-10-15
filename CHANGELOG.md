@@ -29,7 +29,10 @@
 - Network：WebSocket 频道（桌面 / 移动端用 `ClientWebSocket`，WebGL 用 jslib，可替换传输层）、带超时与取消的 `NetworkRpcClient`。
 - Network：KCP 频道（UDP，会话号由调用方指定；WebGL / 小游戏创建即失败）。HTTP 短请求 `HttpRequests` 不进入频道。
 - Battle：录像记录模拟版本，提供 golden 录像；`BattleSimulationVersion.Current` 写入录像与锁步输入。
-- 测试与 CI：`tests/Framework.Sim.Tests` 用纯 .NET 编译模拟层并运行测试（含 golden 录像与确定性扫描），GitHub Actions 在 Linux / Windows 上跑；另有可手动触发的 Unity EditMode 工作流。
+- 测试与 CI：`tests/Framework.Sim.Tests` 用纯 .NET 编译模拟层并运行测试（含 golden 录像、确定性扫描和文档相对链接），GitHub Actions 在 Linux / Windows 上跑；Unity EditMode / PlayMode 工作流每天定时跑，未配置许可证 Secret 时跳过。
+- Network：KCP 源码随 `com.jokerseed.framework.network` 分发（`Runtime/ThirdParty/KCP`），拷贝该包即可编译 KCP 频道。
+- 演示层：Luban 适配程序集改名为 `Game.Luban`，类型命名空间仍是 `Framework.GamePlay.Data`。
+- 裁剪：各相关包带 `link.xml`，保留内存池、热更加载和行为树 JSON 反序列化要用的程序集。
 - 打表：`Config/Luban/gen_client.sh`，macOS / Linux 可直接命令行打表。
 - 工程规范：`.gitattributes`、`.editorconfig`；MIT 许可、第三方声明、贡献指南、行为准则、安全策略、Issue / PR 模板；README 中英双语。
 

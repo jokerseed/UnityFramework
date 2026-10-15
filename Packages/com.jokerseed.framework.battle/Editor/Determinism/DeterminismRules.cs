@@ -7,9 +7,10 @@ namespace Framework.Editor.Determinism
 {
     /// <summary>
     /// 确定性扫描规则本体，不依赖 UnityEngine / UnityEditor，Unity 菜单（<see cref="SimDeterminismScanner"/>）和纯 .NET CI 测试共用这一份。
-    /// 错误级：<c>UnityEngine.Random</c>、<c>System.Random</c>、<c>Time.*</c>、<c>DateTime.Now</c>、<c>Guid.NewGuid</c>，
-    /// 以及 ECS、Battle.Core、BehaviourTree 运行时、Lockstep 模拟代码里的 <c>float</c>（BehaviourTree 配置 DTO 不阻断）。
-    /// GAS / GamePlay 的 float 留在配置装配和表现边界，不算违规。
+        /// 错误级：<c>UnityEngine.Random</c>、<c>System.Random</c>、<c>Time.*</c>、<c>DateTime.Now</c>、<c>Guid.NewGuid</c>，
+        /// 以及 ECS、Battle.Core、BehaviourTree 运行时、Lockstep 模拟代码里的 <c>float</c>（BehaviourTree 配置 DTO 不阻断）。
+        /// 上述目录以及 GAS、GamePlay 还拦截 <c>double</c>、<c>decimal</c>、<c>Mathf</c> 和浮点 <c>Math.*</c>。
+        /// GAS / GamePlay 的 float 留在配置装配和表现边界，不算违规。整数 <c>Math.Max</c> / <c>Min</c> / <c>Abs</c> 不拦截。
     /// 模拟目录里出现 <c>GameEvent</c>、<c>GlobalEventBus</c>、<c>.Subscribe</c> 或 <c>.Listen&lt;</c> 也算错误：
     /// 模拟只发布命令和表现事件，不订阅总线。实现 <c>IEventBus.Subscribe</c> 的方法声明不匹配（前面没有点号）。
     /// 行尾写 <c>determinism-allow</c> 可跳过该行。Editor 目录不扫描。
@@ -41,6 +42,11 @@ namespace Framework.Editor.Determinism
             RegexOptions.Compiled);
 
         static readonly Regex FloatToken = new Regex(@"\bfloat\b", RegexOptions.Compiled);
+
+        /// <summary>浮点标量与浮点数学。整数 Math.Max / Min / Abs 不算。</summary>
+        static readonly Regex ScalarLeak = new Regex(
+            @"\bdouble\b|\bdecimal\b|\bMathf\.|\bMath\.(Sin|Cos|Tan|Asin|Acos|Atan|Atan2|Sinh|Cosh|Tanh|Pow|Sqrt|Log|Log10|Exp|Round|Floor|Ceiling|IEEERemainder)\b",
+            RegexOptions.Compiled);
 
         static readonly Regex SimSubscribesToBus = new Regex(
             @"\bGameEvent\b|\bGlobalEventBus\b|\.Subscribe\s*[<(]|\.Listen\s*<",
@@ -89,6 +95,7 @@ namespace Framework.Editor.Determinism
             }
 
             var checkFloat = BlocksFloat(relativePath);
+            var checkScalar = checkFloat || BlocksScalar(relativePath);
             var inBlock = false;
             var lines = source.Replace("\r\n", "\n").Split('\n');
             for (var i = 0; i < lines.Length; i++)
@@ -120,6 +127,12 @@ namespace Framework.Editor.Determinism
                 if (checkFloat && FloatToken.IsMatch(code))
                 {
                     violations.Add(relativePath + ":" + (i + 1) + " float in sim: " + code.Trim());
+                    continue;
+                }
+
+                if (checkScalar && ScalarLeak.IsMatch(code))
+                {
+                    violations.Add(relativePath + ":" + (i + 1) + " scalar in sim: " + code.Trim());
                 }
             }
         }
@@ -155,6 +168,23 @@ namespace Framework.Editor.Determinism
             }
 
             return false;
+        }
+
+        /// <summary>GAS 与 GamePlay 允许表现边界上的 float，但不允许 double / decimal / 浮点 Math。</summary>
+        static bool BlocksScalar(string relativePath)
+        {
+            if (string.IsNullOrEmpty(relativePath))
+            {
+                return false;
+            }
+
+            var path = relativePath.Replace('\\', '/');
+            if (path.Contains("/Editor/"))
+            {
+                return false;
+            }
+
+            return path.Contains("/Runtime/GAS/") || path.Contains("/Runtime/GamePlay/");
         }
 
         static string StripComments(string line, ref bool inBlock)

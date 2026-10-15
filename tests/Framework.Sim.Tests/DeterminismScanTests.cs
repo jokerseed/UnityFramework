@@ -29,6 +29,35 @@ namespace Framework.Sim.Tests
         }
 
         [Test]
+        public void Rules_FlagDoubleAndFloatingMathInBattleCore()
+        {
+            var violations = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/Battle.Core/X.cs",
+                "double x = Math.Sin(1);",
+                violations);
+            Assert.GreaterOrEqual(violations.Count, 1);
+        }
+
+        [Test]
+        public void Rules_FlagDecimalInGasButAllowPresentationFloat()
+        {
+            var scalar = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/GAS/X.cs",
+                "decimal x = 1m;",
+                scalar);
+            Assert.AreEqual(1, scalar.Count);
+
+            var floats = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/GAS/X.cs",
+                "float speed = 1f;",
+                floats);
+            Assert.IsEmpty(floats);
+        }
+
+        [Test]
         public void Rules_IgnoreCommentsAndAllowMarker()
         {
             var violations = new List<string>();

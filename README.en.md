@@ -16,7 +16,7 @@ Requirements: Unity **2021.3** (currently `2021.3.21f1`); .NET 8 SDK for table g
 
 In the Editor, `ResourceManager` uses `EditorSimulateMode`, so no bundles need to be built first.
 
-To use the framework in your own project, copy the packages you need into `Packages/` (or reference them by Git URL) and add UniTask, YooAsset and luban_unity to your manifest. See `Assets/Scripts/Launch.cs` for a complete startup example.
+To use the framework in your own project, copy the packages you need into `Packages/` (or reference them by Git URL). KCP ships inside the network package. UniTask is a Git dependency pinned at 2.5.11. YooAsset is not on Unity's default registry: add an OpenUPM scoped registry for `com.tuyoogame` and depend on `com.tuyoogame.yooasset` 3.0.5, or use `https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#3.0.5`. This repository vendors YooAsset with a `file:` reference. TCP and KCP are plaintext; only WebSocket can use `wss://`. See `Assets/Scripts/Launch.cs` for a complete startup example.
 
 ## Packages
 
@@ -48,9 +48,9 @@ All editor tools live under **Tools → Framework**, and their paths are configu
 
 ## Tests and CI
 
-- `dotnet test tests/Framework.Sim.Tests` covers the engine-independent layers and the golden replay.
-- Unity EditMode tests are in `Assets/Tests/EditMode`.
-- `.github/workflows/ci.yml` runs the dotnet tests and the determinism scan on Linux and Windows for every push and PR. `editmode-tests.yml` is manual and needs Unity license secrets.
+- `dotnet test tests/Framework.Sim.Tests` covers the engine-independent layers, the golden replay, and relative documentation links.
+- Unity EditMode tests are in `Assets/Tests/EditMode`. A PlayMode coroutine smoke test is in `Assets/Tests/PlayMode`.
+- `.github/workflows/ci.yml` runs the dotnet tests and the determinism scan on Linux and Windows for every push and PR. `editmode-tests.yml` runs nightly and on demand. The nightly run is skipped when Unity license secrets are absent.
 
 ## License
 

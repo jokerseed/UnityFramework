@@ -49,7 +49,7 @@
 | 项 | 说明 |
 |----|------|
 | 命名空间 | `TrueSync` → `Framework.FixedMath` |
-| 去掉 Obscured 转换 | **刻意**无反作弊依赖；数值路径不变。若业务要内存混淆，在进出 `FP` 边界自行适配（见根 README [反作弊](../../../README.md#反作弊)） |
+| 去掉 Obscured 转换 | **刻意**无反作弊依赖；数值路径不变。若业务要内存混淆，在进出 `FP` 边界自行适配（见根 README [战斗套件](../../../../README.md#战斗套件)） |
 | 去掉 `TSMatrix4x4.TransformToMatrix(TSTransform)` | 依赖未迁移的 Unity 组件 |
 | `operator +` 暂存 | 主干曾用 `private static FP result`（多线程危险）；已改为局部变量，**单线程结果与主干一致** |
 | 除零 / 开方 / 反余弦 | 除数 0：正→`MaxValue`，负→`MinValue`，`0/0`→0。`% 0` 返回 0。`Sqrt` 负数返回 0。`Acos` 先夹到 [-1, 1]。这些只改变原先会抛异常或返回 ±90 的输入；正常商、非负开方、[-1, 1] 内的反余弦逐位不变 |

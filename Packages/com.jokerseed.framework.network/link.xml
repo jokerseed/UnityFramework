@@ -1,0 +1,5 @@
+<linker>
+  <!-- NetworkPacket 经内存池 Activator.CreateInstance 创建。 -->
+  <assembly fullname="Framework.Network" preserve="all"/>
+  <assembly fullname="KCP" preserve="all"/>
+</linker>

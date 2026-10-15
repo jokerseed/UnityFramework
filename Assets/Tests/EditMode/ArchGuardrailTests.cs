@@ -104,7 +104,9 @@ namespace Framework.Tests
             {
                 var text = File.ReadAllText(file);
                 var name = Regex.Match(text, "\"name\"\\s*:\\s*\"([^\"]+)\"").Groups[1].Value;
-                if (!name.StartsWith("Framework.", System.StringComparison.Ordinal) && name != "Game")
+                if (!name.StartsWith("Framework.", System.StringComparison.Ordinal)
+                    && name != "Game"
+                    && !name.StartsWith("Game.", System.StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -123,7 +125,9 @@ namespace Framework.Tests
             Assert.IsFalse(graph["Framework.Core"].Contains("Framework.Events"));
             Assert.IsFalse(graph["Framework.Core"].Contains("Framework.FixedMath"), "Core 不应把定点数学带给不做帧同步的项目。");
             Assert.IsFalse(graph["Framework.GamePlay"].Contains("Generated.Luban"));
-            Assert.IsTrue(graph["Framework.GamePlay.Luban"].Contains("Luban.Runtime"));
+            Assert.IsTrue(graph["Game"].Contains("Game.Luban"));
+            Assert.IsTrue(graph["Game.Luban"].Contains("Luban.Runtime"));
+            Assert.IsTrue(graph["Framework.Network"].Contains("KCP"));
             Assert.IsTrue(graph["Framework.ECS.Physics"].Contains("Framework.LockstepPhysics"));
             // GUID 形式的引用（例如 Generated.Luban → Luban.Runtime）不解析成程序集名，环检测只覆盖按名字写出的引用。
             AssertNoCycle(graph);
