@@ -1,0 +1,5 @@
+<linker>
+  <!-- Activator.CreateInstance 创建 IMemory。保留构造函数，避免 IL2CPP 裁掉无直接调用的池化类型。 -->
+  <assembly fullname="Framework.MemoryPool" preserve="all"/>
+  <assembly fullname="Framework.ObjectPool" preserve="all"/>
+</linker>

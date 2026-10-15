@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.GamePlay` |
 | 命名空间 | `Framework.GamePlay` / `Framework.GamePlay.Data` |
-| 依赖 | `Framework.Core`、`Framework.Battle.Core`、`Framework.Events`、`Framework.GAS`、`Framework.ECS`、`Framework.ECS.Physics`、`Framework.Logging`、`Framework.Res`、`Framework.BehaviourTree`、`Framework.FixedMath`。Luban 适配在 `Framework.GamePlay.Luban`，类型命名空间不变 |
+| 依赖 | `Framework.Core`、`Framework.Battle.Core`、`Framework.Events`、`Framework.GAS`、`Framework.ECS`、`Framework.ECS.Physics`、`Framework.Logging`、`Framework.Res`、`Framework.BehaviourTree`、`Framework.FixedMath`。Luban 适配在演示程序集 `Game.Luban`，类型命名空间不变 |
 
 ## 核心类型
 
@@ -72,7 +72,7 @@ director.DestroySession(session); // Framework.Dispose + Scope.Dispose
 
 ## GamePlay.Data（配置装配层）
 
-命名空间 `Framework.GamePlay.Data`。装配入口是 `IBattleAbilityCatalog` / `IBattleEffectCatalog`，接口在 `Framework.GamePlay`，上面没有 Luban 类型。默认实现 `LubanAbilityCatalog` / `LubanEffectCatalog` 和工厂在程序集 `Framework.GamePlay.Luban`（引用 `Framework.Core`、`Framework.Events`、`Framework.Battle.Core`、`Framework.Config`、`Framework.FixedMath`、`Framework.GamePlay`、`Framework.GAS`、`Generated.Luban`），仍读 `cfg.CfgTables`。`BattleConfigApplier` 把 `BattleContext.Presentation`（`IEventBus`）传给 GAS，所以该程序集必须直接引用 `Framework.Events`。调用 `CfgTables` 重载的程序集要引用 `Framework.GamePlay.Luban`。`RegisterActorAbilities` 与 `BattleConfigApplier.ApplyEffect` 保留 `CfgTables` 重载，内部转成上述目录。`GamePlayFramework.EffectCatalog` 为 null，或目录里没有该效果时，命中结算抛出 `InvalidOperationException`，不再静默查 `ConfigManager`。`EffectConfigFactory.CreateDef(row)` 仍保留，并标为过时；目录实现应调用 `CreateDef(row, tables)`。本层不含 Tick。
+命名空间 `Framework.GamePlay.Data`。装配入口是 `IBattleAbilityCatalog` / `IBattleEffectCatalog`，接口在 `Framework.GamePlay`，上面没有 Luban 类型。默认实现 `LubanAbilityCatalog` / `LubanEffectCatalog` 和工厂在演示程序集 `Game.Luban`（引用 `Framework.Core`、`Framework.Events`、`Framework.Battle.Core`、`Framework.Config`、`Framework.FixedMath`、`Framework.GamePlay`、`Framework.GAS`、`Generated.Luban`），仍读 `cfg.CfgTables`。`BattleConfigApplier` 把 `BattleContext.Presentation`（`IEventBus`）传给 GAS，所以该程序集必须直接引用 `Framework.Events`。调用 `CfgTables` 重载的程序集要引用 `Game.Luban`。`RegisterActorAbilities` 与 `BattleConfigApplier.ApplyEffect` 保留 `CfgTables` 重载，内部转成上述目录。`GamePlayFramework.EffectCatalog` 为 null，或目录里没有该效果时，命中结算抛出 `InvalidOperationException`，不再静默查 `ConfigManager`。`EffectConfigFactory.CreateDef(row)` 仍保留，并标为过时；目录实现应调用 `CreateDef(row, tables)`。本层不含 Tick。
 
 | 类型 | 职责 |
 |------|------|

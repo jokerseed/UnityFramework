@@ -8,7 +8,7 @@
 |---|---|
 | 程序集 | `Framework.Network` |
 | 命名空间 | `Framework.Network` |
-| 依赖 | `UniTask`、`Framework.Core`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.Events`、`KCP`（`Assets/ThirdParty/KCP`） |
+| 依赖 | `UniTask`、`Framework.Core`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.Events`、`KCP`（本包 `Runtime/ThirdParty/KCP`，MIT） |
 
 ## 核心类型
 
@@ -164,7 +164,8 @@ new NetworkModule(), // Dependencies: Logging + MemoryPool
 
 - 不绑定具体业务协议，只提供 Channel + Helper
 - TCP 的 IO 用 `SocketAsyncEventArgs`，不用 `Task` / 显式 `Thread`；`Socket` 只在 `TcpNetworkChannel` 上暴露，`INetworkChannel` 不绑定具体传输
-- KCP 协议栈用 `Assets/ThirdParty/KCP`，类型不暴露给业务。UDP 完成回调只入队，不在那条线程上推进 KCP
+- KCP 协议栈随本包放在 `Runtime/ThirdParty/KCP`（MIT），类型不暴露给业务。UDP 完成回调只入队，不在那条线程上推进 KCP
+- TCP 与 KCP 默认是明文。需要加密时用 `wss://`，或在 `INetworkChannelHelper` 里自行封装载荷；框架不提供 TLS 套接字
 - HTTP 是短请求，不要塞进 `INetworkChannel`
 - 消息包走 `MemoryPool`，热路径避免额外 `IDisposable`
 - 心跳默认关闭（`HeartBeatInterval <= 0`）；有服务端再打开

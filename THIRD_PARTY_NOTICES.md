@@ -27,7 +27,7 @@
 | YooAsset 3.0.5 | `LocalPackages/YooAsset-3.0.5`（本地包） | Apache-2.0 | https://github.com/tuyoogame/YooAsset |
 | Luban 4.11.0（打表工具） | `ThirdParty/luban-4.11.0` | MIT | https://github.com/focus-creative-games/luban |
 | luban_unity（`Luban.Runtime`） | `Packages/manifest.json` Git 依赖 | MIT | https://github.com/focus-creative-games/luban_unity |
-| KCP（C# 移植） | `Assets/ThirdParty/KCP`（`Framework.Network` 的 KCP 频道引用此程序集） | MIT | skywind3000，https://github.com/skywind3000/kcp |
+| KCP（C# 移植） | `Packages/com.jokerseed.framework.network/Runtime/ThirdParty/KCP`（`Framework.Network` 的 KCP 频道引用此程序集） | MIT | skywind3000，https://github.com/skywind3000/kcp |
 | Google.Protobuf | `Assets/ThirdParty/Google.Protobuf` | BSD-3-Clause | https://github.com/protocolbuffers/protobuf |
 | Newtonsoft.Json | `com.unity.nuget.newtonsoft-json` | MIT | https://www.newtonsoft.com/json |
 | Unity MCP | `Packages/manifest.json` Git 依赖（仅编辑器） | MIT | https://github.com/CoplayDev/unity-mcp |

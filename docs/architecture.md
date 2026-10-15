@@ -9,7 +9,7 @@
 | 配置驱动 | `IBattleAbilityCatalog` / `IBattleEffectCatalog` 装配到 GAS；默认后端是 Luban |
 | 资源管线 | YooAsset 打包；运行时加载/释放统一走 `ResourceManager` |
 | 模块编排 | `GameBootstrap` 按依赖拓扑排序初始化各 `IGameModule` |
-| 示例文档化 | 演示与验证用例写在各模块 README，不单独维护 Samples/Tests 程序集 |
+| 示例文档化 | 演示写在各模块 README。测试在 `Assets/Tests` 与 `tests/Framework.Sim.Tests` |
 
 ## 事件边界
 
@@ -29,10 +29,10 @@
 |----|------|
 | 定点 / 锁步 / 物理 / 行为树基座 | 已迁移或已实现 |
 | 战斗 Demo 锁步权威 Tick | 已接 `LocalLockstepHost`（意图帧 + checksum + F8 对拍） |
-| **预测回滚 / 状态快照** | **`LockstepHost` 可等输入，并按检查点回滚重放**。检查点含 `GasSnapshot`（版本 3）、ECS、随机数和 `BattlePhysicsSnapshot`（内存克隆，不是字节流）。`World.Restore` 之后要 `RebindEntitiesAfterSnapshot`。行为树游标和旧的 `RollbackLockstep` 仍未接入。Farseer 刚体 ID 仍是进程全局的；效果 Spec 的 RuntimeId、技能实例 ID 和活跃效果句柄在每个 ASC 上递增 |
+| **预测回滚 / 状态快照** | **`LockstepHost` 可等输入，并按检查点回滚重放**。检查点含 `GasSnapshot`（版本 4）、ECS、随机数和 `BattlePhysicsSnapshot`（内存克隆，不是字节流）。`World.Restore` 之后要 `RebindEntitiesAfterSnapshot`。行为树游标已纳入检查点；旧的 `RollbackLockstep` 仍未接入当前战斗。Farseer 的 `_bodyIdCounter` 在每个 `World` 上。Jitter 的 `RigidBody.instanceCount` / `Constraint.instanceCount` 仍是静态字段：构造世界时清零，克隆快照会存回再还原，所以单场回滚能对上；两场 Jitter 世界同时存在会互相踩计数器。效果 Spec 的 RuntimeId、技能实例 ID 和活跃效果句柄在每个 ASC 上递增 |
 | **反作弊（checksum 接线 / Obscured 适配）** | **未实现**（校验类型已迁；FixedMath 刻意无 Obscured） |
 
-详见根 [README 反作弊](../../README.md#反作弊)、[Lockstep/README.md](Lockstep/README.md)、[FixedMath/README.md](FixedMath/README.md)、[BehaviourTree/README.md](BehaviourTree/README.md)。
+详见根 [README 战斗套件](../README.md#战斗套件)、[Lockstep](../Packages/com.jokerseed.framework.battle/Runtime/Lockstep/README.md)、[FixedMath](../Packages/com.jokerseed.framework.battle/Runtime/FixedMath/README.md)、[BehaviourTree](../Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/README.md)。
 
 ## 两套锁步不要混
 
@@ -66,38 +66,39 @@
 
 | 程序集 | 职责 | 文档 |
 |--------|------|------|
-| `Framework.Bootstrap` | 模块启动编排（Host；`IGameModule` 契约在 Core） | [Bootstrap/README.md](Bootstrap/README.md) |
-| `Framework.Core` | `IGameModule`、快照缓冲、Tick 契约、常驻单例 | [Core/README.md](Core/README.md) |
-| `Framework.Battle.Core` | `ActorId`、`BattleContext`、命令缓冲。命名空间仍是 `Framework.Core` | [Battle.Core/README.md](Battle.Core/README.md) |
-| `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events/README.md](Events/README.md) |
-| `Framework.GAS` | ASC、伤害管线、Effect、Tag | [GAS/README.md](GAS/README.md) |
-| `Framework.ECS` | World、System、空间哈希。销毁实体时只调用 `IEcsBodyRemover` | [ECS/README.md](ECS/README.md) |
-| `Framework.ECS.Physics` | `BattlePhysicsWorld` 与 Farseer 步进 | [ECS.Physics/README.md](ECS.Physics/README.md) |
-| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口。不引用 Luban | [GamePlay/README.md](GamePlay/README.md) |
-| `Framework.GamePlay.Luban` | Luban 表到技能/效果目录的适配，类型仍在 `Framework.GamePlay.Data` | [GamePlay.Luban/README.md](GamePlay.Luban/README.md) |
-| `Framework.Config` | Luban 加载与 Tables 缓存 | [Config/README.md](Config/README.md) |
-| `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res/README.md](Res/README.md) |
-| `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool/README.md](MemoryPool/README.md) |
-| `Framework.ObjectPool` | 对象池（`ObjectBase` / 容量过期） | [ObjectPool/README.md](ObjectPool/README.md) |
-| `Framework.Coroutine` | 协程（Global / Scene / GameObject） | [Coroutine/README.md](Coroutine/README.md) |
-| `Framework.FixedMath` | 确定性定点数（锁步基座 A） | [FixedMath/README.md](FixedMath/README.md) |
-| `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） | [Lockstep/README.md](Lockstep/README.md) |
-| `Framework.LockstepPhysics` | 确定性 Farseer 2D；Jitter 3D 在可选程序集 `Framework.LockstepPhysics.Jitter` | [LockstepPhysics/README.md](LockstepPhysics/README.md) |
-| `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree/README.md](BehaviourTree/README.md) |
-| `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI/README.md](UI/README.md) |
-| `Framework.Network` | TCP / WebSocket / KCP 频道与 HTTP 短请求（`NetworkManager` / `INetworkChannel` / `HttpRequests`） | [Network/README.md](Network/README.md) |
-| `Framework.Audio` | 音频管理（`AudioManager` / BGM·SFX 双通道） | [Audio/README.md](Audio/README.md) |
-| `Framework.Editor` | Luban / YooAsset 编辑器工具 | [Editor/README.md](Editor/README.md) |
-| `Game` | 业务入口（Launch / 主界面 / Battle 演示） | [../../Scripts/README.md](../../Scripts/README.md) |
-| `Generated.Luban` | Luban 生成配置代码 | [../Generated/README.md](../Generated/README.md) |
+| `Framework.Bootstrap` | 模块启动编排（Host；`IGameModule` 契约在 Core） | [Bootstrap](../Packages/com.jokerseed.framework.core/Runtime/Bootstrap/README.md) |
+| `Framework.Core` | `IGameModule`、常驻单例 | [Core](../Packages/com.jokerseed.framework.core/Runtime/Core/README.md) |
+| `Framework.Battle.Core` | `ActorId`、`BattleContext`、命令缓冲。命名空间是 `Framework.Battle`（含 `.Commands` / `.Snapshot`） | [Battle.Core](../Packages/com.jokerseed.framework.battle/Runtime/Battle.Core/README.md) |
+| `Framework.Events` | `IEventBus` 契约与零 GC 实现 | [Events](../Packages/com.jokerseed.framework.core/Runtime/Events/README.md) |
+| `Framework.GAS` | ASC、伤害管线、Effect、Tag。快照版本 4 | [GAS](../Packages/com.jokerseed.framework.battle/Runtime/GAS/README.md) |
+| `Framework.ECS` | World、System、空间哈希。销毁实体时只调用 `IEcsBodyRemover` | [ECS](../Packages/com.jokerseed.framework.battle/Runtime/ECS/README.md) |
+| `Framework.ECS.Physics` | `BattlePhysicsWorld` 与 Farseer 步进 | [ECS.Physics](../Packages/com.jokerseed.framework.battle/Runtime/ECS.Physics/README.md) |
+| `Framework.GamePlay` | `GamePlayFramework` 玩法主入口。不引用 Luban | [GamePlay](../Packages/com.jokerseed.framework.battle/Runtime/GamePlay/README.md) |
+| `Game.Luban` | 演示层程序集（`Assets/Scripts/Luban`）。Luban 表到技能/效果目录的适配，类型仍在 `Framework.GamePlay.Data` | [Game.Luban](../Assets/Scripts/Luban/README.md) |
+| `Framework.Config` | Luban 加载与 Tables 缓存 | [Config](../Packages/com.jokerseed.framework.config/Runtime/README.md) |
+| `Framework.Res` | YooAsset 封装（`ResourceManager`） | [Res](../Packages/com.jokerseed.framework.res/Runtime/README.md) |
+| `Framework.MemoryPool` | 轻量内存池（`IMemory`） | [MemoryPool](../Packages/com.jokerseed.framework.core/Runtime/MemoryPool/README.md) |
+| `Framework.ObjectPool` | 对象池（`ObjectBase` / 容量过期） | [ObjectPool](../Packages/com.jokerseed.framework.core/Runtime/ObjectPool/README.md) |
+| `Framework.Coroutine` | 协程（Global / Scene / GameObject） | [Coroutine](../Packages/com.jokerseed.framework.core/Runtime/Coroutine/README.md) |
+| `Framework.Logging` | `GameLog` 分级日志 | [Logging](../Packages/com.jokerseed.framework.core/Runtime/Logging/README.md) |
+| `Framework.FixedMath` | 确定性定点数（锁步基座 A） | [FixedMath](../Packages/com.jokerseed.framework.battle/Runtime/FixedMath/README.md) |
+| `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） | [Lockstep](../Packages/com.jokerseed.framework.battle/Runtime/Lockstep/README.md) |
+| `Framework.LockstepPhysics` | 确定性 Farseer 2D；Jitter 3D 在可选程序集 `Framework.LockstepPhysics.Jitter` | [LockstepPhysics](../Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/README.md) |
+| `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree](../Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/README.md) |
+| `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI](../Packages/com.jokerseed.framework.ui/Runtime/README.md) |
+| `Framework.Network` | TCP / WebSocket / KCP 频道与 HTTP 短请求。KCP 源码在本包 `Runtime/ThirdParty/KCP` | [Network](../Packages/com.jokerseed.framework.network/Runtime/README.md) |
+| `Framework.Audio` | 音频管理（`AudioManager` / BGM·SFX 双通道） | [Audio](../Packages/com.jokerseed.framework.audio/Runtime/README.md) |
+| `Framework.Core.Editor` / `Framework.Res.Editor` / `Framework.Config.Editor` / `Framework.Battle.Editor` / `Framework.BehaviourTree.Editor` | 各包自己的编辑器工具，没有单独的 `Framework.Editor` 程序集 | [编辑器工具](editor-tools.md) |
+| `Game` | 业务入口（Launch / 主界面 / Battle 演示） | [Scripts](../Assets/Scripts/README.md) |
+| `Generated.Luban` | Luban 生成配置代码 | [Generated](../Assets/Generated/README.md) |
 
 ## 示例与验证（写在 README）
 
 | 内容 | 位置 |
 |------|------|
-| 启动流程 + 配置加载 | `Assets/Scripts/Launch.cs`、[Config/README.md](Config/README.md) |
-| 完整战斗演示 | [GamePlay/README.md](GamePlay/README.md) → 完整示例 |
-| ASC 伤害/效果/标签验证 | [GAS/README.md](GAS/README.md) → 行为验证示例 |
+| 启动流程 + 配置加载 | `Assets/Scripts/Launch.cs`、[Config](../Packages/com.jokerseed.framework.config/Runtime/README.md) |
+| 完整战斗演示 | [GamePlay](../Packages/com.jokerseed.framework.battle/Runtime/GamePlay/README.md) → 完整示例 |
+| ASC 伤害/效果/标签验证 | [GAS](../Packages/com.jokerseed.framework.battle/Runtime/GAS/README.md) → 行为验证示例 |
 
 ## 模块依赖图
 
@@ -117,7 +118,7 @@ Bootstrap (Host)
     │                       └── BehaviourTree（AI Agent，非 IGameModule）
     │
     ├── FixedMath / Lockstep / LockstepPhysics / BehaviourTree（帧同步与 AI 基座，按需引用，非 IGameModule）
-    └── Editor (Editor only)
+    └── 各包 Editor 程序集（仅编辑器）
 ```
 
 ## 启动流程
@@ -153,7 +154,7 @@ Config/Luban/Datas/battle/effect.xlsx
 | 方式 | 入口 |
 |------|------|
 | 命令行 | `Config\Luban\gen_client.bat` |
-| Unity 菜单 | **Tools → Luban → Generate Client Config** |
+| Unity 菜单 | **Tools → Framework → Config → Generate Luban Config** |
 
 产出：
 
@@ -169,7 +170,7 @@ Config/Luban/Datas/battle/effect.xlsx
 
 | 步骤 | 菜单 |
 |------|------|
-| 生成 Collector | **Tools → YooAsset → Generate Collector** |
+| 生成 Collector | **Tools → Framework → Res → Generate YooAsset Collector** |
 | 构建 Bundle | **YooAsset → Bundle Builder** |
 
 Collector 规则：

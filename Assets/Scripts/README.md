@@ -15,7 +15,7 @@
 | 程序集 | `Game` |
 | 命名空间 | `Game` |
 | 角色 | 业务入口、场景流程、UI 入口、战斗演示装配 |
-| 依赖 | `Framework.Bootstrap`、`Framework.Config`、`Framework.Core`、`Framework.Battle.Core`、`Framework.Coroutine`、`Framework.ECS`、`Framework.ECS.Physics`、`Framework.Events`、`Framework.GamePlay`、`Framework.GamePlay.Luban`、`Framework.GAS`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.ObjectPool`、`Framework.Res`、`Framework.UI`、`Generated.Luban` |
+| 依赖 | `Framework.Bootstrap`、`Framework.Config`、`Framework.Core`、`Framework.Battle.Core`、`Framework.Coroutine`、`Framework.ECS`、`Framework.ECS.Physics`、`Framework.Events`、`Framework.GamePlay`、`Game.Luban`、`Framework.GAS`、`Framework.Logging`、`Framework.MemoryPool`、`Framework.ObjectPool`、`Framework.Res`、`Framework.UI`、`Generated.Luban` |
 
 ## 目录结构
 

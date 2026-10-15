@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git",
-    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git#061314200e2f03307c4d90b448e1de7b85431905",
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#4ce7dd3cc54e37e2ed6dc59cb5a047f3dccb3f50",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#2.5.11",
     "com.tuyoogame.yooasset": "file:../LocalPackages/YooAsset-3.0.5/Assets/YooAsset",
     "com.unity.2d.animation": "7.0.13",
