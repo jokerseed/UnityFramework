@@ -96,7 +96,11 @@ namespace Game
                 return false;
             }
 
-            _host = new LocalLockstepHost(_session);
+            // 录像只在编辑器和开发包里开：F8 对拍需要逐帧校验和，正式包省掉这部分开销。
+            _host = new LocalLockstepHost(_session)
+            {
+                RecordReplay = Debug.isDebugBuild,
+            };
             return true;
         }
 

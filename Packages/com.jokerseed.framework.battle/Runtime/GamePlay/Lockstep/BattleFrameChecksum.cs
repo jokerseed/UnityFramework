@@ -18,14 +18,15 @@ namespace Framework.GamePlay
     /// </summary>
     public static class BattleFrameChecksum
     {
-        static readonly List<ActorId> s_actorIds = new List<ActorId>(64);
-        static readonly List<uint> s_projectileIds = new List<uint>(32);
-        static readonly List<KeyValuePair<string, int>> s_tags = new List<KeyValuePair<string, int>>(8);
-        static readonly List<KeyValuePair<string, int>> s_ints = new List<KeyValuePair<string, int>>(8);
-        static readonly List<KeyValuePair<string, bool>> s_bools = new List<KeyValuePair<string, bool>>(8);
-        static readonly List<KeyValuePair<string, long>> s_fps = new List<KeyValuePair<string, long>>(8);
-        static readonly List<KeyValuePair<string, uint>> s_ids = new List<KeyValuePair<string, uint>>(8);
-        static readonly List<KeyValuePair<string, string>> s_strings = new List<KeyValuePair<string, string>>(8);
+        // 排序用的临时缓冲按线程各一份：服务端在多个线程上并行跑多场战斗时，共享的静态缓冲会被互相写乱。
+        [ThreadStatic] static List<ActorId> s_actorIds;
+        [ThreadStatic] static List<uint> s_projectileIds;
+        [ThreadStatic] static List<KeyValuePair<string, int>> s_tags;
+        [ThreadStatic] static List<KeyValuePair<string, int>> s_ints;
+        [ThreadStatic] static List<KeyValuePair<string, bool>> s_bools;
+        [ThreadStatic] static List<KeyValuePair<string, long>> s_fps;
+        [ThreadStatic] static List<KeyValuePair<string, uint>> s_ids;
+        [ThreadStatic] static List<KeyValuePair<string, string>> s_strings;
         static readonly Comparison<KeyValuePair<string, int>> s_tagOrder =
             (left, right) => string.CompareOrdinal(left.Key, right.Key);
         static readonly Comparison<KeyValuePair<string, bool>> s_boolOrder =
@@ -47,6 +48,7 @@ namespace Framework.GamePlay
                 return 0;
             }
 
+            EnsureBuffers();
             var hash = Fnv64.Create();
             hash.Add(framework.Random.GetStateHash());
 
@@ -158,6 +160,23 @@ namespace Framework.GamePlay
             }
 
             return hash.Value;
+        }
+
+        static void EnsureBuffers()
+        {
+            if (s_actorIds != null)
+            {
+                return;
+            }
+
+            s_actorIds = new List<ActorId>(64);
+            s_projectileIds = new List<uint>(32);
+            s_tags = new List<KeyValuePair<string, int>>(8);
+            s_ints = new List<KeyValuePair<string, int>>(8);
+            s_bools = new List<KeyValuePair<string, bool>>(8);
+            s_fps = new List<KeyValuePair<string, long>>(8);
+            s_ids = new List<KeyValuePair<string, uint>>(8);
+            s_strings = new List<KeyValuePair<string, string>>(8);
         }
 
         static void HashTags(ref Fnv64 hash, GAS.AbilitySystemComponent asc)

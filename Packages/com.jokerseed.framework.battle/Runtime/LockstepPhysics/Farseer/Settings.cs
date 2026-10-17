@@ -27,6 +27,11 @@ using FP = Framework.FixedMath.FP;
 
 namespace Framework.Lockstep.Physics2D
 {
+    /// <summary>
+    /// Farseer 全局参数。迭代次数、CCD、休眠等会改变求解结果，原版是可写的静态字段：
+    /// 任何一端改了都会和其它端算出不同结果，而模拟版本号与校验和都发现不了。这里全部改为只读；
+    /// 确需调整时直接改源码，并提升 <c>BattleSimulationVersion.Current</c>。
+    /// </summary>
     public static class Settings
     {
         public static readonly FP MaxFP = FP.MaxValue;
@@ -62,17 +67,17 @@ namespace Framework.Lockstep.Physics2D
         /// <summary>
         /// The number of velocity iterations used in the solver.
         /// </summary>
-        public static int VelocityIterations = 8;
+        public static readonly int VelocityIterations = 8;
 
         /// <summary>
         /// The number of position iterations used in the solver.
         /// </summary>
-        public static int PositionIterations = 3;
+        public static readonly int PositionIterations = 3;
 
         /// <summary>
         /// Enable/Disable Continuous Collision Detection (CCD)
         /// </summary>
-        public static bool ContinuousPhysics = false;
+        public static readonly bool ContinuousPhysics = false;
 
         /// <summary>
         /// If true, it will run a GiftWrap convex hull on all polygon inputs.
@@ -80,17 +85,17 @@ namespace Framework.Lockstep.Physics2D
         /// but if speed of the creation of polygons are more important,
         /// you might want to set this to false.
         /// </summary>
-        public static bool UseConvexHullPolygons = false;
+        public static readonly bool UseConvexHullPolygons = false;
 
         /// <summary>
         /// The number of velocity iterations in the TOI solver
         /// </summary>
-        public static int TOIVelocityIterations = VelocityIterations;
+        public static readonly int TOIVelocityIterations = VelocityIterations;
 
         /// <summary>
         /// The number of position iterations in the TOI solver
         /// </summary>
-        public static int TOIPositionIterations = 20;
+        public static readonly int TOIPositionIterations = 20;
 
         /// <summary>
         /// Maximum number of sub-steps per contact in continuous physics simulation.
@@ -105,12 +110,12 @@ namespace Framework.Lockstep.Physics2D
         /// <summary>
         /// Enable/Disable sleeping
         /// </summary>
-        public static bool AllowSleep = false;
+        public static readonly bool AllowSleep = false;
 
         /// <summary>
         /// The maximum number of vertices on a convex polygon.
         /// </summary>
-        public static int MaxPolygonVertices = 64;
+        public static readonly int MaxPolygonVertices = 64;
 
         /// <summary>
         /// Farseer Physics Engine has a different way of filtering fixtures than Box2d.
@@ -118,27 +123,27 @@ namespace Framework.Lockstep.Physics2D
         /// from earlier versions of FPE, set this to true and DefaultFixtureCollisionCategories
         /// to Category.All.
         /// </summary>
-        public static bool UseFPECollisionCategories;
+        public static readonly bool UseFPECollisionCategories;
 
         /// <summary>
         /// This is used by the Fixture constructor as the default value 
         /// for Fixture.CollisionCategories member. Note that you may need to change this depending
         /// on the setting of UseFPECollisionCategories, above.
         /// </summary>
-        public static Category DefaultFixtureCollisionCategories = Category.Cat1;
+        public static readonly Category DefaultFixtureCollisionCategories = Category.Cat1;
 
         /// <summary>
         /// This is used by the Fixture constructor as the default value 
         /// for Fixture.CollidesWith member.
         /// </summary>
-        public static Category DefaultFixtureCollidesWith = Category.All;
+        public static readonly Category DefaultFixtureCollidesWith = Category.All;
 
 
         /// <summary>
         /// This is used by the Fixture constructor as the default value 
         /// for Fixture.IgnoreCCDWith member.
         /// </summary>
-        public static Category DefaultFixtureIgnoreCCDWith = Category.None;
+        public static readonly Category DefaultFixtureIgnoreCCDWith = Category.None;
 
         /// <summary>
         /// The maximum number of contact points between two convex shapes.

@@ -25,14 +25,8 @@ namespace Framework.FixedMath {
         bool _stateHashValid;
         int _cachedStateHash;
 
-        /**
-         *  @brief Static instance of {@link TSRandom} with seed 1.
-         **/
-        public static TSRandom instance;
-
-        internal static void Init() {
-            instance = New(1);
-        }
+        // 进程级的静态实例（instance / value / Range / CallNext）已删除：它从未初始化（调用即空引用），
+        // 而且进程共享的随机状态不进快照、会被多场战斗共用，必然导致不同步。战斗一律注入 New(seed) 创建的实例。
 
         /**
          *  @brief Generates a new instance based on a given seed.
@@ -71,13 +65,6 @@ namespace Framework.FixedMath {
         }
 
         /**
-         *  @brief Returns a random integer.
-         **/
-        public static int CallNext() {
-            return instance.Next();
-        }
-
-        /**
          *  @brief Returns a integer between a min value [inclusive] and a max value [exclusive].
          *  min==max 时直接返回该值，不消耗随机数。其它范围仍是 Next() % range，已有序列不变。
          **/
@@ -111,20 +98,6 @@ namespace Framework.FixedMath {
 
             return (FP.Floor((maxValueInt - minValueInt + 1) * NextFP() +
                 minValueInt)) / 1000;
-        }
-
-        /**
-         *  @brief Returns a integer between a min value [inclusive] and a max value [exclusive].
-         **/
-        public static int Range(int minValue, int maxValue) {
-            return instance.Next(minValue, maxValue);
-        }
-
-        /**
-         *  @brief Returns a {@link FP} between a min value [inclusive] and a max value [inclusive].
-         **/
-        public static FP Range(float minValue, float maxValue) {
-            return instance.Next(minValue, maxValue);
         }
 
         /**
@@ -200,21 +173,17 @@ namespace Framework.FixedMath {
             _stateHashValid = false;
         }
 
-        /**
-         *  @brief Returns a {@link FP} between 0.0 [inclusive] and 1.0 [inclusive].
-         **/
-        public static FP value {
-            get {
-                return instance.NextFP();
-            }
-        }
-
-        /**
-         *  @brief Returns a random {@link TSVector} representing a point inside a sphere with radius 1.
-         **/
-        public static TSVector insideUnitSphere {
-            get {
-                return new TSVector(value, value, value);
+        /// <summary>
+        /// 单位球内（含球面）均匀分布的点：在 [-1, 1]³ 里拒绝采样，落在球外就重抽。
+        /// 旧的静态 <c>insideUnitSphere</c> 返回三个 [0, 1] 分量，实际是正立方体里的点，已删除。
+        /// </summary>
+        /// <returns>模长不超过 1 的向量。</returns>
+        public TSVector InsideUnitSphere() {
+            while (true) {
+                var p = new TSVector(NextFP() * 2 - FP.One, NextFP() * 2 - FP.One, NextFP() * 2 - FP.One);
+                if (p.sqrMagnitude <= FP.One) {
+                    return p;
+                }
             }
         }
 

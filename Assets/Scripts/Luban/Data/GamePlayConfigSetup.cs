@@ -16,7 +16,7 @@ namespace Framework.GamePlay.Data
         /// <param name="teamId">队伍 ID。</param>
         /// <param name="abilityIds">技能 ID 列表。</param>
         /// <param name="tables">Luban 表；为 null 时通过 <see cref="ConfigManager.LoadTables{TTables}"/> 按需加载。</param>
-        /// <exception cref="InvalidOperationException">表未能加载。</exception>
+        /// <exception cref="InvalidOperationException">表未能加载，或技能/效果引用了不存在的效果。</exception>
         /// <exception cref="KeyNotFoundException">某个技能 ID 不在表中。</exception>
         public static void RegisterActorAbilities(
             this GamePlayFramework framework,
@@ -31,7 +31,12 @@ namespace Framework.GamePlay.Data
                 throw new InvalidOperationException("Config tables are not loaded. Call ConfigManager.LoadTables<CfgTables>() first.");
             }
 
-            framework.EffectCatalog ??= new LubanEffectCatalog(tables);
+            if (framework.EffectCatalog == null)
+            {
+                // 第一次装配时校验配表引用：缺失的效果在这里报错，而不是战斗中命中时才发现。
+                BattleConfigValidator.Validate(tables);
+                framework.EffectCatalog = new LubanEffectCatalog(tables);
+            }
             var catalog = new LubanAbilityCatalog(
                 tables,
                 framework.QueryNearestEnemy,

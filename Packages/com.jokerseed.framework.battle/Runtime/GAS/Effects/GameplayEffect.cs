@@ -120,6 +120,9 @@ namespace Framework.GAS.Effects
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
 
+        /// <summary>重复施加时是否重置周期计时；见 <see cref="GameplayEffectDef.ResetPeriodOnRefresh"/>。</summary>
+        public bool ResetPeriodOnRefresh { get; }
+
         /// <summary>从 Def 构造运行时 Spec（兼容旧构造函数）。</summary>
         public GameplayEffectSpec(
             string effectId,
@@ -184,6 +187,7 @@ namespace Framework.GAS.Effects
             CostAttributes = def.CostAttributes;
             SetByCaller = setByCaller;
             MaxStacks = def.MaxStacks;
+            ResetPeriodOnRefresh = def.ResetPeriodOnRefresh;
         }
     }
 

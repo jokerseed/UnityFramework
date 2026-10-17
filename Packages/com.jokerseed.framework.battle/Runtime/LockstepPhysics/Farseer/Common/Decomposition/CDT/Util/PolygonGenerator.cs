@@ -39,12 +39,12 @@ namespace Framework.Lockstep.Physics2D
 {
     internal class PolygonGenerator
     {
-        private static readonly TSRandom RNG = TSRandom.New(0);
-
+        // 不用进程级静态随机源：每次调用各建一个固定种子的实例，结果可复现，也不跨调用共享状态。
         private static FP PI_2 = (FP)(2.0)* FP.Pi;
 
         public static Polygon RandomCircleSweep(FP scale, int vertexCount)
         {
+            var RNG = TSRandom.New(0);
             PolygonPoint point;
             PolygonPoint[] points;
             FP radius = scale/4;
@@ -78,6 +78,7 @@ namespace Framework.Lockstep.Physics2D
 
         public static Polygon RandomCircleSweep2(FP scale, int vertexCount)
         {
+            var RNG = TSRandom.New(0);
             PolygonPoint point;
             PolygonPoint[] points;
             FP radius = scale/4;

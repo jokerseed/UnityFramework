@@ -365,6 +365,7 @@ namespace Framework.GAS
             writer.WriteInt((int)def.StackingPolicy);
             writer.WriteFp(def.Duration);
             writer.WriteFp(def.Period);
+            writer.WriteBool(def.ResetPeriodOnRefresh);
             writer.WriteInt(def.MaxStacks);
             WriteModifiers(writer, def.Modifiers);
             WriteTagList(writer, def.GrantedTags);
@@ -406,6 +407,7 @@ namespace Framework.GAS
             var stacking = (EffectStackingPolicy)reader.ReadInt();
             var duration = reader.ReadFp();
             var period = reader.ReadFp();
+            var resetPeriodOnRefresh = reader.ReadBool();
             var maxStacks = reader.ReadInt();
             var modifiers = ReadModifiers(reader);
             var grantedTags = ReadTagList(reader);
@@ -446,7 +448,8 @@ namespace Framework.GAS
                 cueOnApply,
                 cueOnRemove,
                 cost,
-                maxStacks);
+                maxStacks,
+                resetPeriodOnRefresh);
         }
 
         static void WriteExecutions(
