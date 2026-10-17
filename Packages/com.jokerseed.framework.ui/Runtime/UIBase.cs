@@ -12,6 +12,7 @@ namespace Framework.UI
     public abstract class UIBase
     {
         readonly List<IDisposable> _eventSubscriptions = new List<IDisposable>(4);
+        readonly List<UIWidget> _widgets = new List<UIWidget>(2);
 
         /// <summary>根节点 GameObject。</summary>
         public GameObject GameObject { get; private set; }
@@ -71,6 +72,20 @@ namespace Framework.UI
             OnRefresh();
         }
 
+        /// <summary>每帧更新：先调本对象的 <see cref="OnUpdate"/>，再依次更新子 Widget。</summary>
+        internal void InternalUpdate(float deltaTime)
+        {
+            OnUpdate(deltaTime);
+            for (var i = 0; i < _widgets.Count; i++)
+            {
+                var widget = _widgets[i];
+                if (widget.IsCreated)
+                {
+                    widget.InternalUpdate(deltaTime);
+                }
+            }
+        }
+
         internal void InternalDestroy()
         {
             if (!IsCreated)
@@ -78,6 +93,13 @@ namespace Framework.UI
                 return;
             }
 
+            // 子 Widget 先于自己销毁：它们通过 AddUIEvent 订阅的全局事件也要退订，否则会被事件总线一直持有。
+            for (var i = _widgets.Count - 1; i >= 0; i--)
+            {
+                _widgets[i].InternalDestroy();
+            }
+
+            _widgets.Clear();
             ClearUIEvents();
             OnDestroy();
             IsCreated = false;
@@ -176,8 +198,21 @@ namespace Framework.UI
             }
 
             var widget = new TWidget();
+            _widgets.Add(widget);
             widget.InternalCreate(Manager, target, this, null);
             return widget;
+        }
+
+        /// <summary>提前销毁一个由 <see cref="CreateWidget{TWidget}(GameObject)"/> 创建的子 Widget（不销毁其 GameObject）。</summary>
+        /// <param name="widget">子 Widget；不属于本对象时忽略。</param>
+        protected void DestroyWidget(UIWidget widget)
+        {
+            if (widget == null || !_widgets.Remove(widget))
+            {
+                return;
+            }
+
+            widget.InternalDestroy();
         }
 
         /// <summary>按路径创建并绑定子 Widget。</summary>

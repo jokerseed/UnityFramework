@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Framework.Logging;
 using UnityEngine;
 using YooAsset;
 
@@ -23,10 +24,12 @@ namespace Framework.Res
                 AssetType = assetType;
             }
 
+            // YooAsset 寻址默认区分大小写（未开启 LocationToLower 时），合并键必须同样区分，
+            // 否则 "UI/Main" 与 "ui/main" 会被合并成同一个加载结果。
             public bool Equals(LoadKey other)
             {
                 return AssetType == other.AssetType
-                       && string.Equals(Location, other.Location, StringComparison.OrdinalIgnoreCase);
+                       && string.Equals(Location, other.Location, StringComparison.Ordinal);
             }
 
             public override bool Equals(object obj)
@@ -38,7 +41,7 @@ namespace Framework.Res
             {
                 unchecked
                 {
-                    var hash = StringComparer.OrdinalIgnoreCase.GetHashCode(Location ?? string.Empty);
+                    var hash = StringComparer.Ordinal.GetHashCode(Location ?? string.Empty);
                     return (hash * 397) ^ (AssetType != null ? AssetType.GetHashCode() : 0);
                 }
             }
@@ -409,7 +412,7 @@ namespace Framework.Res
                     {
                         waiter.Request.Status = ResourceRequestStatus.Failed;
                         waiter.Request.Error = ex.Message;
-                        waiter.OnComplete?.Invoke(default);
+                        InvokeSafe(waiter.OnComplete, default, item.Location);
                         continue;
                     }
                 }
@@ -421,13 +424,13 @@ namespace Framework.Res
                     wrapped.Dispose();
                     waiter.Request.Status = ResourceRequestStatus.Failed;
                     waiter.Request.Error = extraError;
-                    waiter.OnComplete?.Invoke(default);
+                    InvokeSafe(waiter.OnComplete, default, item.Location);
                     continue;
                 }
 
                 waiter.Request.AssetHandle = wrapped;
                 waiter.Request.Status = ResourceRequestStatus.Succeeded;
-                waiter.OnComplete?.Invoke(wrapped);
+                InvokeSafe(waiter.OnComplete, wrapped, item.Location);
             }
 
             if (!originalAssigned)
@@ -461,7 +464,7 @@ namespace Framework.Res
                 {
                     item.Request.Status = ResourceRequestStatus.Failed;
                     item.Request.Error = ex.Message;
-                    item.OnComplete?.Invoke(null);
+                    InvokeSafe(item.OnComplete, null);
                     processed++;
                     continue;
                 }
@@ -470,13 +473,13 @@ namespace Framework.Res
                 {
                     item.Request.Status = ResourceRequestStatus.Failed;
                     item.Request.Error = "Instantiate returned null.";
-                    item.OnComplete?.Invoke(null);
+                    InvokeSafe(item.OnComplete, null);
                 }
                 else
                 {
                     item.Request.Instance = instance;
                     item.Request.Status = ResourceRequestStatus.Succeeded;
-                    item.OnComplete?.Invoke(instance);
+                    InvokeSafe(item.OnComplete, instance);
                 }
 
                 processed++;
@@ -543,7 +546,7 @@ namespace Framework.Res
 
                 waiter.Request.Status = ResourceRequestStatus.Failed;
                 waiter.Request.Error = message;
-                waiter.OnComplete?.Invoke(default);
+                InvokeSafe(waiter.OnComplete, default, item.Location);
             }
 
             item.Waiters.Clear();
@@ -692,6 +695,45 @@ namespace Framework.Res
         static bool Exceeded(float start, float budgetMs)
         {
             return (Time.realtimeSinceStartup - start) * 1000f >= budgetMs;
+        }
+
+        /// <summary>
+        /// 调用业务的加载回调。回调抛异常只记日志：同一路合并加载的其它等待者照常派发，
+        /// 不会停在 Processing（否则等待它们的 LoadAssetAsync 永远不结束），异常也不会冒出 Update。
+        /// </summary>
+        static void InvokeSafe(Action<ResourceAssetHandle> callback, ResourceAssetHandle handle, string location)
+        {
+            if (callback == null)
+            {
+                return;
+            }
+
+            try
+            {
+                callback(handle);
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.Resource, ex, $"Load callback failed: {location}");
+            }
+        }
+
+        /// <summary>调用业务的实例化回调；异常只记日志，不影响队列中的其它请求。</summary>
+        static void InvokeSafe(Action<GameObject> callback, GameObject instance)
+        {
+            if (callback == null)
+            {
+                return;
+            }
+
+            try
+            {
+                callback(instance);
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.Resource, ex, "Instantiate callback failed.");
+            }
         }
     }
 }

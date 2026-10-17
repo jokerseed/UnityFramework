@@ -64,13 +64,15 @@ namespace Framework.Config
         }
 
         /// <summary>
-        /// 按需加载全表并缓存；已加载则直接返回缓存。
+        /// 按需加载全表并缓存表对象；已加载则直接返回缓存。
+        /// 表对象构造完成后，原始 TextAsset 已经没用：默认释放全部表的 TextAsset 句柄（包括 <see cref="PreloadTableAssetsAsync"/> 预热的），
+        /// 避免 Bundle 与字节和表对象同时常驻内存。只有需要在 Editor 下反复热重载时才传 <c>cacheTableAssets=true</c>。
         /// </summary>
         /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
-        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄（由本类 table asset 缓存管理）。</param>
+        /// <param name="cacheTableAssets">为 true 时保留各表 TextAsset 句柄。</param>
         /// <returns>表对象。</returns>
         /// <exception cref="InvalidOperationException">未注册、类型不符、ResourceManager 未就绪或加载失败。</exception>
-        public TTables LoadTables<TTables>(bool cacheTableAssets = true) where TTables : class
+        public TTables LoadTables<TTables>(bool cacheTableAssets = false) where TTables : class
         {
             EnsureType<TTables>();
             if (_tables != null)
@@ -79,18 +81,24 @@ namespace Framework.Config
             }
 
             _tables = CreateTables<TTables>(cacheTableAssets);
+            if (!cacheTableAssets)
+            {
+                ReleaseTableAssetCache();
+            }
+
             GameLog.Info(LogCategories.Config, $"{_tablesType.Name} {LogStyle.Ok("loaded")} (cached)");
             return (TTables)_tables;
         }
 
         /// <summary>
-        /// 从 Bundle 构造一份新的表对象；不写入缓存。需要独立副本（如对比、工具）时使用。
+        /// 从 Bundle 构造一份新的表对象；不写入表对象缓存。需要独立副本（如对比、工具）时使用。
+        /// 已缓存（含预热）的 TextAsset 会被复用；未缓存的表按 <paramref name="cacheTableAssets"/> 决定是否写入句柄缓存。
         /// </summary>
         /// <typeparam name="TTables">注册时使用的表聚合类型。</typeparam>
-        /// <param name="cacheTableAssets">是否缓存各表 TextAsset 句柄。</param>
+        /// <param name="cacheTableAssets">是否把新加载的 TextAsset 句柄写入缓存。</param>
         /// <returns>新的表对象。</returns>
         /// <exception cref="InvalidOperationException">未注册、类型不符、ResourceManager 未就绪或加载失败。</exception>
-        public TTables CreateTables<TTables>(bool cacheTableAssets = true) where TTables : class
+        public TTables CreateTables<TTables>(bool cacheTableAssets = false) where TTables : class
         {
             EnsureType<TTables>();
             EnsureResourceReady();
@@ -113,49 +121,55 @@ namespace Framework.Config
             return tables != null;
         }
 
-        /// <summary>同步加载 Luban 配置表原始字节。</summary>
+        /// <summary>
+        /// 同步加载 Luban 配置表原始字节。总是先查句柄缓存（含 <see cref="PreloadTableAssetsAsync"/> 预热的），
+        /// 命中时不再同步读包，因此 WebGL 预热之后也能用。
+        /// </summary>
         /// <param name="tableName">Luban 表名（如 <c>tbability</c>），内部通过 <see cref="ResourceAddresses.ConfigTable"/> 寻址。</param>
-        /// <param name="cache">为 true 时缓存 TextAsset 句柄；须调用 <see cref="ReleaseTableAssetCache"/> 或 <see cref="Shutdown"/> 释放。</param>
+        /// <param name="cache">未命中缓存时，是否把新加载的 TextAsset 句柄写入缓存；须调用 <see cref="ReleaseTableAssetCache"/> 或 <see cref="Shutdown"/> 释放。</param>
         /// <returns>配置表原始字节；若 Asset 为 null 则返回空数组。</returns>
         /// <exception cref="InvalidOperationException">ResourceManager 未就绪或加载失败。</exception>
         public byte[] LoadConfigBytes(string tableName, bool cache = false)
         {
             EnsureResourceReady();
             var location = ResourceAddresses.ConfigTable(tableName);
-
-            if (cache)
+            if (_tableAssetCache.TryGetValue(location, out var cached) && cached.IsValid)
             {
-                if (_tableAssetCache.TryGetValue(location, out var cached) && cached.IsValid)
-                {
-                    var cachedAsset = cached.GetAsset<TextAsset>();
-                    return cachedAsset != null ? cachedAsset.bytes : Array.Empty<byte>();
-                }
-
-                var handle = ResourceManager.Instance.LoadAssetSync<TextAsset>(location);
-                if (!handle.IsValid || !handle.Succeeded)
-                {
-                    var error = handle.Error;
-                    handle.Dispose();
-                    throw new InvalidOperationException(
-                        $"[Config] Load config failed: {tableName}, location={location}, error={error}");
-                }
-
-                _tableAssetCache[location] = handle;
-                var asset = handle.GetAsset<TextAsset>();
-                return asset != null ? asset.bytes : Array.Empty<byte>();
+                return BytesOf(cached);
             }
 
-            using (var handle = ResourceManager.Instance.LoadAssetSync<TextAsset>(location))
-            {
-                if (!handle.IsValid || !handle.Succeeded)
-                {
-                    throw new InvalidOperationException(
-                        $"[Config] Load config failed: {tableName}, location={location}, error={handle.Error}");
-                }
+            return LoadBytesInto(tableName, location, cache ? _tableAssetCache : null);
+        }
 
-                var asset = handle.GetAsset<TextAsset>();
-                return asset != null ? asset.bytes : Array.Empty<byte>();
+        /// <summary>同步加载一张表；<paramref name="keep"/> 不为 null 时把句柄放进去，否则读完即释放。</summary>
+        static byte[] LoadBytesInto(string tableName, string location, Dictionary<string, ResourceAssetHandle> keep)
+        {
+            var handle = ResourceManager.Instance.LoadAssetSync<TextAsset>(location);
+            if (!handle.IsValid || !handle.Succeeded)
+            {
+                var error = handle.Error;
+                handle.Dispose();
+                throw new InvalidOperationException(
+                    $"[Config] Load config failed: {tableName}, location={location}, error={error}");
             }
+
+            var bytes = BytesOf(handle);
+            if (keep != null)
+            {
+                keep[location] = handle;
+            }
+            else
+            {
+                handle.Dispose();
+            }
+
+            return bytes;
+        }
+
+        static byte[] BytesOf(ResourceAssetHandle handle)
+        {
+            var asset = handle.GetAsset<TextAsset>();
+            return asset != null ? asset.bytes : Array.Empty<byte>();
         }
 
         /// <summary>
@@ -235,11 +249,11 @@ namespace Framework.Config
         }
 
         /// <summary>
-        /// 丢弃表对象与 TextAsset 句柄缓存后重新加载，并触发 <see cref="TablesReloaded"/>。
-        /// 用于 Editor 下改表后热重载；已持有旧表引用的业务需订阅事件自行替换。
+        /// 重新读取全部表并触发 <see cref="TablesReloaded"/>。用于 Editor 下改表后热重载；已持有旧表引用的业务需订阅事件自行替换。
+        /// 先完整构建新表，成功后才替换旧表与句柄缓存：任一表加载或解析失败时，旧表与缓存保持不变。
         /// </summary>
         /// <returns>新的表对象。</returns>
-        /// <exception cref="InvalidOperationException">未注册或加载失败。</exception>
+        /// <exception cref="InvalidOperationException">未注册或加载失败（此时旧表仍可用）。</exception>
         public object ReloadTables()
         {
             if (_factory == null)
@@ -247,10 +261,32 @@ namespace Framework.Config
                 throw new InvalidOperationException("[Config] No tables registered. Call RegisterTables first.");
             }
 
-            UnloadTables();
-            ReleaseTableAssetCache();
             EnsureResourceReady();
-            _tables = _factory(file => new ByteBuf(LoadConfigBytes(file, true)));
+            var staged = new Dictionary<string, ResourceAssetHandle>();
+            object fresh;
+            try
+            {
+                fresh = _factory(file => new ByteBuf(
+                    LoadBytesInto(file, ResourceAddresses.ConfigTable(file), staged)));
+            }
+            catch
+            {
+                foreach (var pair in staged)
+                {
+                    pair.Value.Dispose();
+                }
+
+                GameLog.Error(LogCategories.Config, $"{_tablesType.Name} reload {LogStyle.Fail("failed")}; keeping previous tables.");
+                throw;
+            }
+
+            ReleaseTableAssetCache();
+            foreach (var pair in staged)
+            {
+                _tableAssetCache[pair.Key] = pair.Value;
+            }
+
+            _tables = fresh;
             GameLog.Info(LogCategories.Config, $"{_tablesType.Name} {LogStyle.Ok("reloaded")}");
             TablesReloaded?.Invoke(_tables);
             return _tables;

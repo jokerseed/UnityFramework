@@ -87,10 +87,23 @@ namespace Framework.Audio
 
             _bgm = new BgmChannel(_audioRoot, _volume);
             _sfx = new SfxChannel(_audioRoot, _volume, sfxPoolSize > 0 ? sfxPoolSize : DefaultSfxPoolSize);
+            _clipCache.IsInUse = IsClipInUse;
             _initialized = true;
 
             GameLog.Info(LogCategories.Audio,
                 $"Ready  SfxPool={LogStyle.Value(_sfx.PoolSize)}  Master={LogStyle.Value(_volume.MasterVolume)}");
+        }
+
+        /// <summary>Clip 缓存上限（按最近最少使用淘汰，正在播放的不淘汰）。</summary>
+        public int ClipCacheCapacity
+        {
+            get => _clipCache.Capacity;
+            set => _clipCache.Capacity = value;
+        }
+
+        bool IsClipInUse(AudioClip clip)
+        {
+            return (_bgm != null && _bgm.IsUsing(clip)) || (_sfx != null && _sfx.IsUsing(clip));
         }
 
         /// <summary>关闭全部音频并释放 Clip 缓存。</summary>

@@ -49,18 +49,47 @@ namespace Framework.UI
             return true;
         }
 
-        /// <summary>设置窗口可见性（不销毁实例）。</summary>
+        /// <summary>
+        /// 设置窗口可见性（不销毁实例）。用于关闭、缓存、隐藏：会激活或停用整个 GameObject。
+        /// 被上层全屏窗口挡住时由 <see cref="UIManager"/> 改用 <see cref="SetOccluded"/>，不走这里。
+        /// </summary>
         /// <param name="visible">为 true 时显示并启用射线检测。</param>
         public void SetVisible(bool visible)
         {
-            if (GameObject != null)
+            if (GameObject != null && GameObject.activeSelf != visible)
             {
                 GameObject.SetActive(visible);
             }
 
+            if (visible)
+            {
+                SetOccluded(false);
+            }
+            else if (_raycaster != null)
+            {
+                _raycaster.enabled = false;
+            }
+        }
+
+        /// <summary>是否被上层全屏窗口挡住；挡住时不调用 <see cref="UIBase.OnUpdate"/>。</summary>
+        public bool IsOccluded { get; private set; }
+
+        /// <summary>
+        /// 被上层全屏窗口遮挡时只关闭 Canvas 渲染与射线检测，GameObject 保持激活。
+        /// 这样不会触发 OnDisable/OnEnable，也不丢弃 Canvas 已生成的网格，取消遮挡时不需要重建布局。
+        /// </summary>
+        /// <param name="occluded">为 true 时不渲染、不接收点击。</param>
+        internal void SetOccluded(bool occluded)
+        {
+            IsOccluded = occluded;
+            if (_canvas != null && _canvas.enabled == occluded)
+            {
+                _canvas.enabled = !occluded;
+            }
+
             if (_raycaster != null)
             {
-                _raycaster.enabled = visible;
+                _raycaster.enabled = !occluded;
             }
         }
 

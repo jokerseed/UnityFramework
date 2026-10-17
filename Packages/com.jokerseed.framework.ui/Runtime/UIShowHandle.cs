@@ -131,6 +131,9 @@ namespace Framework.UI
             _onDetached?.Invoke(this);
         }
 
+        /// <summary>打开尚未结束，但驱动它的协程已经不在运行（被外部停掉或宿主失活）。</summary>
+        internal bool IsCoroutineStopped => !_finished && !IsCancelled && _coroutine != null && !_coroutine.IsRunning;
+
         internal void AbortIfStillIncomplete()
         {
             if (_finished || IsCancelled || _windowBound)
