@@ -5,12 +5,22 @@ using System.Net.Sockets;
 
 namespace Framework.Network
 {
-    /// <summary>用 <see cref="UdpClient"/> 收发 KCP 数据报。完成回调只通知监听器，不解析协议。</summary>
+    /// <summary>
+    /// 用已连接的 UDP <see cref="Socket"/> 收发 KCP 数据报。完成回调只通知监听器，不解析协议。
+    /// 接收用一块固定缓冲和 <see cref="SocketAsyncEventArgs"/> 循环投递，不为每个数据报分配数组。
+    /// Windows 上收到 ICMP 端口不可达后，下一次接收会报 ConnectionReset（10054）：这里关掉该行为并忽略这个错误，
+    /// 否则服务端短暂重启就会让 PC 客户端和编辑器断线。
+    /// </summary>
     public sealed class UdpKcpDatagramTransport : IKcpDatagramTransport
     {
+        const int ReceiveBufferSize = 64 * 1024;
+
+        /// <summary>Windows 的 SIO_UDP_CONNRESET 控制码。</summary>
+        const int SioUdpConnReset = -1744830452;
+
         readonly IKcpDatagramListener _listener;
         readonly object _sync = new object();
-        UdpClient _client;
+        Socket _socket;
         bool _closed;
 
         /// <summary>创建传输。</summary>
@@ -29,20 +39,25 @@ namespace Framework.Network
                 throw new ArgumentNullException(nameof(remote));
             }
 
-            var client = new UdpClient(remote.AddressFamily);
-            client.Connect(remote);
+            var socket = new Socket(remote.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+            DisableConnectionReset(socket);
+            socket.Connect(remote);
+            var args = new SocketAsyncEventArgs();
+            args.SetBuffer(new byte[ReceiveBufferSize], 0, ReceiveBufferSize);
+            args.UserToken = socket;
+            args.Completed += OnReceiveCompleted;
             lock (_sync)
             {
                 if (_closed)
                 {
-                    client.Close();
+                    socket.Close();
                     return;
                 }
 
-                _client = client;
+                _socket = socket;
             }
 
-            BeginReceive(client);
+            BeginReceive(socket, args);
         }
 
         /// <inheritdoc />
@@ -58,32 +73,28 @@ namespace Framework.Network
                 return;
             }
 
-            UdpClient client;
+            Socket socket;
             lock (_sync)
             {
-                client = _closed ? null : _client;
+                socket = _closed ? null : _socket;
             }
 
-            if (client == null)
+            if (socket == null)
             {
                 return;
             }
 
             try
             {
-                if (offset == 0)
-                {
-                    client.Send(datagram, count);
-                    return;
-                }
-
-                var payload = new byte[count];
-                Buffer.BlockCopy(datagram, offset, payload, 0, count);
-                client.Send(payload, payload.Length);
+                socket.Send(datagram, offset, count, SocketFlags.None);
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                // 同接收：ICMP 不可达不是致命错误，KCP 会重传。
             }
             catch (Exception ex)
             {
-                if (IsCurrent(client))
+                if (IsCurrent(socket))
                 {
                     _listener.OnTransportError(ex.Message);
                 }
@@ -93,7 +104,7 @@ namespace Framework.Network
         /// <inheritdoc />
         public void Close()
         {
-            UdpClient client;
+            Socket socket;
             lock (_sync)
             {
                 if (_closed)
@@ -102,74 +113,107 @@ namespace Framework.Network
                 }
 
                 _closed = true;
-                client = _client;
-                _client = null;
+                socket = _socket;
+                _socket = null;
             }
 
             try
             {
-                client?.Close();
+                socket?.Close();
             }
             catch (SocketException)
             {
             }
         }
 
-        void BeginReceive(UdpClient client)
+        static void DisableConnectionReset(Socket socket)
         {
-            try
-            {
-                client.BeginReceive(ar => OnReceive(client, ar), null);
-            }
-            catch (Exception ex)
-            {
-                if (IsCurrent(client))
-                {
-                    _listener.OnTransportError(ex.Message);
-                }
-            }
-        }
-
-        void OnReceive(UdpClient client, IAsyncResult ar)
-        {
-            if (!IsCurrent(client))
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
             {
                 return;
             }
 
             try
             {
-                IPEndPoint remote = null;
-                var data = client.EndReceive(ar, ref remote);
-                if (!IsCurrent(client))
+                socket.IOControl(SioUdpConnReset, new byte[4], null);
+            }
+            catch (Exception)
+            {
+                // 个别运行时不支持该控制码；接收侧仍会忽略 ConnectionReset。
+            }
+        }
+
+        void BeginReceive(Socket socket, SocketAsyncEventArgs args)
+        {
+            while (true)
+            {
+                bool pending;
+                try
+                {
+                    pending = socket.ReceiveAsync(args);
+                }
+                catch (ObjectDisposedException)
                 {
                     return;
                 }
-
-                if (data != null && data.Length > 0)
+                catch (Exception ex)
                 {
-                    _listener.OnDatagram(data, 0, data.Length);
+                    if (IsCurrent(socket))
+                    {
+                        _listener.OnTransportError(ex.Message);
+                    }
+
+                    return;
                 }
 
-                if (IsCurrent(client))
+                if (pending || !HandleReceive(socket, args))
                 {
-                    BeginReceive(client);
-                }
-            }
-            catch (Exception ex)
-            {
-                if (IsCurrent(client))
-                {
-                    _listener.OnTransportError(ex.Message);
+                    return;
                 }
             }
         }
 
-        bool IsCurrent(UdpClient client)
+        void OnReceiveCompleted(object sender, SocketAsyncEventArgs args)
+        {
+            var socket = (Socket)args.UserToken;
+            if (HandleReceive(socket, args))
+            {
+                BeginReceive(socket, args);
+            }
+        }
+
+        /// <returns>应继续接收时返回 true。</returns>
+        bool HandleReceive(Socket socket, SocketAsyncEventArgs args)
+        {
+            if (!IsCurrent(socket))
+            {
+                return false;
+            }
+
+            if (args.SocketError == SocketError.ConnectionReset)
+            {
+                return true;
+            }
+
+            if (args.SocketError != SocketError.Success)
+            {
+                _listener.OnTransportError(args.SocketError.ToString());
+                return false;
+            }
+
+            if (args.BytesTransferred > 0)
+            {
+                _listener.OnDatagram(args.Buffer, args.Offset, args.BytesTransferred);
+            }
+
+            return true;
+        }
+
+        bool IsCurrent(Socket socket)
         {
             lock (_sync)
             {
-                return !_closed && _client == client;
+                return !_closed && _socket == socket;
             }
         }
     }

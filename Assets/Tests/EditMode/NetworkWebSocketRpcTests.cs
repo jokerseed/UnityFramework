@@ -244,6 +244,7 @@ namespace Framework.Tests
             public float HeartBeatInterval { get; set; }
             public bool ResetHeartBeatElapseSecondsWhenReceivePacket { get; set; }
             public int MissHeartBeatCount => 0;
+            public int MaxMissHeartBeatCount { get; set; }
             public int SentPacketCount => Sent.Count;
             public int ReceivedPacketCount => 0;
 

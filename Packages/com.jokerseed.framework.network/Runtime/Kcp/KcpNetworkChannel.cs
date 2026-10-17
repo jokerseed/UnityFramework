@@ -1,8 +1,10 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 using Framework.Events;
 using Framework.Logging;
 using KcpCSharp;
@@ -13,6 +15,12 @@ namespace Framework.Network
     /// KCP 频道：一条 KCP 消息就是一个完整包（包头 + 包体，格式由 <see cref="INetworkChannelHelper"/> 决定，与 TCP / WebSocket 相同）。
     /// 数据报回调可能来自任意线程，只入队；KCP 状态机、消息和事件都在主线程 <see cref="Update"/> 中推进。
     /// WebGL / 小游戏没有 UDP，构造时抛 <see cref="PlatformNotSupportedException"/>。
+    /// <para>
+    /// UDP 没有连接：建好 socket 即为 Connected，服务器不可达不会立刻报错。断线靠三道检测：
+    /// KCP 分片重传达到上限（死链）时关闭；开启心跳后连续丢失 <see cref="MaxMissHeartBeatCount"/> 次时关闭；
+    /// <see cref="ResponseTimeoutSeconds"/> 大于 0 时，连续这么久收不到对端任何数据报也关闭。
+    /// 握手需要服务端协议配合，框架不强制；联机项目建议开启心跳并设置 ResponseTimeoutSeconds。
+    /// </para>
     /// </summary>
     public sealed class KcpNetworkChannel : INetworkChannel, INetworkChannelDriver, IKcpDatagramListener
     {
@@ -20,8 +28,13 @@ namespace Framework.Network
 
         readonly object _sync = new object();
         readonly Queue<PendingDispatch> _pending = new Queue<PendingDispatch>(32);
-        readonly Queue<byte[]> _incoming = new Queue<byte[]>(32);
-        readonly List<byte[]> _drain = new List<byte[]>(8);
+        readonly Queue<ArraySegment<byte>> _incoming = new Queue<ArraySegment<byte>>(32);
+        readonly List<ArraySegment<byte>> _drain = new List<ArraySegment<byte>>(8);
+        readonly ByteBuf _inputBuf = new ByteBuf(0);
+        readonly ByteBuf _sendBuf = new ByteBuf(0);
+        ByteBuf _receiveBuf = new ByteBuf(4096);
+        int _connectGeneration;
+        float _silenceElapsed;
         readonly Dictionary<ushort, Action<INetworkChannel, NetworkPacket>> _handlers =
             new Dictionary<ushort, Action<INetworkChannel, NetworkPacket>>(32);
         readonly INetworkChannelHelper _helper;
@@ -129,6 +142,12 @@ namespace Framework.Network
         }
 
         /// <inheritdoc />
+        public int MaxMissHeartBeatCount { get; set; } = 3;
+
+        /// <summary>连续这么多秒收不到对端任何数据报即断开（报 <see cref="NetworkErrorCode.HeartBeatTimeout"/>）；小于等于 0 关闭此检测（默认）。</summary>
+        public float ResponseTimeoutSeconds { get; set; }
+
+        /// <inheritdoc />
         public int SentPacketCount
         {
             get
@@ -161,26 +180,44 @@ namespace Framework.Network
                 return;
             }
 
-            if (!IPAddress.TryParse(host, out var address))
+            if (IPAddress.TryParse(host, out var literal))
             {
-                try
-                {
-                    address = SelectAddress(Dns.GetHostAddresses(host));
-                }
-                catch (Exception ex)
-                {
-                    EnqueueError(NetworkErrorCode.AddressError, SocketError.HostNotFound, ex.Message);
-                    return;
-                }
-            }
-
-            if (address == null)
-            {
-                EnqueueError(NetworkErrorCode.AddressError, SocketError.AddressNotAvailable, $"No usable address for {host}.");
+                Connect(literal, port);
                 return;
             }
 
-            Connect(address, port);
+            if (!TryBeginConnecting(port, out var generation))
+            {
+                return;
+            }
+
+            // 后台解析域名，不阻塞主线程。
+            Dns.GetHostAddressesAsync(host).ContinueWith(
+                task =>
+                {
+                    var address = task.Status == TaskStatus.RanToCompletion ? SelectAddress(task.Result) : null;
+                    if (address == null)
+                    {
+                        lock (_sync)
+                        {
+                            if (generation != _connectGeneration || _state != NetworkChannelState.Connecting)
+                            {
+                                return;
+                            }
+
+                            _state = NetworkChannelState.Disconnected;
+                        }
+
+                        var message = task.Exception != null
+                            ? task.Exception.GetBaseException().Message
+                            : $"No usable address for {host}.";
+                        EnqueueError(NetworkErrorCode.AddressError, SocketError.HostNotFound, message);
+                        return;
+                    }
+
+                    StartTransport(address, port, generation);
+                },
+                TaskScheduler.Default);
         }
 
         /// <inheritdoc />
@@ -192,10 +229,20 @@ namespace Framework.Network
                 return;
             }
 
+            if (TryBeginConnecting(port, out var generation))
+            {
+                StartTransport(address, port, generation);
+            }
+        }
+
+        /// <summary>校验端口与状态，进入 Connecting 并分配一个连接代号；失败时已入队错误。</summary>
+        bool TryBeginConnecting(int port, out int generation)
+        {
+            generation = 0;
             if (port < IPEndPoint.MinPort || port > IPEndPoint.MaxPort)
             {
                 EnqueueError(NetworkErrorCode.AddressError, SocketError.AddressNotAvailable, $"Invalid port: {port}.");
-                return;
+                return false;
             }
 
             lock (_sync)
@@ -203,10 +250,24 @@ namespace Framework.Network
                 if (_state != NetworkChannelState.Disconnected)
                 {
                     EnqueueError(NetworkErrorCode.ConnectError, SocketError.IsConnected, "Channel is already connecting or connected.");
-                    return;
+                    return false;
                 }
 
                 _state = NetworkChannelState.Connecting;
+                generation = ++_connectGeneration;
+                return true;
+            }
+        }
+
+        void StartTransport(IPAddress address, int port, int generation)
+        {
+            lock (_sync)
+            {
+                if (generation != _connectGeneration || _state != NetworkChannelState.Connecting)
+                {
+                    // 解析期间被 Close 或重新 Connect 了。
+                    return;
+                }
             }
 
             IKcpDatagramTransport transport;
@@ -245,10 +306,14 @@ namespace Framework.Network
 
             lock (_sync)
             {
-                if (_state != NetworkChannelState.Connecting)
+                if (_state != NetworkChannelState.Connecting || generation != _connectGeneration)
                 {
                     transport.Close();
-                    _state = NetworkChannelState.Disconnected;
+                    if (generation == _connectGeneration)
+                    {
+                        _state = NetworkChannelState.Disconnected;
+                    }
+
                     EnqueueError(NetworkErrorCode.ConnectError, SocketError.Shutdown, "Channel closed while connecting.");
                     return;
                 }
@@ -256,6 +321,7 @@ namespace Framework.Network
                 _transport = transport;
                 _kcp = kcp;
                 _state = NetworkChannelState.Connected;
+                _silenceElapsed = 0f;
             }
 
             try
@@ -319,14 +385,15 @@ namespace Framework.Network
                     return;
                 }
 
-                var bytes = _serializeStream.ToArray();
-                if (bytes.Length == 0 || bytes.Length > MaxPacketSize)
+                var length = (int)_serializeStream.Length;
+                if (length == 0 || length > MaxPacketSize)
                 {
-                    EnqueueError(NetworkErrorCode.SendError, SocketError.MessageSize, $"Packet size {bytes.Length} is invalid.");
+                    EnqueueError(NetworkErrorCode.SendError, SocketError.MessageSize, $"Packet size {length} is invalid.");
                     return;
                 }
 
-                if (kcp.Send(new ByteBuf(bytes)) < 0)
+                // Kcp.Send 会把数据拷进分片，直接包装序列化缓冲即可，不必 ToArray。
+                if (kcp.Send(_sendBuf.Wrap(_serializeStream.GetBuffer(), length)) < 0)
                 {
                     EnqueueError(NetworkErrorCode.SendError, SocketError.SocketError, "KCP rejected the packet.");
                     return;
@@ -395,8 +462,30 @@ namespace Framework.Network
         {
             Pump();
             ProcessPending();
+            UpdateResponseTimeout(elapseSeconds);
             UpdateHeartBeat(elapseSeconds);
             ProcessPending();
+        }
+
+        void UpdateResponseTimeout(float elapseSeconds)
+        {
+            float silence;
+            lock (_sync)
+            {
+                if (_state != NetworkChannelState.Connected || ResponseTimeoutSeconds <= 0f)
+                {
+                    _silenceElapsed = 0f;
+                    return;
+                }
+
+                _silenceElapsed += elapseSeconds;
+                silence = _silenceElapsed;
+            }
+
+            if (silence >= ResponseTimeoutSeconds)
+            {
+                Fail(NetworkErrorCode.HeartBeatTimeout, $"No datagram from server for {ResponseTimeoutSeconds}s.");
+            }
         }
 
         /// <summary>关闭频道，丢弃未分发的消息并清空处理器。</summary>
@@ -433,17 +522,19 @@ namespace Framework.Network
                 return;
             }
 
-            var copy = new byte[count];
+            // 传输层会复用接收缓冲，这里拷进从池里租的数组；KCP Input 之后在 Pump 里归还。
+            var copy = ArrayPool<byte>.Shared.Rent(count);
             Buffer.BlockCopy(data, offset, copy, 0, count);
             lock (_sync)
             {
-                if (_state != NetworkChannelState.Connected)
+                if (_state == NetworkChannelState.Connected)
                 {
+                    _incoming.Enqueue(new ArraySegment<byte>(copy, 0, count));
                     return;
                 }
-
-                _incoming.Enqueue(copy);
             }
+
+            ArrayPool<byte>.Shared.Return(copy);
         }
 
         /// <inheritdoc />
@@ -505,9 +596,18 @@ namespace Framework.Network
                     return;
                 }
 
+                if (_drain.Count > 0)
+                {
+                    lock (_sync)
+                    {
+                        _silenceElapsed = 0f;
+                    }
+                }
+
                 for (var i = 0; i < _drain.Count; i++)
                 {
-                    var code = kcp.Input(new ByteBuf(_drain[i]));
+                    var segment = _drain[i];
+                    var code = kcp.Input(_inputBuf.Wrap(segment.Array, segment.Count));
                     if (code < 0)
                     {
                         Fail(NetworkErrorCode.ReceiveError, $"KCP input rejected ({code}).");
@@ -524,6 +624,13 @@ namespace Framework.Network
                 }
 
                 kcp.Update(now);
+                if (kcp.IsDeadLink)
+                {
+                    // 某个分片重传达到上限：对端不可达。UDP 本身不会报错，不检查就会一直显示已连接。
+                    Fail(NetworkErrorCode.HeartBeatTimeout, "KCP dead link: peer unreachable.");
+                    return;
+                }
+
                 PullMessages(kcp);
             }
             catch (Exception ex)
@@ -532,6 +639,7 @@ namespace Framework.Network
             }
             finally
             {
+                ReturnSegments(_drain);
                 _drain.Clear();
                 _pumping = false;
             }
@@ -539,12 +647,24 @@ namespace Framework.Network
 
         void DrainIncoming()
         {
+            ReturnSegments(_drain);
             _drain.Clear();
             lock (_sync)
             {
                 while (_incoming.Count > 0)
                 {
                     _drain.Add(_incoming.Dequeue());
+                }
+            }
+        }
+
+        static void ReturnSegments(List<ArraySegment<byte>> segments)
+        {
+            for (var i = 0; i < segments.Count; i++)
+            {
+                if (segments[i].Array != null)
+                {
+                    ArrayPool<byte>.Shared.Return(segments[i].Array);
                 }
             }
         }
@@ -565,7 +685,8 @@ namespace Framework.Network
                     return;
                 }
 
-                var message = new ByteBuf(size);
+                // 复用同一个接收缓冲（容量会按需增长）；DeserializePacket 会把包体拷出去。
+                var message = _receiveBuf.Clear();
                 if (kcp.Receive(message) < 0)
                 {
                     Fail(NetworkErrorCode.DeserializeError, "KCP receive failed.");
@@ -628,7 +749,15 @@ namespace Framework.Network
             _sentPacketCount = 0;
             _receivedPacketCount = 0;
             _needFlush = false;
-            _incoming.Clear();
+            _silenceElapsed = 0f;
+            while (_incoming.Count > 0)
+            {
+                var segment = _incoming.Dequeue();
+                if (segment.Array != null)
+                {
+                    ArrayPool<byte>.Shared.Return(segment.Array);
+                }
+            }
         }
 
         void Fail(NetworkErrorCode errorCode, string message)
@@ -677,6 +806,12 @@ namespace Framework.Network
             }
 
             Enqueue(new PendingDispatch { Kind = PendingKind.MissHeartBeat, MissCount = miss });
+            if (MaxMissHeartBeatCount > 0 && miss >= MaxMissHeartBeatCount)
+            {
+                Fail(NetworkErrorCode.HeartBeatTimeout, $"Missed {miss} heartbeats.");
+                return;
+            }
+
             try
             {
                 _helper.TrySendHeartBeat(this);

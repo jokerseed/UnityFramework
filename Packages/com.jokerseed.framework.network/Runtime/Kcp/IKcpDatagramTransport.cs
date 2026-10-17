@@ -24,7 +24,7 @@ namespace Framework.Network
     /// </summary>
     public interface IKcpDatagramListener
     {
-        /// <summary>收到一个数据报。</summary>
+        /// <summary>收到一个数据报。回调返回后传输层会复用 <paramref name="data"/>，实现需要保留数据时必须拷贝。</summary>
         /// <param name="data">数据报字节。</param>
         /// <param name="offset">起始偏移。</param>
         /// <param name="count">字节数。</param>

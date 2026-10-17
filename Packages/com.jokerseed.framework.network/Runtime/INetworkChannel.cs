@@ -27,6 +27,12 @@ namespace Framework.Network
         /// <summary>连续丢失心跳次数。</summary>
         int MissHeartBeatCount { get; }
 
+        /// <summary>
+        /// 连续丢失心跳达到该次数时主动断开（报 <see cref="NetworkErrorCode.HeartBeatTimeout"/> 并触发 Closed）；
+        /// 小于等于 0 表示只发事件不断开。只在 <see cref="HeartBeatInterval"/> 大于 0 时生效。默认 3。
+        /// </summary>
+        int MaxMissHeartBeatCount { get; set; }
+
         /// <summary>累计已发送消息数。</summary>
         int SentPacketCount { get; }
 

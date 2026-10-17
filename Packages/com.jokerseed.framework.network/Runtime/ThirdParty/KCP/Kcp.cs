@@ -40,6 +40,10 @@ namespace KcpCSharp {
         private int mtu;
         private int mss;
         private int state;
+
+        /// <summary>某个分片重传次数达到 dead_link 后为 true：对端已不可达，连接应当关闭。</summary>
+        public bool IsDeadLink => state == -1;
+
         private int snd_una;
         private int snd_nxt;
         private int rcv_nxt;
@@ -578,7 +582,7 @@ namespace KcpCSharp {
             for (int i = 0; i < c; i++) {
                 if (buffer.ReadableBytes() + IKCP_OVERHEAD > mtu) {
                     this.output.output(buffer, this, user);
-                    buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                    buffer.Clear(); // output 须同步消费缓冲（见 Output），这里复用而不是每次新建。
                 }
                 seg.sn = acklist[i * 2 + 0];
                 seg.ts = acklist[i * 2 + 1];
@@ -588,7 +592,7 @@ namespace KcpCSharp {
             if (ackOnly) {
                 if (buffer.ReadableBytes() > 0) {
                     this.output.output(buffer, this, user);
-                    buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                    buffer.Clear(); // output 须同步消费缓冲（见 Output），这里复用而不是每次新建。
                 }
                 return;
             }
@@ -617,7 +621,7 @@ namespace KcpCSharp {
                 seg.cmd = IKCP_CMD_WASK;
                 if (buffer.ReadableBytes() + IKCP_OVERHEAD > mtu) {
                     this.output.output(buffer, this, user);
-                    buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                    buffer.Clear(); // output 须同步消费缓冲（见 Output），这里复用而不是每次新建。
                 }
                 seg.Encode(buffer);
             }
@@ -626,7 +630,7 @@ namespace KcpCSharp {
                 seg.cmd = IKCP_CMD_WINS;
                 if (buffer.ReadableBytes() + IKCP_OVERHEAD > mtu) {
                     this.output.output(buffer, this, user);
-                    buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                    buffer.Clear(); // output 须同步消费缓冲（见 Output），这里复用而不是每次新建。
                 }
                 seg.Encode(buffer);
             }
@@ -699,7 +703,7 @@ namespace KcpCSharp {
                     int need = IKCP_OVERHEAD + segment.data.ReadableBytes();
                     if (buffer.ReadableBytes() + need > mtu) {
                         this.output.output(buffer, this, user);
-                        buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                        buffer.Clear(); // output 须同步消费缓冲（见 Output），这里复用而不是每次新建。
                     }
                     segment.Encode(buffer);
                     if (segment.data.ReadableBytes() > 0) {
@@ -713,7 +717,7 @@ namespace KcpCSharp {
             // flash remain segments
             if (buffer.ReadableBytes() > 0) {
                 this.output.output(buffer, this, user);
-                buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                buffer.Clear(); // output 须同步消费缓冲（见 Output），这里复用而不是每次新建。
             }
             // update ssthresh
             if (change != 0) {

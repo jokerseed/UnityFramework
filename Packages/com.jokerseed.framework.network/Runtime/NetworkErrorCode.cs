@@ -20,5 +20,8 @@ namespace Framework.Network
 
         /// <summary>包头或包体解析失败。</summary>
         DeserializeError = 5,
+
+        /// <summary>连续丢失心跳达到 <see cref="INetworkChannel.MaxMissHeartBeatCount"/>，或 KCP 长时间收不到对端数据，频道主动断开。</summary>
+        HeartBeatTimeout = 6,
     }
 }
