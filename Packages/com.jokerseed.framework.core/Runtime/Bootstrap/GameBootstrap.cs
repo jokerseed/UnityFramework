@@ -243,12 +243,10 @@ namespace Framework.Bootstrap
             CancellationToken token,
             bool concurrent)
         {
-            progress.Value++;
-            group.ReportProgress(progress.Value, totalModules);
             var mode = concurrent ? $", {LogStyle.Muted("concurrent")}" : string.Empty;
             GameLog.Info(
                 LogCategories.Bootstrap,
-                $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")}, {LogStyle.Muted(module.InitMode)}{mode})");
+                $"Group {LogStyle.Name(group.Name)} init {LogStyle.Name(module.Name)} ({LogStyle.Value($"{progress.Value}/{totalModules}")} done, {LogStyle.Muted(module.InitMode)}{mode})");
 
             if (module.InitMode == ModuleInitMode.Synchronous)
             {
@@ -259,7 +257,12 @@ namespace Framework.Bootstrap
                 await module.InitializeAsync(token);
             }
 
-            CompleteModule(group, module, serial);
+            if (CompleteModule(group, module, serial))
+            {
+                // 进度是"已完成数"：模块初始化成功后才计入，最后一个模块完成时才报 n/n。
+                progress.Value++;
+                group.ReportProgress(progress.Value, totalModules);
+            }
         }
 
         /// <summary>
@@ -291,7 +294,8 @@ namespace Framework.Bootstrap
             }
         }
 
-        static void CompleteModule(ModuleGroup group, IGameModule module, int serial)
+        /// <returns>模块计入本次初始化时返回 true；迟到（组已失败或重启）时立即关闭并返回 false。</returns>
+        static bool CompleteModule(ModuleGroup group, IGameModule module, int serial)
         {
             if (group.RunSerial != serial || group.State != ModuleGroupState.Running)
             {
@@ -304,10 +308,11 @@ namespace Framework.Bootstrap
                     GameLog.Exception(LogCategories.Bootstrap, ex, $"Late shutdown failed: {module.Name}");
                 }
 
-                return;
+                return false;
             }
 
             group.Initialized.Add(module);
+            return true;
         }
 
         static bool CanRunConcurrently(IReadOnlyList<IGameModule> wave)

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Framework.MemoryPool;
 
 namespace Framework.ObjectPool
@@ -21,11 +22,31 @@ namespace Framework.ObjectPool
         /// <summary>优先级，数值越大越不易被优先释放。</summary>
         public int Priority { get; set; }
 
-        /// <summary>上次使用时间（UTC）。</summary>
+        /// <summary>上次使用时间（UTC），仅供展示；过期判断使用单调时钟，不受系统改时间影响。</summary>
         public DateTime LastUseTime { get; internal set; }
+
+        /// <summary>上次使用时的 <see cref="Stopwatch.GetTimestamp"/>，对象池据此判断过期。</summary>
+        internal long LastUseTimestamp { get; private set; }
 
         /// <summary>自定义是否可释放。</summary>
         public virtual bool CustomCanReleaseFlag => true;
+
+        /// <summary>从池中取出时调用（新建并直接以已取出状态登记时不调用）；在这里重新激活目标。</summary>
+        protected internal virtual void OnSpawn()
+        {
+        }
+
+        /// <summary>归还池中时调用；在这里隐藏或复位目标。</summary>
+        protected internal virtual void OnUnspawn()
+        {
+        }
+
+        /// <summary>记录一次使用时间。</summary>
+        internal void Touch()
+        {
+            LastUseTime = DateTime.UtcNow;
+            LastUseTimestamp = Stopwatch.GetTimestamp();
+        }
 
         protected ObjectBase()
         {
@@ -70,7 +91,7 @@ namespace Framework.ObjectPool
             Target = target;
             Locked = locked;
             Priority = priority;
-            LastUseTime = DateTime.UtcNow;
+            Touch();
         }
 
         /// <summary>真正销毁/清理目标时调用（从池剔除时）。</summary>
@@ -140,6 +161,7 @@ namespace Framework.ObjectPool
             Locked = false;
             Priority = 0;
             LastUseTime = DateTime.MinValue;
+            LastUseTimestamp = 0;
         }
 
         internal void InternalRelease(bool isShutdown)

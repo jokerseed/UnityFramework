@@ -104,13 +104,29 @@ namespace Framework.Localization
             return key ?? string.Empty;
         }
 
-        /// <summary>获取文本并按当前语言的区域格式化。</summary>
+        /// <summary>
+        /// 获取文本并按当前语言的区域格式化。
+        /// 翻译里的占位符写错（例如 <c>{1}</c> 缺参数、花括号不配对）时不抛异常：返回未格式化的原文并记一次警告。
+        /// </summary>
         /// <param name="key">文本键。</param>
         /// <param name="args">格式化参数。</param>
-        /// <returns>格式化后的文本。</returns>
+        /// <returns>格式化后的文本；格式串无效时为原文。</returns>
         public string Format(string key, params object[] args)
         {
-            return string.Format(GetCulture(), Get(key), args);
+            var template = Get(key);
+            try
+            {
+                return string.Format(GetCulture(), template, args ?? Array.Empty<object>());
+            }
+            catch (FormatException)
+            {
+                if (_reportedMissing.Add(Language + "\nformat\n" + key))
+                {
+                    GameLog.Warning(LogCategories.Localization, $"Invalid format text: {LogStyle.Value(key)} ({Language})");
+                }
+
+                return template;
+            }
         }
 
         /// <summary>移除全部来源与事件订阅。</summary>

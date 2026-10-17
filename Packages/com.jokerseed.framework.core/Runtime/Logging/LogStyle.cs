@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Framework.Logging
 {
     /// <summary>
@@ -13,6 +15,10 @@ namespace Framework.Logging
         const string SuccessHex = "#66BB6A";
         const string DangerHex = "#EF5350";
         const string MutedHex = "#BDBDBD";
+
+        static readonly Regex RichTextTag = new Regex(
+            @"</?(?:color|b|i|size|material|quad)(?:=[^>]*)?>",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         static readonly string[] CategoryPalette =
         {
@@ -64,7 +70,23 @@ namespace Framework.Logging
         public static string FormatPlain(in LogEntry entry)
         {
             var time = entry.UtcTime.ToLocalTime().ToString("HH:mm:ss.fff");
-            return $"{time} | {LevelLabel(entry.Level),-5} | {entry.Category} | {entry.Message}";
+            return $"{time} | {LevelLabel(entry.Level),-5} | {entry.Category} | {StripRichText(entry.Message)}";
+        }
+
+        /// <summary>
+        /// 去掉 Unity 富文本标签（color / b / i / size / material / quad）。
+        /// 正文里的 <see cref="Name"/>、<see cref="Value"/> 等在写日志时就已着色，纯文本输出（文件 Sink）要靠这里还原。
+        /// </summary>
+        /// <param name="text">可能带标签的文本；为 null 时返回空字符串。</param>
+        /// <returns>纯文本。</returns>
+        public static string StripRichText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            return text.IndexOf('<') < 0 ? text : RichTextTag.Replace(text, string.Empty);
         }
 
         static string FormatLevel(LogLevel level)

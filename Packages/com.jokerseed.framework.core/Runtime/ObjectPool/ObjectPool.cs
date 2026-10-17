@@ -1,20 +1,29 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using Framework.Logging;
 using Framework.MemoryPool;
 
 namespace Framework.ObjectPool
 {
-    /// <summary>对象池实现。</summary>
-sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : ObjectBase
-{
+    /// <summary>
+    /// 对象池实现。闲置对象按名称放在各自的栈里，按名称取出为 O(1)；
+    /// 过期判断使用单调时钟（<see cref="Stopwatch"/>），不受系统改时间影响。
+    /// 单个对象释放时抛出的异常只记录日志，不会中断整批释放或关闭。
+    /// </summary>
+    sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : ObjectBase
+    {
         sealed class Entry
         {
             public T Object;
             public int SpawnCount;
+            public bool InIdle;
+            public bool Destroyed;
         }
 
         readonly List<Entry> _entries = new List<Entry>(16);
         readonly Dictionary<object, Entry> _map = new Dictionary<object, Entry>(16);
+        readonly Dictionary<string, Stack<Entry>> _idleByName = new Dictionary<string, Stack<Entry>>(StringComparer.Ordinal);
         readonly List<Entry> _releaseCandidates = new List<Entry>(8);
         readonly bool _allowMultiSpawn;
         float _autoReleaseTime;
@@ -118,6 +127,11 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
             };
             _entries.Add(entry);
             _map.Add(obj.Target, entry);
+            if (!spawned)
+            {
+                PushIdle(entry);
+            }
+
             if (Count > Capacity)
             {
                 Release();
@@ -128,46 +142,36 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
 
         public bool CanSpawn(string name)
         {
-            for (var i = 0; i < _entries.Count; i++)
-            {
-                var entry = _entries[i];
-                if (!NameMatches(entry.Object, name))
-                {
-                    continue;
-                }
-
-                if (_allowMultiSpawn || entry.SpawnCount <= 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return PeekIdle(name) != null || (_allowMultiSpawn && FindAny(name) != null);
         }
 
         public T Spawn() => Spawn(null);
 
         public T Spawn(string name)
         {
-            for (var i = 0; i < _entries.Count; i++)
+            var entry = PopIdle(name);
+            if (entry == null && _allowMultiSpawn)
             {
-                var entry = _entries[i];
-                if (!NameMatches(entry.Object, name))
-                {
-                    continue;
-                }
-
-                if (!_allowMultiSpawn && entry.SpawnCount > 0)
-                {
-                    continue;
-                }
-
-                entry.SpawnCount++;
-                entry.Object.LastUseTime = DateTime.UtcNow;
-                return entry.Object;
+                entry = FindAny(name);
             }
 
-            return null;
+            if (entry == null)
+            {
+                return null;
+            }
+
+            entry.SpawnCount++;
+            entry.Object.Touch();
+            try
+            {
+                entry.Object.OnSpawn();
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.ObjectPool, ex, $"OnSpawn failed in pool '{Name}'.");
+            }
+
+            return entry.Object;
         }
 
         public T SpawnOrCreate(Func<T> factory) => SpawnOrCreate(null, factory);
@@ -235,7 +239,21 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
             }
 
             entry.SpawnCount--;
-            entry.Object.LastUseTime = DateTime.UtcNow;
+            entry.Object.Touch();
+            try
+            {
+                entry.Object.OnUnspawn();
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.ObjectPool, ex, $"OnUnspawn failed in pool '{Name}'.");
+            }
+
+            if (entry.SpawnCount == 0)
+            {
+                PushIdle(entry);
+            }
+
             if (Count > Capacity)
             {
                 Release();
@@ -256,21 +274,12 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
             }
 
             CollectReleaseCandidates(forceExpire: false);
-            if (toReleaseCount == 0)
+            var n = toReleaseCount == 0
+                ? _releaseCandidates.Count // 仅释放已过期对象
+                : Math.Min(toReleaseCount, _releaseCandidates.Count);
+            for (var i = 0; i < n; i++)
             {
-                // 仅释放已过期对象
-                for (var i = 0; i < _releaseCandidates.Count; i++)
-                {
-                    DestroyEntry(_releaseCandidates[i]);
-                }
-            }
-            else
-            {
-                var n = Math.Min(toReleaseCount, _releaseCandidates.Count);
-                for (var i = 0; i < n; i++)
-                {
-                    DestroyEntry(_releaseCandidates[i]);
-                }
+                DestroyEntry(_releaseCandidates[i]);
             }
 
             _releaseCandidates.Clear();
@@ -308,16 +317,112 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
 
             _entries.Clear();
             _map.Clear();
+            _idleByName.Clear();
         }
 
-        static bool NameMatches(ObjectBase obj, string name)
+        static string KeyOf(ObjectBase obj) => obj.Name ?? string.Empty;
+
+        static bool IsIdle(Entry entry) => entry.InIdle && !entry.Destroyed && entry.SpawnCount == 0;
+
+        void PushIdle(Entry entry)
         {
-            if (name == null)
+            if (entry.InIdle || entry.Destroyed)
             {
-                return true;
+                return;
             }
 
-            return string.Equals(obj.Name, name, StringComparison.Ordinal);
+            var key = KeyOf(entry.Object);
+            if (!_idleByName.TryGetValue(key, out var stack))
+            {
+                stack = new Stack<Entry>(4);
+                _idleByName[key] = stack;
+            }
+
+            entry.InIdle = true;
+            stack.Push(entry);
+        }
+
+        /// <summary>弹出一个闲置对象；栈里已销毁或已被取出的条目顺手丢掉。</summary>
+        Entry PopIdle(string name)
+        {
+            if (name != null)
+            {
+                return _idleByName.TryGetValue(name, out var stack) ? PopValid(stack) : null;
+            }
+
+            foreach (var pair in _idleByName)
+            {
+                var entry = PopValid(pair.Value);
+                if (entry != null)
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+        Entry PeekIdle(string name)
+        {
+            if (name != null)
+            {
+                return _idleByName.TryGetValue(name, out var stack) ? PeekValid(stack) : null;
+            }
+
+            foreach (var pair in _idleByName)
+            {
+                var entry = PeekValid(pair.Value);
+                if (entry != null)
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+        static Entry PopValid(Stack<Entry> stack)
+        {
+            var entry = PeekValid(stack);
+            if (entry != null)
+            {
+                stack.Pop();
+                entry.InIdle = false;
+            }
+
+            return entry;
+        }
+
+        static Entry PeekValid(Stack<Entry> stack)
+        {
+            while (stack.Count > 0)
+            {
+                var top = stack.Peek();
+                if (IsIdle(top))
+                {
+                    return top;
+                }
+
+                stack.Pop();
+                top.InIdle = false;
+            }
+
+            return null;
+        }
+
+        /// <summary>允许多次取出时，按名称找任意一个对象（可能已被取出）。</summary>
+        Entry FindAny(string name)
+        {
+            for (var i = 0; i < _entries.Count; i++)
+            {
+                var entry = _entries[i];
+                if (name == null || string.Equals(entry.Object.Name, name, StringComparison.Ordinal))
+                {
+                    return entry;
+                }
+            }
+
+            return null;
         }
 
         static bool CanRelease(Entry entry)
@@ -330,7 +435,7 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
         void CollectReleaseCandidates(bool forceExpire)
         {
             _releaseCandidates.Clear();
-            var now = DateTime.UtcNow;
+            var now = Stopwatch.GetTimestamp();
             for (var i = 0; i < _entries.Count; i++)
             {
                 var entry = _entries[i];
@@ -341,7 +446,7 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
 
                 if (!forceExpire)
                 {
-                    var unusedSeconds = (float)(now - entry.Object.LastUseTime).TotalSeconds;
+                    var unusedSeconds = (double)(now - entry.Object.LastUseTimestamp) / Stopwatch.Frequency;
                     if (unusedSeconds < ExpireTime && Count <= Capacity)
                     {
                         continue;
@@ -359,20 +464,36 @@ sealed class ObjectPool<T> : IObjectPool<T>, ObjectPoolBaseTickable where T : Ob
                     return priorityCmp;
                 }
 
-                return a.Object.LastUseTime.CompareTo(b.Object.LastUseTime);
+                return a.Object.LastUseTimestamp.CompareTo(b.Object.LastUseTimestamp);
             });
         }
 
         void DestroyEntry(Entry entry, bool isShutdown = false)
         {
+            entry.Destroyed = true;
             _entries.Remove(entry);
             if (entry.Object.Target != null)
             {
                 _map.Remove(entry.Object.Target);
             }
 
-            entry.Object.InternalRelease(isShutdown);
-            global::Framework.MemoryPool.MemoryPool.Release(entry.Object);
+            try
+            {
+                entry.Object.InternalRelease(isShutdown);
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.ObjectPool, ex, $"Release object failed in pool '{Name}'.");
+            }
+
+            try
+            {
+                global::Framework.MemoryPool.MemoryPool.Release(entry.Object);
+            }
+            catch (Exception ex)
+            {
+                GameLog.Exception(LogCategories.ObjectPool, ex, $"Return object to memory pool failed in pool '{Name}'.");
+            }
         }
     }
 }
