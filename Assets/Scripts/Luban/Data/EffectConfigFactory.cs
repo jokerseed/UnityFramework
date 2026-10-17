@@ -9,7 +9,7 @@ using Framework.GAS.Tags;
 
 namespace Framework.GamePlay.Data
 {
-    /// <summary>从 Luban 效果表创建 <see cref="GameplayEffectDef"/>。</summary>
+    /// <summary>从 Luban 效果表创建 <see cref="GameplayEffectDef"/>。表里的 float 一律经 <see cref="FixedConfig.FromConfig(float)"/> 量化。</summary>
     public static class EffectConfigFactory
     {
         /// <summary>创建效果定义。嵌套效果从同一张表解析，不读全局 <c>ConfigManager</c>。</summary>
@@ -52,7 +52,7 @@ namespace Framework.GamePlay.Data
                 modifiers.Add(new EffectModifier(
                     def.ModAttribute,
                     (EffectModifierOperation)def.ModOperation,
-                    def.ModMagnitude));
+                    ModifierMagnitude.Constant(FixedConfig.FromConfig(def.ModMagnitude))));
             }
 
             if (def.ShieldValue > 0f)
@@ -60,7 +60,7 @@ namespace Framework.GamePlay.Data
                 modifiers.Add(new EffectModifier(
                     BattleConstants.Shield,
                     EffectModifierOperation.Add,
-                    def.ShieldValue));
+                    ModifierMagnitude.Constant(FixedConfig.FromConfig(def.ShieldValue))));
             }
 
             var executions = new List<GameplayEffectExecution>();
@@ -70,7 +70,7 @@ namespace Framework.GamePlay.Data
                     executions.Add(new DamageExecution());
                     break;
                 case CfgEffectExecutionType.Heal:
-                    executions.Add(new HealExecution(ModifierMagnitude.Constant((FP)(def.ModMagnitude))));
+                    executions.Add(new HealExecution(ModifierMagnitude.Constant(FixedConfig.FromConfig(def.ModMagnitude))));
                     break;
                 case CfgEffectExecutionType.ApplyEffect:
                     if (!string.IsNullOrEmpty(def.ExecutionEffectId) &&
@@ -85,12 +85,12 @@ namespace Framework.GamePlay.Data
 
             var cost = string.IsNullOrEmpty(def.CostAttribute) || def.CostAmount <= 0f
                 ? null
-                : new Dictionary<string, FP> { [def.CostAttribute] = (FP)(def.CostAmount) };
+                : new Dictionary<string, FP> { [def.CostAttribute] = FixedConfig.FromConfig(def.CostAmount) };
 
             return new GameplayEffectDef(
                 def.Id,
                 MapDuration(def.DurationType),
-                (FP)(def.Duration),
+                FixedConfig.FromConfig(def.Duration),
                 modifiers,
                 ParseTags(def.GrantedTags),
                 MapStacking(def.Stacking),
@@ -98,7 +98,7 @@ namespace Framework.GamePlay.Data
                 ParseTags(def.BlockedTags),
                 ParseTags(def.ImmunityTags),
                 executions: executions,
-                period: (FP)(def.Period),
+                period: FixedConfig.FromConfig(def.Period),
                 cueTagsOnApply: ParseCue(def.CueApply),
                 cueTagsOnRemove: ParseCue(def.CueRemove),
                 costAttributes: cost,

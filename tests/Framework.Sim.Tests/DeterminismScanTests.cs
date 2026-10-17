@@ -68,6 +68,76 @@ namespace Framework.Sim.Tests
             Assert.IsEmpty(violations);
         }
 
+        [Test]
+        public void Rules_FlagFloatLiteralButAllowConstantFpCast()
+        {
+            var literal = new List<string>();
+            DeterminismRules.CollectViolations(DeterminismRules.BattleRuntimeRoot + "/ECS/X.cs", "var half = 0.5f * size;", literal);
+            Assert.AreEqual(1, literal.Count);
+
+            var cast = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/ECS/X.cs",
+                "var half = (FP)0.5f * size; var slop = (FP)(2.0f / 180.0f); var mask = 0x1F;",
+                cast);
+            Assert.IsEmpty(cast);
+        }
+
+        [Test]
+        public void Rules_FlagTimersAndSinglePrecisionMathEverywhere()
+        {
+            var violations = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/GAS/X.cs",
+                "var a = Environment.TickCount;\nvar b = Stopwatch.GetTimestamp();\nvar c = MathF.Sqrt(x);\nvar s = \"Stopwatch 1.5\";",
+                violations);
+            Assert.AreEqual(3, violations.Count, string.Join("\n", violations));
+        }
+
+        [Test]
+        public void Rules_FlagFloatParameterInGasButAllowFloatLocals()
+        {
+            var parameter = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/GamePlay/X.cs",
+                "public Foo(string id, float cooldown)\nvoid Bar(\n    float speed,\n    int team)",
+                parameter);
+            Assert.AreEqual(2, parameter.Count, string.Join("\n", parameter));
+
+            var local = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/GamePlay/X.cs",
+                "float alpha = 1f;\npublic float InterpolationAlpha => 0f;\npublic void Tick(float dt) // determinism-allow: 渲染帧入口",
+                local);
+            Assert.IsEmpty(local, string.Join("\n", local));
+        }
+
+        [Test]
+        public void Rules_FlagDoubleLiteralInFixedMath()
+        {
+            var violations = new List<string>();
+            DeterminismRules.CollectViolations(DeterminismRules.BattleRuntimeRoot + "/FixedMath/X.cs", "var x = (FP)(0.5) * y;", violations);
+            Assert.AreEqual(1, violations.Count);
+        }
+
+        [Test]
+        public void Rules_ScanFarseerSolverButSkipTools()
+        {
+            var solver = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/LockstepPhysics/Farseer/Dynamics/World.cs",
+                "float dt = step.dt;",
+                solver);
+            Assert.AreEqual(1, solver.Count);
+
+            var tool = new List<string>();
+            DeterminismRules.CollectViolations(
+                DeterminismRules.BattleRuntimeRoot + "/LockstepPhysics/Farseer/Common/Decomposition/X.cs",
+                "float dt = step.dt; var t = Environment.TickCount;",
+                tool);
+            Assert.IsEmpty(tool);
+        }
+
         static string FindRepoRoot()
         {
             var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);

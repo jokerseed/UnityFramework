@@ -75,9 +75,9 @@ namespace Framework.BehaviourTree
 
             context.Runtime = Runtime;
             var collect = context.CollectDebug;
-            var startTicks = collect ? Stopwatch.GetTimestamp() : 0L;
+            var startTicks = collect ? Stopwatch.GetTimestamp() : 0L; // determinism-allow: 只给调试面板统计耗时，不参与逻辑
             LastStatus = Root.Tick(context);
-            var elapsed = collect ? Stopwatch.GetTimestamp() - startTicks : 0L;
+            var elapsed = collect ? Stopwatch.GetTimestamp() - startTicks : 0L; // determinism-allow: 只给调试面板统计耗时，不参与逻辑
 
 #if UNITY_EDITOR
             LastDebugFrame = BuildDebugFrame(elapsed, context);

@@ -23,6 +23,7 @@ namespace Framework.ECS
 
         readonly List<IEcsSnapshotExtension> _snapshotExtensions = new List<IEcsSnapshotExtension>();
         readonly List<uint> _snapshotIds = new List<uint>(64);
+        readonly HashSet<uint> _restoreIndices = new HashSet<uint>();
 
         /// <summary>注册额外组件块。类型号须 &gt;= 100，且不可重复。</summary>
         /// <param name="extension">扩展；不可为 null。</param>
@@ -61,7 +62,7 @@ namespace Framework.ECS
             EnsureCustomComponentsAreRegistered();
             writer.WriteInt(SnapshotMagic);
             writer.WriteInt(SnapshotVersion);
-            writer.WriteUInt(_nextEntityId);
+            writer.WriteUInt(_nextEntityIndex);
             writer.WriteInt(_freeEntityIds.Count);
             for (var freeIndex = 0; freeIndex < _freeEntityIds.Count; freeIndex++)
             {
@@ -119,18 +120,26 @@ namespace Framework.ECS
                 throw new InvalidOperationException("Unsupported ECS snapshot version " + version);
             }
 
-            var nextEntityId = reader.ReadUInt();
+            var nextEntityIndex = reader.ReadUInt();
+            if (nextEntityIndex == 0 || nextEntityIndex > Entity.IndexMask + 1)
+            {
+                throw new InvalidOperationException("ECS snapshot next entity index " + nextEntityIndex + " is invalid.");
+            }
+
             var freeCount = reader.ReadInt();
             if (freeCount < 0)
             {
                 throw new InvalidOperationException("ECS snapshot free-id count is negative.");
             }
 
+            // 空闲表和存活实体都按下标校验：同一下标只能出现一次，且必须小于下一个待分配下标。
+            _restoreIndices.Clear();
             _freeEntityIds.Clear();
             for (var freeIndex = 0; freeIndex < freeCount; freeIndex++)
             {
                 var freeId = reader.ReadUInt();
-                if (freeId == 0 || freeId >= nextEntityId || _freeEntityIds.Contains(freeId))
+                var slot = Entity.IndexOf(freeId);
+                if (slot == 0 || slot >= nextEntityIndex || !_restoreIndices.Add(slot))
                 {
                     throw new InvalidOperationException("ECS snapshot free-id " + freeId + " is invalid.");
                 }
@@ -139,10 +148,22 @@ namespace Framework.ECS
             }
 
             var entityCount = reader.ReadInt();
+            if (entityCount < 0)
+            {
+                throw new InvalidOperationException("ECS snapshot entity count is negative.");
+            }
+
             _snapshotIds.Clear();
             for (var i = 0; i < entityCount; i++)
             {
-                _snapshotIds.Add(reader.ReadUInt());
+                var entityId = reader.ReadUInt();
+                var slot = Entity.IndexOf(entityId);
+                if (slot == 0 || slot >= nextEntityIndex || !_restoreIndices.Add(slot))
+                {
+                    throw new InvalidOperationException("ECS snapshot entity id " + entityId + " is invalid.");
+                }
+
+                _snapshotIds.Add(entityId);
             }
 
             ClearEntitiesAndComponents();
@@ -151,7 +172,7 @@ namespace Framework.ECS
                 RecreateEntity(_snapshotIds[i]);
             }
 
-            _nextEntityId = nextEntityId;
+            _nextEntityIndex = nextEntityIndex;
 
             ReadTransforms(reader);
             ReadVelocities(reader);
@@ -234,7 +255,7 @@ namespace Framework.ECS
             }
 
             _entities.Clear();
-            _nextEntityId = 1;
+            _nextEntityIndex = 1;
         }
 
         void RecreateEntity(uint id)

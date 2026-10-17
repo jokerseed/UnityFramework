@@ -18,7 +18,9 @@ namespace Framework.ECS
             EcsSystemPhase.Cleanup,
         };
 
-        uint _nextEntityId = 1;
+        uint _nextEntityIndex = 1;
+
+        // 已销毁实体的完整 ID。复用时下标不变、代数加一。
         readonly List<uint> _freeEntityIds = new List<uint>();
         readonly List<ISystem> _systems = new List<ISystem>();
         readonly Dictionary<uint, Entity> _entities = new Dictionary<uint, Entity>();
@@ -64,20 +66,30 @@ namespace Framework.ECS
             return _singletons.TryGetValue(typeof(T), out var instance) ? (T)instance : null;
         }
 
-        /// <summary>创建新实体。优先复用已销毁的 ID，避免稀疏数组按历史最大 ID 一直涨。</summary>
+        /// <summary>
+        /// 创建新实体。优先复用已销毁实体的下标，避免稀疏数组按历史最大下标一直涨；
+        /// 复用时代数加一，新 ID 与旧 ID 不同，旧 ID 查不到新实体的组件。
+        /// </summary>
         /// <returns>新建的 <see cref="Entity"/> 实例，初始状态为存活。</returns>
+        /// <exception cref="InvalidOperationException">下标已用完（同时存活或代数用尽的实体超过 <see cref="Entity.IndexMask"/> 个）。</exception>
         public Entity CreateEntity()
         {
             uint id;
             if (_freeEntityIds.Count > 0)
             {
                 var last = _freeEntityIds.Count - 1;
-                id = _freeEntityIds[last];
+                var freed = _freeEntityIds[last];
                 _freeEntityIds.RemoveAt(last);
+                id = Entity.MakeId(Entity.IndexOf(freed), Entity.GenerationOf(freed) + 1);
             }
             else
             {
-                id = _nextEntityId++;
+                if (_nextEntityIndex > Entity.IndexMask)
+                {
+                    throw new InvalidOperationException("ECS entity index space is exhausted.");
+                }
+
+                id = _nextEntityIndex++;
             }
 
             var entity = new Entity(id);
@@ -110,7 +122,10 @@ namespace Framework.ECS
             GetSingleton<IEcsBodyRemover>()?.RemoveBody(entityId);
             entity.IsAlive = false;
             _entities.Remove(entityId);
-            _freeEntityIds.Add(entityId);
+            if (Entity.GenerationOf(entityId) < Entity.MaxGeneration)
+            {
+                _freeEntityIds.Add(entityId);
+            }
 
             foreach (var storage in _storages.Values)
             {

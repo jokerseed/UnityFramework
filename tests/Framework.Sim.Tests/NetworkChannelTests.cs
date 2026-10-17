@@ -140,8 +140,16 @@ namespace Framework.Sim.Tests
             };
 
             // 不可路由地址：要么一直挂起直到超时，要么系统立刻拒绝；两种情况都必须回到 Disconnected 并报错。
+            // 本机开着 TUN 模式代理时，代理会先接受任何地址的 TCP 连接，超时路径走不到，这时跳过而不是误报失败。
             channel.Connect(IPAddress.Parse("10.255.255.1"), 9);
             channel.Update(0.3f);
+            PumpUntil(channel, () => channel.State != NetworkChannelState.Connecting);
+            if (channel.State == NetworkChannelState.Connected)
+            {
+                channel.Shutdown();
+                Assert.Ignore("A local proxy accepted the connection to an unroutable address; connect timeout cannot be exercised on this network.");
+            }
+
             PumpUntil(channel, () => channel.State == NetworkChannelState.Disconnected);
             channel.Update(0f);
             Assert.IsTrue(_errors.Exists(e => e.ChannelName == "tcp-timeout" && e.ErrorCode == NetworkErrorCode.ConnectError));

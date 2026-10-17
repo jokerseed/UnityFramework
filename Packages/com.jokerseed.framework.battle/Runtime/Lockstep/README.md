@@ -55,9 +55,11 @@
 
 `LockstepHost` 在某一步收齐所有玩家的 `LockstepInputMessage` 之前不会调用 `Simulate`。`PredictRemote` 可以先填占位；正式输入若不同，就从最近的检查点重放。检查点间隔至少为 1，第 0 步一定会存。
 
+主机只接受窗口内的输入：最早到 `ConfirmedTick - maxRollbackTicks`，最晚到 `ConfirmedTick + maxInputAheadTicks - 1`（两者默认都是 120）。窗口外的远端输入直接丢弃并触发 `InputRejected(playerId, tick)`；本端 `SubmitLocal` 越界会抛 `ArgumentOutOfRangeException`。窗口前移后，更早的输入行会被裁掉（保留到窗口下界之前最近的检查点，重放时不缺输入）；模拟实现了 `ILockstepCheckpointPruning` 时，主机还会调用 `DiscardCheckpointsBefore` 丢弃用不到的旧检查点，长局内存不再随时长增长。`BattleLockstepSimulation` 实现了它，检查点查找也改成二分。这个可选接口没有做成 `ILockstepSimulation` 的默认接口方法，因为 Unity 2021.3 的 Mono / IL2CPP 对默认接口方法支持不可靠。
+
 每条 `LockstepInputMessage` 带发送端的模拟逻辑版本（构造 `LockstepHost` 时传入，战斗层用 `BattleSimulationVersion.Current`）。收到版本不同的输入时丢弃该输入，触发一次 `SimulationVersionMismatch(playerId, remoteVersion)`，之后 `TryAdvance` 抛 `InvalidOperationException`：逐帧结果不同的两端继续跑只会不同步，应当直接结束对局并提示更新。
 
-战斗侧是 `BattleLockstepSimulation`：随机数、ECS、`GasSnapshot`（版本 3）、`BattlePhysicsSnapshot`，以及当时已绑定 Agent 的行为树快照记在同一次检查点里。`World.Restore` 之后要重新绑定 Actor。Farseer 的刚体 ID 仍是进程全局的，同一进程里两场世界同时回滚并不隔离刚体 ID。效果 Spec 的 RuntimeId、技能实例 ID 和活跃效果句柄在每个 ASC 上，随该 ASC 的快照回写。测试只比较已经记下的校验和，开局之后不再创建刚体。
+战斗侧是 `BattleLockstepSimulation`：随机数、ECS、`GasSnapshot`（版本 3）、`BattlePhysicsSnapshot`，以及当时已绑定 Agent 的行为树快照记在同一次检查点里。`World.Restore` 之后要重新绑定 Actor。Farseer 的刚体 ID 仍是进程全局的，同一进程里两场世界同时回滚并不隔离刚体 ID。效果 Spec 的 RuntimeId、技能实例 ID 和活跃效果句柄在每个 ASC 上，随该 ASC 的快照回写。检查点之后销毁的实体（如命中后的投射物），回滚后靠 `BattlePhysicsWorld.RetainRemovedBodies` 拿回刚体，见 ECS.Physics 的 README。
 
 `AbstractLockstep` 每场有自己的 `SyncedData` 池，输入工厂绑在这个池上，不再跟随后创建的另一场去改写已经取出的对象。`SyncedData.pool` 和 `AbstractLockstep.instance` 仍留给 `ReplayRecord` 和没传入池的旧调用。`ReplayRecord.replayMode` 仍是进程级开关。网络事件 199/198/196/197 先做长度和玩家校验，畸形包计入 `RejectedNetworkInputs` 后丢弃。掉线票按来源玩家去重，同一个客户端重复发送不会把票数刷过门槛。`StateTracker` 不再接回战斗。
 

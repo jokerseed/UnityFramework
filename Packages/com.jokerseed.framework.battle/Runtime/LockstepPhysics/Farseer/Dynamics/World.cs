@@ -682,7 +682,7 @@ namespace Framework.Lockstep.Physics2D
                 foreach (var b in TOISet)
                 {
                     b.Flags &= ~BodyFlags.Island;
-                    b.Sweep.Alpha0 = 0.0f;
+                    b.Sweep.Alpha0 = FP.Zero;
                 }
 #else
                 for (int i = 0; i < BodyList.Count; i++)
@@ -784,13 +784,13 @@ namespace Framework.Lockstep.Physics2D
                             {
                                 TOISet.Add(bA);
                                 bA.Flags &= ~BodyFlags.Island;
-                                bA.Sweep.Alpha0 = 0.0f;
+                                bA.Sweep.Alpha0 = FP.Zero;
                             }
                             if (!TOISet.Contains(bB))
                             {
                                 TOISet.Add(bB);
                                 bB.Flags &= ~BodyFlags.Island;
-                                bB.Sweep.Alpha0 = 0.0f;
+                                bB.Sweep.Alpha0 = FP.Zero;
                             }
                         }
 #endif
@@ -983,7 +983,7 @@ namespace Framework.Lockstep.Physics2D
                                 if (!TOISet.Contains(other))
                                 {
                                     TOISet.Add(other);
-                                    other.Sweep.Alpha0 = 0.0f;
+                                    other.Sweep.Alpha0 = FP.Zero;
                                 }
                             }
 #endif

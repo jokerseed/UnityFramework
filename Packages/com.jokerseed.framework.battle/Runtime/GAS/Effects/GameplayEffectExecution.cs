@@ -57,14 +57,14 @@ namespace Framework.GAS.Effects
         readonly BattleDamageType _damageType;
 
         /// <summary>构造伤害 Execution。</summary>
-        /// <param name="attackScale">攻击力缩放系数。</param>
+        /// <param name="attackScale">攻击力缩放系数，按 <see cref="FixedConfig.FromConfig(float)"/> 量化到万分之一。</param>
         /// <param name="setByCallerKey">优先使用的 SetByCaller 键；为 null 时使用 Attack 属性。</param>
         /// <param name="damageType">伤害类型。</param>
         public DamageExecution(
-            float attackScale = 1f,
+            float attackScale = 1f, // determinism-allow: 配置边界
             string setByCallerKey = "Damage",
             BattleDamageType damageType = BattleDamageType.Physical)
-            : this((FP)attackScale, setByCallerKey, damageType)
+            : this(FixedConfig.FromConfig(attackScale), setByCallerKey, damageType)
         {
         }
 

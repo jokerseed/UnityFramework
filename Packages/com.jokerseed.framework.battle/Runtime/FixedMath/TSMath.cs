@@ -259,10 +259,10 @@ namespace Framework.FixedMath {
             // Internally using FPs not to lose precission
             FP amountSquared = amount * amount;
             FP amountCubed = amountSquared * amount;
-            return (FP)((FP)(0.5) * ((FP)(2.0) * value2 +
-                                 (value3 - value1) * amount +
-                                 ((FP)(2.0) * value1 - (FP)(5.0) * value2 + (FP)(4.0) * value3 - value4) * amountSquared +
-                                 ((FP)(3.0) * value2 - value1 - (FP)(3.0) * value3 + value4) * amountCubed));
+            return FP.Half * ((FP)2 * value2 +
+                              (value3 - value1) * amount +
+                              ((FP)2 * value1 - (FP)5 * value2 + (FP)4 * value3 - value4) * amountSquared +
+                              ((FP)3 * value2 - value1 - (FP)3 * value3 + value4) * amountCubed);
         }
 
         public static FP Distance(FP value1, FP value2) {

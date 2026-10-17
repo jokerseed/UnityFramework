@@ -28,4 +28,16 @@ namespace Framework.Lockstep
         /// <summary>当前模拟的校验和。</summary>
         long Checksum { get; }
     }
+
+    /// <summary>
+    /// 可选：模拟实现它以后，<see cref="LockstepHost"/> 会在回滚窗口前移时通知丢弃旧检查点。
+    /// 不实现时检查点一直保留，长局内存随时长增长。
+    /// 单独成接口而不是默认接口方法，是因为 Unity 2021.3 的 Mono / IL2CPP 对默认接口方法的支持不可靠。
+    /// </summary>
+    public interface ILockstepCheckpointPruning
+    {
+        /// <summary>丢弃编号小于 <paramref name="tick"/> 的检查点。编号等于 <paramref name="tick"/> 的那份必须保留。</summary>
+        /// <param name="tick">仍可能回滚到的最早检查点。</param>
+        void DiscardCheckpointsBefore(int tick);
+    }
 }

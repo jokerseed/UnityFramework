@@ -169,7 +169,7 @@ namespace Framework.Lockstep.Physics2D
             {
                 s += Vertices[i];
             }
-            s *= (FP)(1.0f / Vertices.Count);
+            s *= FP.One / Vertices.Count;
 
             FP k_inv3 = (FP)(1.0f / 3.0f);
 

@@ -46,12 +46,12 @@ namespace Framework.GAS.Effects
         /// <summary>修改幅度。</summary>
         public ModifierMagnitude Magnitude { get; }
 
-        /// <summary>构造属性修改规则（常量幅度，兼容旧 API）。</summary>
-        public EffectModifier(string attributeName, EffectModifierOperation operation, float magnitude)
+        /// <summary>构造属性修改规则（常量幅度，兼容旧 API）。幅度按 <see cref="FixedConfig.FromConfig(float)"/> 量化到万分之一。</summary>
+        public EffectModifier(string attributeName, EffectModifierOperation operation, float magnitude) // determinism-allow: 配置边界
         {
             AttributeName = attributeName;
             Operation = operation;
-            Magnitude = ModifierMagnitude.Constant((FP)(magnitude));
+            Magnitude = ModifierMagnitude.Constant(FixedConfig.FromConfig(magnitude));
         }
 
         /// <summary>构造属性修改规则。</summary>

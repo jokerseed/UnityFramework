@@ -14,7 +14,7 @@ namespace Framework.GamePlay
     {
         const float DefaultMoveSpeed = 2.2f;
         const float DefaultMeleeRange = 2f;
-        static readonly FP ArriveSlotRange = (FP)0.28f;
+        static readonly FP ArriveSlotRange = FixedConfig.FromConfig(0.28f);
         static readonly FP ArriveSlotRangeSqr = ArriveSlotRange * ArriveSlotRange;
         const string SpeedParamKey = "speed";
         const string StopRangeParamKey = "stopRange";
@@ -41,7 +41,7 @@ namespace Framework.GamePlay
 
         static BtNode CreateInRange(BtConfigNode config)
         {
-            var range = ResolveFp(config, null, (FP)DefaultMeleeRange, BattleAiBlackboardKeys.MeleeRange);
+            var range = ResolveFp(config, null, FixedConfig.FromConfig(DefaultMeleeRange), BattleAiBlackboardKeys.MeleeRange);
             return BtTreeBuilder.Condition(ctx =>
             {
                 var owner = ctx.GetOwner<BattleAiOwner>();
@@ -81,8 +81,8 @@ namespace Framework.GamePlay
 
         static BtNode CreateMoveTo(BtConfigNode config)
         {
-            var speedDefault = (FP)ReadFloatParam(config, SpeedParamKey, config.FloatParam > 0f ? config.FloatParam : DefaultMoveSpeed);
-            var stopDefault = (FP)ReadFloatParam(config, StopRangeParamKey, DefaultMeleeRange * 0.85f);
+            var speedDefault = FixedConfig.FromConfig(ReadFloatParam(config, SpeedParamKey, config.FloatParam > 0f ? config.FloatParam : DefaultMoveSpeed));
+            var stopDefault = FixedConfig.FromConfig(ReadFloatParam(config, StopRangeParamKey, DefaultMeleeRange * 0.85f));
 
             return BtTreeBuilder.Action(ctx =>
             {
@@ -214,13 +214,13 @@ namespace Framework.GamePlay
 
             if (config != null && config.FloatParam > 0f)
             {
-                return (FP)config.FloatParam;
+                return FixedConfig.FromConfig(config.FloatParam);
             }
 
             return fallback;
         }
 
-        static float ReadFloatParam(BtConfigNode config, string key, float fallback)
+        static float ReadFloatParam(BtConfigNode config, string key, float fallback) // determinism-allow: 配置边界
         {
             if (config != null &&
                 config.TryGetParam(key, out var kv) &&

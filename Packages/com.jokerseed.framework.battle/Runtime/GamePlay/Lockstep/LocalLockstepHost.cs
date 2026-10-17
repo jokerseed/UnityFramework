@@ -59,7 +59,7 @@ namespace Framework.GamePlay
         /// <returns>本次推进的逻辑步数。</returns>
         /// <exception cref="ArgumentNullException"><paramref name="fillFrame"/> 为 null。</exception>
         public int Tick(
-            float unscaledDeltaTime,
+            float unscaledDeltaTime, // determinism-allow: 渲染帧入口，原样转给 BattleSession.Tick
             Action<BattleIntentFrame> fillFrame,
             Action<FP> afterFixedStep = null)
         {

@@ -69,7 +69,7 @@ namespace Framework.GamePlay
 
         /// <summary>集中驱动所有活跃 Session 的战斗逻辑。</summary>
         /// <param name="deltaTime">帧间隔（秒）。</param>
-        public void Tick(float deltaTime)
+        public void Tick(float deltaTime) // determinism-allow: 渲染帧入口，只推进定点累加器
         {
             foreach (var pair in _sessions)
             {

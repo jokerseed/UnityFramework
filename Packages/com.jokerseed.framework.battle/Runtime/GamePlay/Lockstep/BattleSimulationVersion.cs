@@ -8,6 +8,10 @@ namespace Framework.GamePlay
     public static class BattleSimulationVersion
     {
         /// <summary>当前模拟逻辑版本。</summary>
-        public const int Current = 1;
+        /// <remarks>
+        /// 1：首个版本。
+        /// 2：内置技能与配置数值改为定点并按万分之一量化、实体 ID 带代数、投射物扫掠命中、死亡单位不再结算伤害、周期效果刷新默认不重置计时。
+        /// </remarks>
+        public const int Current = 2;
     }
 }

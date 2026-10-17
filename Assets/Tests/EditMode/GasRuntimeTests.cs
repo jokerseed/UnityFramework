@@ -67,7 +67,7 @@ namespace Framework.Tests
             Assert.AreEqual(1, leftSpec.RuntimeId);
             Assert.AreEqual(1, rightSpec.RuntimeId);
 
-            var template = new DashAbility("dash", 1f, 1f, 0.2f, null);
+            var template = new DashAbility("dash", (FP)1, (FP)1, FixedConfig.FromConfig(0.2f), null);
             var abilityDef = new GameplayAbilityDef(template);
             var first = abilityDef.CreateAbility();
             var second = abilityDef.CreateAbility();

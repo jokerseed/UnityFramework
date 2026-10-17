@@ -130,7 +130,7 @@ fillFrame（玩家编码）→ CollectAiIntents → Queue.Enqueue → Queue.Dequ
 
 `LockstepHost` 等所有玩家的输入到齐再推进一步。`BattleLockstepSimulation` 把 `BattleSession` 交给它，检查点含随机数、ECS、`GasSnapshot`、`BattlePhysicsSnapshot`，以及当时已绑定 Agent 的行为树快照（含随机源，不含 object 袋）。`PredictRemote` 先填占位，正式输入不同就从最近的检查点重放。`LocalLockstepHost` 仍是单机意图帧，不走 `ICommunicator`。Farseer 的 Body / Fixture ID 计数器挂在各自的 `World` 上，同一进程的多场物理世界互不影响。构造 `LockstepHost` 时传 `BattleSimulationVersion.Current`，版本不同的两端不能同场。
 
-EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返、最小战斗两遍对拍，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。可选 GitHub Actions 工作流 `.github/workflows/editmode-tests.yml` 只用手动触发，需要 `UNITY_LICENSE` / `UNITY_EMAIL` / `UNITY_PASSWORD`，不是必需检查。
+EditMode 测试在 `Assets/Tests/EditMode`（程序集 `Framework.EditMode.Tests`）。Unity 菜单 **Window → General → Test Runner → EditMode** 运行：同一种子两遍校验和、录像 `BattleReplayVerifier` 对拍、确定性扫描、ECS+随机数快照往返、最小战斗两遍对拍，以及 `LockstepRollbackTests`（环回等输入、迟到输入回滚）。`World.Restore` 之后调用 `Registry.RebindEntitiesAfterSnapshot`。命令行扫描等价于 **Tools → Determinism → Scan Battle Sim**。扫描范围包括 Farseer 求解器（多边形分解、纹理工具、关节等不参与战斗帧的文件除外），规则拦截 `MathF`、float / 小数字面量（直接写成 `(FP)0.5f` 的常量除外）、`Environment.TickCount`、`Stopwatch`，并禁止 GAS / GamePlay 出现 float 形参。规则是逐行正则，挡不住 `var` 推断出来的 float；改成 Roslyn 分析器是后续工作。可选 GitHub Actions 工作流 `.github/workflows/editmode-tests.yml` 只用手动触发，需要 `UNITY_LICENSE` / `UNITY_EMAIL` / `UNITY_PASSWORD`，不是必需检查。
 
 ## Tick 流程
 

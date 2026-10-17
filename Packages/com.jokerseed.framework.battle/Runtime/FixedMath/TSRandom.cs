@@ -87,7 +87,7 @@ namespace Framework.FixedMath {
         /**
          *  @brief Returns a {@link FP} between a min value [inclusive] and a max value [inclusive].
          **/
-        public FP Next(float minValue, float maxValue) {
+        public FP Next(FP minValue, FP maxValue) {
             int minValueInt = (int)(minValue * 1000), maxValueInt = (int)(maxValue * 1000);
 
             if (minValueInt > maxValueInt) {
@@ -187,40 +187,6 @@ namespace Framework.FixedMath {
             }
         }
 
-        private float NextFloat() {
-            return (float)genrand_real2();
-        }
-
-        private float NextFloat(bool includeOne) {
-            if (includeOne) {
-                return (float)genrand_real1();
-            }
-            return (float)genrand_real2();
-        }
-
-        private float NextFloatPositive() {
-            return (float)genrand_real3();
-        }
-
-        private double NextDouble() {
-            return genrand_real2();
-        }
-
-        private double NextDouble(bool includeOne) {
-            if (includeOne) {
-                return genrand_real1();
-            }
-            return genrand_real2();
-        }
-
-        private double NextDoublePositive() {
-            return genrand_real3();
-        }
-
-        private double Next53BitRes() {
-            return genrand_res53();
-        }
-
         public void Initialize() {
             init_genrand((uint)DateTime.Now.Millisecond); // determinism-allow: 无种子重置不进战斗；战斗用 Initialize(int)
         }
@@ -309,22 +275,6 @@ namespace Framework.FixedMath {
 
         FP genrand_FP() {
             return (FP)genrand_int32() * (FP.One / (FP)4294967295);
-        }
-
-        double genrand_real1() {
-            return genrand_int32() * (1.0 / 4294967295.0);
-        }
-        double genrand_real2() {
-            return genrand_int32() * (1.0 / 4294967296.0);
-        }
-
-        double genrand_real3() {
-            return (((double)genrand_int32()) + 0.5) * (1.0 / 4294967296.0);
-        }
-
-        double genrand_res53() {
-            uint a = genrand_int32() >> 5, b = genrand_int32() >> 6;
-            return (a * 67108864.0 + b) * (1.0 / 9007199254740992.0);
         }
     }
 

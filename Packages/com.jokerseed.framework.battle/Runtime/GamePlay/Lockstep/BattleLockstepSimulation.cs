@@ -14,9 +14,11 @@ namespace Framework.GamePlay
     /// <summary>
     /// 用一场 <see cref="BattleSession"/> 实现 <see cref="ILockstepSimulation"/>。
     /// 检查点包含随机数、ECS、GAS、Farseer 接触克隆，以及已绑定 Agent 的行为树快照。玩家下标对应创建顺序里的 Actor。
+    /// 物理世界打开 <see cref="BattlePhysicsWorld.RetainRemovedBodies"/>：检查点之后销毁的实体回滚后仍有刚体；
+    /// 主机丢弃旧检查点时，早于最老检查点退役的刚体才真正移除。
     /// 输入是 8 字节：X、Z 速度的毫单位，小端 int。
     /// </summary>
-    public sealed class BattleLockstepSimulation : ILockstepSimulation, IDisposable
+    public sealed class BattleLockstepSimulation : ILockstepSimulation, ILockstepCheckpointPruning, IDisposable
     {
         readonly BattleDirector _director;
         readonly BattleSession _session;
@@ -24,6 +26,9 @@ namespace Framework.GamePlay
         readonly List<AbilitySystemComponent> _components;
         readonly DeterministicRandomSnapshot _random;
         readonly Dictionary<int, Checkpoint> _checkpoints = new Dictionary<int, Checkpoint>();
+
+        // 检查点编号升序，供二分查找和按窗口裁剪。
+        readonly List<int> _checkpointTicks = new List<int>();
         readonly List<ActorId> _actorScratch = new List<ActorId>(8);
 
         /// <summary>创建一场两名以上单位、固定种子的模拟。</summary>
@@ -50,7 +55,11 @@ namespace Framework.GamePlay
             }
 
             _random = new DeterministicRandomSnapshot(_session.Framework.Random);
+            _session.Framework.EcsWorld.GetSingleton<BattlePhysicsWorld>().RetainRemovedBodies = true;
         }
+
+        /// <summary>内部会话，供同程序集的测试直接施放技能。</summary>
+        internal BattleSession Session => _session;
 
         /// <inheritdoc />
         public long Checksum => BattleFrameChecksum.Compute(_session.Framework);
@@ -95,6 +104,11 @@ namespace Framework.GamePlay
             }
 
             _checkpoints[tick] = new Checkpoint(buffer, gas, physics, agentActors.ToArray(), agentSnapshots.ToArray());
+            var at = _checkpointTicks.BinarySearch(tick);
+            if (at < 0)
+            {
+                _checkpointTicks.Insert(~at, tick);
+            }
         }
 
         /// <inheritdoc />
@@ -131,24 +145,44 @@ namespace Framework.GamePlay
         /// <exception cref="InvalidOperationException">没有不大于该步的检查点。</exception>
         public int LatestCheckpointAtOrBefore(int tick)
         {
-            var found = false;
-            var best = 0;
-            foreach (var pair in _checkpoints)
+            var at = _checkpointTicks.BinarySearch(tick);
+            if (at < 0)
             {
-                if (pair.Key <= tick && (!found || pair.Key > best))
-                {
-                    best = pair.Key;
-                    found = true;
-                }
+                at = ~at - 1;
             }
 
-            if (!found)
+            if (at < 0)
             {
                 throw new InvalidOperationException("No battle checkpoint at or before tick " + tick);
             }
 
-            return best;
+            return _checkpointTicks[at];
         }
+
+        /// <inheritdoc />
+        public void DiscardCheckpointsBefore(int tick)
+        {
+            var count = 0;
+            while (count < _checkpointTicks.Count && _checkpointTicks[count] < tick)
+            {
+                _checkpoints.Remove(_checkpointTicks[count]);
+                count++;
+            }
+
+            if (count > 0)
+            {
+                _checkpointTicks.RemoveRange(0, count);
+            }
+
+            if (_checkpointTicks.Count > 0)
+            {
+                var oldest = _checkpoints[_checkpointTicks[0]].Physics;
+                _session.Framework.EcsWorld.GetSingleton<BattlePhysicsWorld>().PurgeRetiredBefore(oldest.StepCount);
+            }
+        }
+
+        /// <summary>当前保留的检查点数量。</summary>
+        public int CheckpointCount => _checkpointTicks.Count;
 
         /// <inheritdoc />
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="tick"/> 小于 0。</exception>
