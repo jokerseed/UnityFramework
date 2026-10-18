@@ -29,6 +29,18 @@ indent_size = unset
 insert_final_newline = unset
 trim_trailing_whitespace = unset
 
+# 第三方源码（Farseer、TrueSync 接口、KCP）保持原样，它们的编译警告在这里按路径关掉；
+# 自研代码在 tests/Framework.Sim.Tests 里开启“警告即错误”，所以不能再用工程级 NoWarn 一起压掉。
+[{Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/**.cs,Packages/com.jokerseed.framework.battle/Runtime/Lockstep/Core/TrueSync/**.cs,Packages/com.jokerseed.framework.network/Runtime/ThirdParty/**.cs}]
+dotnet_diagnostic.CS0067.severity = none
+dotnet_diagnostic.CS0162.severity = none
+dotnet_diagnostic.CS0168.severity = none
+dotnet_diagnostic.CS0169.severity = none
+dotnet_diagnostic.CS0219.severity = none
+dotnet_diagnostic.CS0414.severity = none
+dotnet_diagnostic.CS0618.severity = none
+dotnet_diagnostic.CS0649.severity = none
+
 [*.cs]
 # 命名
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields

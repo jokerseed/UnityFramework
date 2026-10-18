@@ -29,6 +29,7 @@ To use the framework in your own project, copy the packages you need into `Packa
 | **audio** | BGM / SFX channels |
 | **network** | TCP, WebSocket (including WebGL) and KCP channels, heartbeats, main-thread dispatch, `NetworkRpcClient` with timeouts; separate HTTP requests |
 | **battle** | Deterministic battle kit (optional) |
+| **battle.legacy** | Optional: the TrueSync-era lockstep scheduler and Jitter 3D physics; the battle kit does not reference them |
 
 Each module has a README next to its code (in Chinese). The architecture overview is in [docs/architecture.md](docs/architecture.md).
 

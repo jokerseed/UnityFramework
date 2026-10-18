@@ -2,6 +2,7 @@
 # 编译并测试引擎无关的模拟层（FixedMath、Lockstep、Battle.Core、ECS、GAS、BehaviourTree、GamePlay、Logging、Events），
 # 跑确定性扫描（与 Unity 菜单 Tools/Framework/Battle/Scan Determinism 同一份规则）和 golden 录像。
 # Linux 与 Windows 两个平台对同一个 golden 校验和，顺带检查跨平台一致性。
+# luban-drift：用仓库里的 Luban 源码重新打表，生成代码或 .bytes 与提交的不一致就失败，防止改了 Excel 忘了重新生成。
 
 name: CI
 
@@ -41,3 +42,36 @@ jobs:
         with:
           name: sim-results-${{ matrix.os }}
           path: tests/Framework.Sim.Tests/TestResults
+
+  luban-drift:
+    name: Luban output up to date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache Luban CLI
+        uses: actions/cache@v4
+        with:
+          path: ThirdParty/luban-4.11.0/Tools/Luban
+          key: luban-cli-${{ runner.os }}-${{ hashFiles('ThirdParty/luban-4.11.0/src/**') }}
+
+      - name: Regenerate tables
+        run: bash Config/Luban/gen_client.sh
+
+      - name: Compare with committed output
+        run: |
+          changes="$(git status --porcelain -- Assets/Generated/Luban Assets/Bundles/Configs)"
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git --no-pager diff --stat -- Assets/Generated/Luban Assets/Bundles/Configs
+            echo "::error::Luban 生成结果与提交的不一致。请在 Unity 里运行 Tools/Framework/Config/Generate Luban Config（或 Config/Luban/gen_client.sh）后提交生成文件。"
+            exit 1
+          fi

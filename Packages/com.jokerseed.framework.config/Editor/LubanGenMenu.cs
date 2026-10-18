@@ -12,10 +12,15 @@ namespace Framework.Editor
     /// <summary>
     /// Luban 打表：直接调用 <c>dotnet Luban.dll</c>，不依赖 cmd / bash / Python，Windows 与 macOS 行为一致。
     /// 路径在 Project Settings → Framework → Luban 中配置。菜单 <c>Tools/Framework/Config/Generate Luban Config</c>。
+    /// 子进程运行期间进度条可以取消；超过 <see cref="ProcessTimeout"/> 仍未结束就终止进程，编辑器不会一直卡住。
     /// </summary>
     public static class LubanGenMenu
     {
         const string MenuPath = "Tools/Framework/Config/Generate Luban Config";
+        const string ProgressTitle = "Luban";
+
+        /// <summary>单个子进程（首次编译 Luban 或一次打表）最多等多久。</summary>
+        static readonly TimeSpan ProcessTimeout = TimeSpan.FromMinutes(10);
 
         /// <summary>生成 C# 代码与二进制数据，校验生成代码前缀，再导出调试 JSON。</summary>
         [MenuItem(MenuPath, priority = 100)]
@@ -24,31 +29,36 @@ namespace Framework.Editor
             var settings = FrameworkSettings.instance.Luban;
             try
             {
-                EditorUtility.DisplayProgressBar("Luban", "准备 Luban CLI...", 0.1f);
+                EditorUtility.DisplayProgressBar(ProgressTitle, "准备 Luban CLI...", 0.1f);
                 var lubanDll = EnsureLubanDll(settings);
 
-                EditorUtility.DisplayProgressBar("Luban", "生成代码与二进制数据...", 0.4f);
                 var log = new StringBuilder();
                 log.AppendLine(RunLuban(settings, lubanDll, "-c cs-bin -d bin",
                     FrameworkSettings.ToAbsolute(settings.OutputCodeDir),
-                    FrameworkSettings.ToAbsolute(settings.OutputDataDir)));
+                    FrameworkSettings.ToAbsolute(settings.OutputDataDir),
+                    "生成代码与二进制数据...", 0.4f));
 
-                EditorUtility.DisplayProgressBar("Luban", "校验生成代码命名...", 0.7f);
+                EditorUtility.DisplayProgressBar(ProgressTitle, "校验生成代码命名...", 0.7f);
                 log.AppendLine(LubanCodegenValidator.Validate(
                     FrameworkSettings.ToAbsolute(settings.CodegenRules),
                     FrameworkSettings.ToAbsolute(settings.OutputCodeDir)));
 
                 if (!string.IsNullOrEmpty(settings.OutputJsonDir))
                 {
-                    EditorUtility.DisplayProgressBar("Luban", "导出调试 JSON...", 0.85f);
                     var ignoredCode = Path.Combine(Path.GetTempPath(), "luban_json_code_ignored");
                     log.AppendLine(RunLuban(settings, lubanDll, "-d json", ignoredCode,
-                        FrameworkSettings.ToAbsolute(settings.OutputJsonDir)));
+                        FrameworkSettings.ToAbsolute(settings.OutputJsonDir),
+                        "导出调试 JSON...", 0.85f));
                 }
 
                 GameLog.Info(LogCategories.Luban, $"Generate {LogStyle.Ok("finished")}.\n{log}");
                 AssetDatabase.Refresh();
                 EditorUtility.DisplayDialog("Luban", "配置表生成完成。", "确定");
+            }
+            catch (OperationCanceledException)
+            {
+                GameLog.Warning(LogCategories.Luban, "Generate cancelled; generated files may be incomplete.");
+                EditorUtility.DisplayDialog("Luban", "已取消打表，生成目录里的文件可能不完整，请重新打表。", "确定");
             }
             catch (Exception ex)
             {
@@ -85,7 +95,8 @@ namespace Framework.Editor
 
             Run(settings.DotnetExecutable,
                 $"build \"{project}\" -c Release -o \"{Path.GetDirectoryName(dll)}\"",
-                FrameworkSettings.ProjectRoot);
+                FrameworkSettings.ProjectRoot,
+                "首次编译 Luban CLI...", 0.2f);
             if (!File.Exists(dll))
             {
                 throw new FileNotFoundException($"Luban 构建完成但未找到 {dll}，请检查 LubanDll 设置。");
@@ -94,7 +105,14 @@ namespace Framework.Editor
             return dll;
         }
 
-        static string RunLuban(LubanSettings settings, string lubanDll, string modeArgs, string codeDir, string dataDir)
+        static string RunLuban(
+            LubanSettings settings,
+            string lubanDll,
+            string modeArgs,
+            string codeDir,
+            string dataDir,
+            string progressInfo,
+            float progress)
         {
             var conf = FrameworkSettings.ToAbsolute(settings.ConfFile);
             if (!File.Exists(conf))
@@ -104,10 +122,10 @@ namespace Framework.Editor
 
             var args = $"\"{lubanDll}\" -t client {modeArgs} --conf \"{conf}\" " +
                        $"-x \"outputCodeDir={codeDir}\" -x \"outputDataDir={dataDir}\"";
-            return Run(settings.DotnetExecutable, args, Path.GetDirectoryName(conf));
+            return Run(settings.DotnetExecutable, args, Path.GetDirectoryName(conf), progressInfo, progress);
         }
 
-        static string Run(string fileName, string arguments, string workingDirectory)
+        static string Run(string fileName, string arguments, string workingDirectory, string progressInfo, float progress)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -140,9 +158,32 @@ namespace Framework.Editor
                     throw new InvalidOperationException($"无法启动 {fileName}。");
                 }
 
+                // 两路输出都异步读，主线程每 200ms 轮询一次：既能刷新可取消的进度条，又不会因为管道写满而互相等死。
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
                 var stderrTask = process.StandardError.ReadToEndAsync();
-                var stdout = process.StandardOutput.ReadToEnd();
+                var watch = Stopwatch.StartNew();
+                while (!process.WaitForExit(200))
+                {
+                    var elapsed = watch.Elapsed;
+                    if (EditorUtility.DisplayCancelableProgressBar(
+                            ProgressTitle,
+                            $"{progressInfo}（{(int)elapsed.TotalSeconds}s，可取消）",
+                            progress))
+                    {
+                        KillQuietly(process);
+                        throw new OperationCanceledException($"已取消：{fileName} {arguments}");
+                    }
+
+                    if (elapsed > ProcessTimeout)
+                    {
+                        KillQuietly(process);
+                        throw new TimeoutException($"{fileName} 运行超过 {ProcessTimeout.TotalMinutes} 分钟仍未结束，已终止。\n{arguments}");
+                    }
+                }
+
+                // 带超时的 WaitForExit 返回时输出可能还没读完，再等一次无参版本让异步读取收尾。
                 process.WaitForExit();
+                var stdout = stdoutTask.Result;
                 var stderr = stderrTask.Result;
                 if (process.ExitCode != 0)
                 {
@@ -150,6 +191,26 @@ namespace Framework.Editor
                 }
 
                 return string.IsNullOrWhiteSpace(stderr) ? stdout : $"{stdout}\n{stderr}";
+            }
+        }
+
+        static void KillQuietly(Process process)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // 进程已经退出。
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                GameLog.Warning(LogCategories.Luban, $"Failed to kill {process.StartInfo.FileName}: {ex.Message}");
             }
         }
     }
