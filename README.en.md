@@ -8,7 +8,7 @@ The framework ships as 7 embedded UPM packages (`Packages/com.jokerseed.framewor
 
 ## Quick start
 
-Requirements: Unity **2021.3** (currently `2021.3.21f1`); .NET 8 SDK for table generation and `dotnet test`.
+Requirements: Unity **2021.3** (currently `2021.3.45f2`; earlier 2021.3 releases are affected by the Unity runtime vulnerability CVE-2025-59489, so rebuild and re-release any player built with them); .NET 8 SDK for table generation and `dotnet test`.
 
 1. Open the repository root in Unity.
 2. Open `Assets/Bundles/Scenes/Launch.unity` and press Play.

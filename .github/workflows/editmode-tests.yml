@@ -9,7 +9,7 @@
 #   UNITY_EMAIL     Unity 账号邮箱
 #   UNITY_PASSWORD  Unity 账号密码
 #
-# Unity 版本与 ProjectSettings/ProjectVersion.txt 一致：2021.3.21f1。
+# Unity 版本与 ProjectSettings/ProjectVersion.txt 一致：2021.3.45f2（tests/Framework.Sim.Tests 会检查两处一致）。
 # Library 按 Assets / Packages / ProjectSettings 的哈希缓存，未改动资源时跳过整套导入。
 
 name: EditMode tests
@@ -74,7 +74,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: .
-          unityVersion: 2021.3.21f1
+          unityVersion: 2021.3.45f2
           testMode: editmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
@@ -112,7 +112,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: .
-          unityVersion: 2021.3.21f1
+          unityVersion: 2021.3.45f2
           testMode: playmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
