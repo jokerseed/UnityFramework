@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Framework.Battle;
 using Framework.Battle.Commands;
 using Framework.Events;
+using Framework.Logging;
 using Framework.ECS;
 using Framework.ECS.Components;
 using Framework.GAS;
@@ -19,10 +20,11 @@ namespace Framework.GamePlay
         readonly World _world;
         readonly ActorRegistry _registry;
         readonly List<ActorId> _areaScratch = new List<ActorId>(16);
+        readonly HashSet<string> _reportedMissingEffects = new HashSet<string>();
 
         /// <summary>
         /// 具名效果目录。模拟结算只读这个目录，不再回退到全局 <c>ConfigManager</c>。
-        /// 未设置或找不到效果时抛出 <see cref="InvalidOperationException"/>，两端一起失败。
+        /// 未设置或找不到效果时记一次错误并跳过该效果（各端行为一致）；缺失应在加载时用 <c>BattleConfigValidator</c> 发现。
         /// </summary>
         public IBattleEffectCatalog EffectCatalog { get; set; }
 
@@ -205,7 +207,10 @@ namespace Framework.GamePlay
             for (var i = 0; i < commands.Count; i++)
             {
                 var command = commands[i];
-                var filter = new TargetDataFilter(command.Source, command.TeamId, enemiesOnly: true);
+                // 施法者还在就以它当前的队伍为准；已被移除（例如死亡后被回收）时用命令自带的队伍，
+                // 已经飞出去的投射物爆炸、范围伤害照常结算。
+                var teamId = _registry.TryGet(command.Source, out var sourceActor) ? sourceActor.TeamId : command.TeamId;
+                var filter = new TargetDataFilter(command.Source, teamId, enemiesOnly: true);
                 if (command.HalfAngleDegrees > FP.Zero)
                 {
                     _registry.QueryTargetsInCone(
@@ -262,16 +267,18 @@ namespace Framework.GamePlay
                 return;
             }
 
+            // 配置错误应在加载时发现（见 BattleConfigValidator）；运行中找不到效果只记错误、跳过这一条，
+            // 不能抛异常中断整帧模拟（否则一处配表笔误会让整局崩溃）。跳过在所有端上一致，不影响确定性。
             if (EffectCatalog == null)
             {
-                throw new InvalidOperationException(
-                    "EffectCatalog is not set. Inject IBattleEffectCatalog before applying '" + effectId + "'.");
+                ReportMissingEffect(effectId, "EffectCatalog is not set. Inject IBattleEffectCatalog before applying effects.");
+                return;
             }
 
             if (!EffectCatalog.TryCreateEffect(effectId, out var catalogDef))
             {
-                throw new InvalidOperationException(
-                    "Effect '" + effectId + "' is not in the injected catalog.");
+                ReportMissingEffect(effectId, "Effect is not in the injected catalog.");
+                return;
             }
 
             _registry.TryGet(source, out var catalogSource);
@@ -280,6 +287,14 @@ namespace Framework.GamePlay
                 source,
                 presentation,
                 sourceAsc: catalogSource?.AbilitySystem);
+        }
+
+        void ReportMissingEffect(string effectId, string reason)
+        {
+            if (_reportedMissingEffects.Add(effectId))
+            {
+                GameLog.Error(LogCategories.GamePlay, $"Skip effect '{effectId}': {reason}");
+            }
         }
     }
 }

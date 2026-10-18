@@ -16,6 +16,9 @@ namespace Framework.BehaviourTree.Editor
         const float NodeHeight = 44f;
         const float CanvasSize = 8000f;
 
+        // 播放模式下调试面板最多每秒刷新 10 次；每帧重绘整张图会拖慢编辑器。
+        const double PlayModeRepaintInterval = 0.1;
+
         BtTreeAsset _asset;
         string _selectedNodeId;
         readonly HashSet<string> _selectedIds = new HashSet<string>();
@@ -28,6 +31,11 @@ namespace Framework.BehaviourTree.Editor
         Vector2 _dragStartMouse;
         readonly Dictionary<string, Vector2> _dragStartPositions = new Dictionary<string, Vector2>();
         readonly List<BtLintMessage> _lint = new List<BtLintMessage>();
+
+        // 上次校验时的资产和脏计数：两者都没变就不重新校验。OnGUI 每个事件都会调用，校验整棵树不便宜。
+        BtTreeAsset _lintAsset;
+        int _lintDirtyCount = -1;
+        double _lastPlayModeRepaint;
         readonly List<string> _bbKeys = new List<string>();
         readonly BtEditorSubtreeResolver _subtrees = new BtEditorSubtreeResolver();
         Vector2 _inspectorScroll;
@@ -73,12 +81,26 @@ namespace Framework.BehaviourTree.Editor
         {
             EditorApplication.update += RepaintIfPlaying;
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
+            Undo.undoRedoPerformed += OnUndoRedo;
         }
 
         void OnDisable()
         {
             EditorApplication.update -= RepaintIfPlaying;
             EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+        }
+
+        void OnUndoRedo()
+        {
+            _lintDirtyCount = -1;
+            Repaint();
+        }
+
+        void OnFocus()
+        {
+            // 子树等其它资产可能在别处改过，切回窗口时重新校验一次。
+            _lintDirtyCount = -1;
         }
 
         static void OnPlayModeChanged(PlayModeStateChange state)
@@ -102,6 +124,13 @@ namespace Framework.BehaviourTree.Editor
                 EditorApplication.isPaused = true;
             }
 
+            var now = EditorApplication.timeSinceStartup;
+            if (now - _lastPlayModeRepaint < PlayModeRepaintInterval)
+            {
+                return;
+            }
+
+            _lastPlayModeRepaint = now;
             Repaint();
         }
 
@@ -745,7 +774,15 @@ namespace Framework.BehaviourTree.Editor
 
         void RefreshLint()
         {
+            var dirtyCount = EditorUtility.GetDirtyCount(_asset);
+            if (ReferenceEquals(_lintAsset, _asset) && dirtyCount == _lintDirtyCount)
+            {
+                return;
+            }
+
             BtTreeValidator.Validate(_asset.Definition, null, _subtrees, _lint);
+            _lintAsset = _asset;
+            _lintDirtyCount = dirtyCount;
         }
 
         void SelectOnly(string id)

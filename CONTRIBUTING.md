@@ -4,7 +4,7 @@
 
 ## 环境
 
-- Unity **2021.3.21f1**（版本见 `ProjectSettings/ProjectVersion.txt`）
+- Unity **2021.3.45f2**（版本见 `ProjectSettings/ProjectVersion.txt`；2021.3.45f2 之前的版本受 CVE-2025-59489 影响，不要再用旧版本出包）
 - .NET 8 SDK（跑引擎无关层的单元测试）
 - 克隆后先按 README「快速开始」生成 Luban 配置和 YooAsset Collector
 

@@ -83,7 +83,8 @@
 | `Framework.Logging` | `GameLog` 分级日志 | [Logging](../Packages/com.jokerseed.framework.core/Runtime/Logging/README.md) |
 | `Framework.FixedMath` | 确定性定点数（锁步基座 A） | [FixedMath](../Packages/com.jokerseed.framework.battle/Runtime/FixedMath/README.md) |
 | `Framework.Lockstep` | 帧同步调度与输入抽象（基座 B/C） | [Lockstep](../Packages/com.jokerseed.framework.battle/Runtime/Lockstep/README.md) |
-| `Framework.LockstepPhysics` | 确定性 Farseer 2D；Jitter 3D 在可选程序集 `Framework.LockstepPhysics.Jitter` | [LockstepPhysics](../Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/README.md) |
+| `Framework.LockstepPhysics` | 确定性 Farseer 2D；Jitter 3D 在可选包 `com.jokerseed.framework.battle.legacy` | [LockstepPhysics](../Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/README.md) |
+| `Framework.Lockstep.Legacy` / `Framework.LockstepPhysics.Jitter` | 可选包：TrueSync 旧锁步调度器、Jitter 3D 物理，战斗包不引用 | [Battle Legacy](../Packages/com.jokerseed.framework.battle.legacy/README.md) |
 | `Framework.BehaviourTree` | 帧同步友好的 AI 行为树运行时 | [BehaviourTree](../Packages/com.jokerseed.framework.battle/Runtime/BehaviourTree/README.md) |
 | `Framework.UI` | UI 窗口管理（`UIManager` / `UIWindow`） | [UI](../Packages/com.jokerseed.framework.ui/Runtime/README.md) |
 | `Framework.Network` | TCP / WebSocket / KCP 频道与 HTTP 短请求。KCP 源码在本包 `Runtime/ThirdParty/KCP` | [Network](../Packages/com.jokerseed.framework.network/Runtime/README.md) |

@@ -185,19 +185,19 @@ namespace Framework.Coroutine
             }
         }
 
-        MonoBehaviour GetGlobalRunner()
+        CoroutineRunnerBase GetGlobalRunner()
         {
             EnsureGlobalRunner();
             return _globalRunner;
         }
 
-        MonoBehaviour GetSceneRunner()
+        CoroutineRunnerBase GetSceneRunner()
         {
             EnsureSceneRunner();
             return _sceneRunner;
         }
 
-        static ICoroutineHandle StartOnRunner(MonoBehaviour runner, IEnumerator routine)
+        static ICoroutineHandle StartOnRunner(CoroutineRunnerBase runner, IEnumerator routine)
         {
             if (routine == null)
             {
@@ -217,14 +217,39 @@ namespace Framework.Coroutine
             return handle;
         }
 
+        /// <summary>
+        /// 驱动业务协程并在结束时标记句柄。业务协程抛出的异常在这里记录并结束协程，
+        /// 不会让句柄停留在"运行中"。被外部停止的情况由 <see cref="CoroutineRunnerBase"/> 负责标记。
+        /// </summary>
         static IEnumerator Wrap(IEnumerator routine, CoroutineHandle handle)
         {
-            while (routine.MoveNext())
+            try
             {
-                yield return routine.Current;
-            }
+                while (true)
+                {
+                    object current;
+                    try
+                    {
+                        if (!routine.MoveNext())
+                        {
+                            yield break;
+                        }
 
-            handle.MarkCompleted();
+                        current = routine.Current;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        GameLog.Exception(LogCategories.Coroutine, ex, "Coroutine failed.");
+                        yield break;
+                    }
+
+                    yield return current;
+                }
+            }
+            finally
+            {
+                handle.MarkCompleted();
+            }
         }
 
         protected override void OnDestroy()

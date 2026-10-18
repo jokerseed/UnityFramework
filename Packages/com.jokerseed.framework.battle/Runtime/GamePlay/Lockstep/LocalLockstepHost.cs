@@ -6,7 +6,8 @@ namespace Framework.GamePlay
     /// <summary>
     /// 单机锁步 Host：本机编码的意图帧入队后立刻出队执行。
     /// 逻辑只使用传入的 unscaled 时间推进固定步长，不受 <c>Time.timeScale</c> 影响。
-    /// 每逻辑步在刷波之后计算校验并写入内存录像。
+    /// 校验和要遍历整个世界并排序，默认不算：<see cref="RecordReplay"/> 为 true 时每步计算并写入内存录像，
+    /// 否则只在 <see cref="ChecksumInterval"/> 大于 0 时每 N 步计算一次。
     /// </summary>
     public sealed class LocalLockstepHost
     {
@@ -37,8 +38,14 @@ namespace Framework.GamePlay
         /// <summary>下一逻辑帧号。</summary>
         public int NextFrameIndex => _nextFrameIndex;
 
-        /// <summary>最近一逻辑步结束后的校验和。</summary>
+        /// <summary>最近一次计算的校验和；从未计算时为 0。</summary>
         public long LastChecksum { get; private set; }
+
+        /// <summary>是否录制内存录像（每步计算校验和并保存意图帧）。默认 false；调试或需要对拍时打开。</summary>
+        public bool RecordReplay { get; set; }
+
+        /// <summary>不录像时每隔多少逻辑步计算一次校验和；小于等于 0 表示不计算。默认 0。</summary>
+        public int ChecksumInterval { get; set; }
 
         /// <summary>当前渲染插值系数，转发自 Session。</summary>
         public float InterpolationAlpha => _session.InterpolationAlpha;
@@ -52,7 +59,7 @@ namespace Framework.GamePlay
         /// <returns>本次推进的逻辑步数。</returns>
         /// <exception cref="ArgumentNullException"><paramref name="fillFrame"/> 为 null。</exception>
         public int Tick(
-            float unscaledDeltaTime,
+            float unscaledDeltaTime, // determinism-allow: 渲染帧入口，原样转给 BattleSession.Tick
             Action<BattleIntentFrame> fillFrame,
             Action<FP> afterFixedStep = null)
         {
@@ -77,10 +84,19 @@ namespace Framework.GamePlay
             }, dt =>
             {
                 afterFixedStep?.Invoke(dt);
-                LastChecksum = BattleFrameChecksum.Compute(_session.Framework);
+                var record = RecordReplay && _pendingRecord != null;
+                if (record || (ChecksumInterval > 0 && (_nextFrameIndex - 1) % ChecksumInterval == 0))
+                {
+                    LastChecksum = BattleFrameChecksum.Compute(_session.Framework);
+                }
+
                 if (_pendingRecord != null)
                 {
-                    _recorder.Capture(_pendingRecord, LastChecksum);
+                    if (record)
+                    {
+                        _recorder.Capture(_pendingRecord, LastChecksum);
+                    }
+
                     _queue.Recycle(_pendingRecord);
                     _pendingRecord = null;
                 }

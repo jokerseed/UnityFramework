@@ -24,9 +24,26 @@ namespace Framework.ECS
         readonly PhysicsWorld _world;
         readonly Dictionary<uint, PhysicsBody> _bodies = new Dictionary<uint, PhysicsBody>(64);
         readonly List<uint> _bodyScratch = new List<uint>(64);
+        readonly List<RetiredBody> _retired = new List<RetiredBody>();
+        readonly HashSet<PhysicsBody> _retiredScratch = new HashSet<PhysicsBody>();
+        int _stepCount;
 
         /// <summary>底层 Farseer 世界。</summary>
         public PhysicsWorld Native => _world;
+
+        /// <summary>
+        /// 为 true 时，删除实体不会马上把刚体移出 Farseer 世界：刚体只被停用并记进退役表。
+        /// 回滚到删除之前的检查点时，世界克隆会把它恢复成启用状态，实体到刚体的映射随之重建，
+        /// 已销毁又被快照恢复的投射物能照常碰撞。退役刚体要等 <see cref="PurgeRetiredBefore"/> 才真正移除。
+        /// 锁步回滚（<c>BattleLockstepSimulation</c>）会打开它；默认关闭，删除即释放。
+        /// </summary>
+        public bool RetainRemovedBodies { get; set; }
+
+        /// <summary>已经推进的物理步数。<see cref="RestoreFull"/> 会恢复成快照里的值。</summary>
+        public int StepCount => _stepCount;
+
+        /// <summary>当前退役表里的刚体数。</summary>
+        public int RetiredBodyCount => _retired.Count;
 
         /// <summary>创建无重力的 2D 物理世界。</summary>
         public BattlePhysicsWorld()
@@ -213,10 +230,14 @@ namespace Framework.ECS
             if (deltaTime > FP.Zero)
             {
                 _world.Step(deltaTime);
+                _stepCount++;
             }
         }
 
-        /// <summary>移除实体刚体；不存在时忽略。</summary>
+        /// <summary>
+        /// 移除实体刚体；不存在时忽略。
+        /// <see cref="RetainRemovedBodies"/> 为 true 时只停用并记进退役表，不移出世界。
+        /// </summary>
         /// <param name="entityId">ECS 实体 ID。</param>
         public void RemoveBody(uint entityId)
         {
@@ -226,9 +247,53 @@ namespace Framework.ECS
             }
 
             _bodies.Remove(entityId);
-            if (body != null && !body.IsDisposed)
+            if (body == null || body.IsDisposed)
             {
-                _world.RemoveBody(body);
+                return;
+            }
+
+            if (RetainRemovedBodies)
+            {
+                // 停用会销毁代理和接触，之后保存的快照里不再引用它的代理，真正移除时这些快照仍然可以恢复。
+                body.LinearVelocity = TSVector2.zero;
+                body.AngularVelocity = FP.Zero;
+                body.Enabled = false;
+                body.TSDisabled = true;
+                _retired.Add(new RetiredBody(body, _stepCount));
+                return;
+            }
+
+            _world.RemoveBody(body);
+        }
+
+        /// <summary>
+        /// 真正移除退役步数早于 <paramref name="stepCount"/> 的刚体。
+        /// 调用方要保证剩下的快照都是在 <paramref name="stepCount"/> 步或之后保存的：那时这些刚体早已停用，快照不再引用它们的代理和接触。
+        /// </summary>
+        /// <param name="stepCount">仍保留的最早快照的 <see cref="BattlePhysicsSnapshot.StepCount"/>。</param>
+        public void PurgeRetiredBefore(int stepCount)
+        {
+            var kept = 0;
+            for (var i = 0; i < _retired.Count; i++)
+            {
+                var retired = _retired[i];
+                if (retired.Step < stepCount)
+                {
+                    if (!retired.Body.IsDisposed)
+                    {
+                        _world.RemoveBody(retired.Body);
+                    }
+
+                    continue;
+                }
+
+                _retired[kept++] = retired;
+            }
+
+            if (kept < _retired.Count)
+            {
+                _retired.RemoveRange(kept, _retired.Count - kept);
+                _world.ProcessChanges();
             }
         }
 
@@ -315,11 +380,15 @@ namespace Framework.ECS
             // 刚体先进入添加列表，要等 ProcessChanges 才进 BodyList。不先处理的话，第 0 帧克隆是空世界。
             _world.ProcessChanges();
             snapshot.Clone.Clone(_world, false);
+            snapshot.StepCount = _stepCount;
+            snapshot.Retired.Clear();
+            snapshot.Retired.AddRange(_retired);
         }
 
         /// <summary>
-        /// 用 <see cref="SaveFull"/> 的克隆覆盖当前 Farseer 世界，并丢掉字典里已经不在世界中的刚体。
+        /// 用 <see cref="SaveFull"/> 的克隆覆盖当前 Farseer 世界，恢复物理步数和退役表，再按世界里的刚体重建实体到刚体的映射。
         /// 先把待添加列表收进世界，恢复时才会把快照之后才生成的刚体删掉。否则它们会先被字典忘掉，随后又进世界，变成没有实体管理的刚体。
+        /// 快照之后才退役的刚体被克隆恢复成启用状态，重新回到映射里。
         /// </summary>
         /// <param name="snapshot">同一次保存得到的快照；不可为 null。</param>
         /// <exception cref="ArgumentNullException"><paramref name="snapshot"/> 为 null。</exception>
@@ -332,7 +401,20 @@ namespace Framework.ECS
 
             _world.ProcessChanges();
             snapshot.Clone.Restore(_world);
-            PruneMissingBodies();
+            _stepCount = snapshot.StepCount;
+            _retired.Clear();
+            _retiredScratch.Clear();
+            for (var i = 0; i < snapshot.Retired.Count; i++)
+            {
+                var retired = snapshot.Retired[i];
+                if (ContainsBody(retired.Body))
+                {
+                    _retired.Add(retired);
+                    _retiredScratch.Add(retired.Body);
+                }
+            }
+
+            RebuildBodyMap();
         }
 
         /// <summary>字典里登记、跟着实体走的刚体数。</summary>
@@ -345,7 +427,22 @@ namespace Framework.ECS
         public void Clear()
         {
             _bodies.Clear();
+            _retired.Clear();
+            _stepCount = 0;
             _world.Clear();
+        }
+
+        /// <summary>退役刚体与退役时的物理步数。</summary>
+        internal readonly struct RetiredBody
+        {
+            public readonly PhysicsBody Body;
+            public readonly int Step;
+
+            public RetiredBody(PhysicsBody body, int step)
+            {
+                Body = body;
+                Step = step;
+            }
         }
 
         PhysicsBody CreateCircle(TSVector position, FP radius, BattlePhysicsUserData data)
@@ -390,21 +487,21 @@ namespace Framework.ECS
             return projectile.Owner != actor.ActorId && projectile.TeamId != actor.TeamId;
         }
 
-        void PruneMissingBodies()
+        /// <summary>按世界里现有的刚体重建映射：带战斗标识、且不在退役表（<see cref="_retiredScratch"/>）里的刚体都算在用。</summary>
+        void RebuildBodyMap()
         {
-            _bodyScratch.Clear();
-            foreach (var pair in _bodies)
+            _bodies.Clear();
+            var list = _world.BodyList;
+            for (var i = 0; i < list.Count; i++)
             {
-                if (!ContainsBody(pair.Value))
+                var body = list[i];
+                if (body.UserData is BattlePhysicsUserData data && !_retiredScratch.Contains(body))
                 {
-                    _bodyScratch.Add(pair.Key);
+                    _bodies[data.EntityId] = body;
                 }
             }
 
-            for (var i = 0; i < _bodyScratch.Count; i++)
-            {
-                _bodies.Remove(_bodyScratch[i]);
-            }
+            _retiredScratch.Clear();
         }
 
         bool ContainsBody(PhysicsBody body)

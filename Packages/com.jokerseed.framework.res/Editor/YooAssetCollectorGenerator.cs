@@ -18,12 +18,14 @@ namespace Framework.Editor.YooAsset
             public readonly string CollectPath;
             public readonly CollectorPackMode PackMode;
             public readonly string GroupName;
+            public readonly bool TopDirectoryOnly;
 
-            public FolderRule(string collectPath, CollectorPackMode packMode, string groupName)
+            public FolderRule(string collectPath, CollectorPackMode packMode, string groupName, bool topDirectoryOnly = false)
             {
                 CollectPath = collectPath;
                 PackMode = packMode;
                 GroupName = groupName;
+                TopDirectoryOnly = topDirectoryOnly;
             }
         }
 
@@ -83,7 +85,7 @@ namespace Framework.Editor.YooAsset
                     PackRuleName = rule.PackMode == CollectorPackMode.PerFile
                         ? nameof(PackSeparately)
                         : nameof(PackDirectory),
-                    FilterRuleName = nameof(CollectAll),
+                    FilterRuleName = rule.TopDirectoryOnly ? nameof(CollectTopDirectoryOnly) : nameof(CollectAll),
                 });
             }
 
@@ -109,7 +111,8 @@ namespace Framework.Editor.YooAsset
                     continue;
                 }
 
-                rules.Add(new FolderRule(setting.CollectPath, setting.PackMode, setting.GroupName));
+                // 子目录各自建收集器时，父目录收集器只收本层文件；否则同一资源会被两个收集器收集，YooAsset 打包直接报错。
+                rules.Add(new FolderRule(setting.CollectPath, setting.PackMode, setting.GroupName, setting.SubfoldersPerFolder));
                 if (setting.SubfoldersPerFolder)
                 {
                     AddSubfolders(rules, setting);

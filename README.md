@@ -14,7 +14,7 @@ Unity **2021.3 LTS** 客户端框架：模块化启动、资源与热更、配�
 
 ### 环境
 
-- Unity **2021.3**（当前 `2021.3.21f1`）
+- Unity **2021.3**（当前 `2021.3.45f2`。更早的 2021.3 版本受 Unity 运行时漏洞 CVE-2025-59489 影响，请升级后再出包，已发布的包需要用新版本重新构建）
 - .NET 8 SDK（打表与 `dotnet test`；只跑游戏可以不装）
 
 ### 运行演示
@@ -117,6 +117,7 @@ public sealed class Launch : MonoBehaviour
 | **audio** | [Audio](Packages/com.jokerseed.framework.audio/Runtime/README.md) | BGM / SFX 双通道 |
 | **network** | [Network](Packages/com.jokerseed.framework.network/Runtime/README.md) | TCP / WebSocket / KCP 频道、心跳、`NetworkRpcClient`；HTTP 短请求 |
 | **battle** | 见 [战斗套件](#战斗套件) | 确定性战斗，可以完全不用 |
+| **battle.legacy** | [Battle Legacy](Packages/com.jokerseed.framework.battle.legacy/README.md) | 可选：TrueSync 旧锁步调度器与 Jitter 3D 物理，战斗包不引用 |
 
 架构与依赖关系见 [docs/architecture.md](docs/architecture.md)。
 
@@ -147,7 +148,7 @@ ResourceManager.InitializeAsync      // 请求最新版本 + 加载 Manifest
 | 定点数学 `FP` / `TSVector`（LUT 三角函数） | ✅ 跨平台逐位一致，CI 在 Linux / Windows 上对同一 golden 录像校验 |
 | GAS（技能、效果、属性、Tag） | ✅ 规则权威，Luban 装配 |
 | ECS（位置、碰撞、投射物） | ✅ 只存模拟数据 |
-| 确定性物理（Farseer 2D，Jitter 3D 可选） | ✅ Farseer 的刚体 ID 按 World 隔离。Jitter 的 `instanceCount` 仍是进程静态字段，单场回滚会随快照还原；不要同时跑两场 Jitter 世界 |
+| 确定性物理（Farseer 2D；Jitter 3D 在可选包 `battle.legacy`） | ✅ Farseer 的刚体 ID 按 World 隔离。Jitter 的 `instanceCount` 仍是进程静态字段，单场回滚会随快照还原；不要同时跑两场 Jitter 世界 |
 | 行为树（逻辑帧 Tick，可视化编辑器） | ✅ |
 | `LockstepHost` 等输入锁步 + 检查点回滚 | ✅ 检查点含 GAS / ECS / 随机数 / 物理 / 行为树；输入带 `BattleSimulationVersion`，版本不一致立即停止 |
 | 录像与对拍 | ✅ `BattleReplayRecorder` / `BattleReplayVerifier` |

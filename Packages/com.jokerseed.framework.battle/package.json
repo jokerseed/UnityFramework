@@ -4,7 +4,7 @@
   "displayName": "Framework Battle",
   "description": "Deterministic battle kit: fixed-point math, lockstep host with rollback, deterministic 2D/3D physics, GAS, lightweight ECS and frame-driven behaviour trees.",
   "unity": "2021.3",
-  "license": "MIT",
+  "license": "MIT AND MS-PL AND Apache-2.0 AND Zlib",
   "author": {
     "name": "jokerseed",
     "url": "https://github.com/jokerseed/UnityFramework"

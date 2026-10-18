@@ -33,4 +33,16 @@ namespace Framework.Save
         /// <returns>存档键列表。</returns>
         IReadOnlyList<string> ListKeys();
     }
+
+    /// <summary>
+    /// 可选能力：保留上一次成功写入的备份。<see cref="SaveManager"/> 在主存档读不出或解析失败时回退到备份。
+    /// </summary>
+    public interface ISaveBackupStorage
+    {
+        /// <summary>读取备份字节。</summary>
+        /// <param name="key">存档键。</param>
+        /// <param name="data">存在时输出字节。</param>
+        /// <returns>备份存在返回 true。</returns>
+        bool TryReadBackup(string key, out byte[] data);
+    }
 }

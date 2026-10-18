@@ -11,7 +11,10 @@ using UnityEngine;
 
 namespace Framework.GamePlay.Data
 {
-    /// <summary>从 Luban 技能表创建 <see cref="GameplayAbility"/> / <see cref="GameplayAbilityDef"/>。</summary>
+    /// <summary>
+    /// 从 Luban 技能表创建 <see cref="GameplayAbility"/> / <see cref="GameplayAbilityDef"/>。
+    /// 表里的 float 一律经 <see cref="FixedConfig.FromConfig(float)"/> 量化后再交给技能，服务端用 double 读同一张表时结果一致。
+    /// </summary>
     public sealed class AbilityConfigFactory
     {
         readonly System.Func<ActorId, TSVector, FP, ActorId> _queryNearestEnemy;
@@ -37,7 +40,7 @@ namespace Framework.GamePlay.Data
             var cost = ParseCost(def.CostAttribute, def.CostAmount);
             return new GameplayAbilityDef(
                 def.Id,
-                (FP)(def.Cooldown),
+                Fx(def.Cooldown),
                 () => Create(def, teamId),
                 ParseTags(def.RequiredTags),
                 ParseTags(def.BlockedTags),
@@ -58,16 +61,18 @@ namespace Framework.GamePlay.Data
             var cost = ParseCost(def.CostAttribute, def.CostAmount);
             var required = ParseTags(def.RequiredTags);
             var blocked = ParseTags(def.BlockedTags);
+            var cooldown = Fx(def.Cooldown);
+            var damage = Fx(def.Damage);
             var projectile = new ProjectileAbility(
                 def.Id,
-                def.Cooldown,
-                def.Speed,
-                def.Radius,
-                def.Lifetime,
-                def.Damage,
+                cooldown,
+                Fx(def.Speed),
+                Fx(def.Radius),
+                Fx(def.Lifetime),
+                damage,
                 teamId,
                 def.PierceCount,
-                def.ExplodeRadius,
+                Fx(def.ExplodeRadius),
                 def.HitEffectId,
                 damageType,
                 required,
@@ -80,26 +85,26 @@ namespace Framework.GamePlay.Data
                     return WrapChannel(def, projectile);
                 case CfgAbilityType.PierceProjectile:
                     return WrapChannel(def, new ProjectileAbility(
-                        def.Id, def.Cooldown, def.Speed, def.Radius, def.Lifetime, def.Damage, teamId,
-                        Math.Max(1, def.PierceCount), def.ExplodeRadius, def.HitEffectId, damageType, required, blocked, cost));
+                        def.Id, cooldown, Fx(def.Speed), Fx(def.Radius), Fx(def.Lifetime), damage, teamId,
+                        Math.Max(1, def.PierceCount), Fx(def.ExplodeRadius), def.HitEffectId, damageType, required, blocked, cost));
                 case CfgAbilityType.ExplodeProjectile:
                     return WrapChannel(def, new ProjectileAbility(
-                        def.Id, def.Cooldown, def.Speed, def.Radius, def.Lifetime, def.Damage, teamId,
-                        def.PierceCount, def.ExplodeRadius > 0f ? def.ExplodeRadius : 1.5f, def.HitEffectId, damageType, required, blocked, cost));
+                        def.Id, cooldown, Fx(def.Speed), Fx(def.Radius), Fx(def.Lifetime), damage, teamId,
+                        def.PierceCount, Fx(def.ExplodeRadius > 0f ? def.ExplodeRadius : 1.5f), def.HitEffectId, damageType, required, blocked, cost));
                 case CfgAbilityType.Melee:
                     if (def.HalfAngle > 0f)
                     {
                         return new MeleeSweepAbility(
                             def.Id,
-                            def.Cooldown,
-                            def.Damage,
-                            def.Range,
-                            def.HalfAngle,
+                            cooldown,
+                            damage,
+                            Fx(def.Range),
+                            Fx(def.HalfAngle),
                             _queryCone,
-                            def.ChannelTime,
-                            def.Lifetime > 0f ? def.Lifetime : 0.1f,
-                            def.RecoveryTime,
-                            def.Knockback,
+                            Fx(def.ChannelTime),
+                            def.Lifetime > 0f ? Fx(def.Lifetime) : MeleeSweepAbility.DefaultHitDuration,
+                            Fx(def.RecoveryTime),
+                            Fx(def.Knockback),
                             def.HitEffectId,
                             string.IsNullOrEmpty(def.ComboEffectId) ? null : def.ComboEffectId,
                             damageType,
@@ -109,24 +114,24 @@ namespace Framework.GamePlay.Data
                     }
 
                     return new MeleeStrikeAbility(
-                        def.Id, def.Cooldown, def.Damage, def.Range,
+                        def.Id, cooldown, damage, Fx(def.Range),
                         new MeleeTargetSelector(_queryNearestEnemy),
                         damageType, required, blocked, cost);
                 case CfgAbilityType.Dash:
                     return new DashAbility(
                         def.Id,
-                        def.Cooldown,
-                        def.Knockback > 0f ? def.Knockback : 3f,
-                        def.RecoveryTime > 0f ? def.RecoveryTime : 0.28f,
+                        cooldown,
+                        Fx(def.Knockback > 0f ? def.Knockback : 3f),
+                        Fx(def.RecoveryTime > 0f ? def.RecoveryTime : 0.28f),
                         def.HitEffectId,
                         required,
                         blocked);
                 case CfgAbilityType.AoeCircle:
                     return new CircleAoeAbility(
-                        def.Id, def.Cooldown, def.Damage, def.Radius, teamId, def.HitEffectId, damageType, required, blocked, cost);
+                        def.Id, cooldown, damage, Fx(def.Radius), teamId, def.HitEffectId, damageType, required, blocked, cost);
                 case CfgAbilityType.AoeCone:
                     return new ConeAoeAbility(
-                        def.Id, def.Cooldown, def.Damage, def.Range, def.HalfAngle, teamId, def.HitEffectId, damageType, required, blocked, cost);
+                        def.Id, cooldown, damage, Fx(def.Range), Fx(def.HalfAngle), teamId, def.HitEffectId, damageType, required, blocked, cost);
                 default:
                     throw new NotSupportedException($"Unsupported ability type: {def.Type} ({def.Id})");
             }
@@ -139,8 +144,10 @@ namespace Framework.GamePlay.Data
                 return projectile;
             }
 
-            return new ChanneledProjectileAbility(def.Id, def.Cooldown, def.ChannelTime, projectile);
+            return new ChanneledProjectileAbility(def.Id, Fx(def.Cooldown), Fx(def.ChannelTime), projectile);
         }
+
+        static FP Fx(float value) => FixedConfig.FromConfig(value);
 
         static IReadOnlyList<GameplayTag> ParseTags(string csv)
         {
@@ -170,7 +177,7 @@ namespace Framework.GamePlay.Data
                 return new Dictionary<string, FP>();
             }
 
-            return new Dictionary<string, FP> { [attribute] = (FP)(amount) };
+            return new Dictionary<string, FP> { [attribute] = Fx(amount) };
         }
     }
 }

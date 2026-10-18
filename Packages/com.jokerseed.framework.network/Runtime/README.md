@@ -103,7 +103,10 @@ kcp.Connect("127.0.0.1", 9000);
 ```
 
 - 一条 KCP 消息就是一个完整包，格式与 TCP / WebSocket 相同
-- UDP 没有握手：`Connect` 成功只表示本地套接字已指向远端，随即进入 `Connected`
+- UDP 没有握手：`Connect` 成功只表示本地套接字已指向远端，随即进入 `Connected`。握手需要服务端协议配合，框架不强制
+- 断线检测：KCP 分片重传达到上限（死链）时自动关闭；开启心跳后连续丢失 `MaxMissHeartBeatCount`（默认 3）次时关闭；`ResponseTimeoutSeconds` 大于 0 时，连续这么久收不到对端任何数据报也关闭。联机项目建议开启心跳并设置 `ResponseTimeoutSeconds`
+- Windows 上关闭了 UDP 的 ICMP 连接重置（`SIO_UDP_CONNRESET`），服务端短暂不可达不会让客户端断线
+- 域名在后台解析，不阻塞主线程
 - 默认 `NoDelay(1, 10, 2, 1)`、窗口 128、RTO 上限 3 秒。时钟用 `Environment.TickCount`，不进战斗模拟
 - WebGL / 小游戏没有 UDP。`CreateKcpChannel`、`CreateChannel(..., Kcp)` 和 `new KcpNetworkChannel` 会抛 `PlatformNotSupportedException`，不会改走 WebSocket
 - 编辑器里即使构建目标是 WebGL 仍可创建（带 `UNITY_EDITOR`）。自定义 `IKcpDatagramTransport` 同样受这条约束
@@ -131,7 +134,7 @@ rpc.Dispose();
 ```
 
 - 线上格式：请求载荷前加 4 字节小端请求号；服务端在响应载荷前原样带回这个请求号
-- 超时抛 `TimeoutException`，取消抛 `OperationCanceledException`，频道未连接或等待期间关闭抛 `InvalidOperationException`
+- 超时抛 `TimeoutException`，取消抛 `OperationCanceledException`，频道未连接、等待期间关闭或报连接/收发/解析/心跳错误时抛 `InvalidOperationException`
 - 首次使用某个响应消息号时会在频道上注册处理器（覆盖已有的同号处理器）；`Dispose` 时注销
 - 超时计时用 `UniTask.Delay(Realtime)`，WebGL 下同样可用
 
@@ -143,10 +146,12 @@ rpc.Dispose();
 |------|------|
 | `NetworkConnectedEvent` | 连接成功 |
 | `NetworkClosedEvent` | 主动关闭、对端断开，或收发错误把连接关掉。同一次断线只发一次 |
-| `NetworkErrorEvent` | 连接/收发/解析失败 |
-| `NetworkMissHeartBeatEvent` | 心跳间隔内未收到任何包 |
+| `NetworkErrorEvent` | 连接/收发/解析失败；连接超时（`ConnectError` + `TimedOut`）；心跳超限或 KCP 死链（`HeartBeatTimeout`） |
+| `NetworkMissHeartBeatEvent` | 心跳间隔内未收到任何包；连续达到 `MaxMissHeartBeatCount` 次时频道主动关闭 |
 
 收发包完成回调都在 **主线程** `NetworkManager.Update` 中执行。心跳用的是 `Update` 传入的 `Time.unscaledDeltaTime`，不受 `timeScale` 影响。单个处理器抛异常只跳过这一条消息，后面的频道继续 `Update`。IO 线程只入队，不要在完成回调里发布 `GameEvent` 或取内存池。
+
+TCP 的域名用 `Dns.GetHostAddressesAsync` 在后台解析，解析期间状态已是 `Connecting`。解析到多个地址时 IPv4 优先、其余作为后备，一个地址失败或超过 `ConnectTimeoutSeconds`（默认 10 秒）就换下一个，全部失败才报 `ConnectError`。发送缓冲从 `ArrayPool<byte>` 租用，整条发完后归还。
 
 每次 `BeginConnect` 新建一套 socket 和三个 `SocketAsyncEventArgs`，代号记在这套连接上。旧连接的完成回调只看自己的那套，不会改到新连接的缓冲，也不会把新连接关掉。`Close` 会取消还没开始的排队连接；`BeginConnect` 发现代号已经变了就放弃。关闭时，已经不在进行中的接收和发送参数立刻释放；还挂在套接字上的那一次，等它自己的回调结束再释放。连接参数在连接回调结束时释放。接收在这套连接自己的缓冲里原地解析，不为每次接收拷贝整段已积累的字节。`SendAsync` 只写出一部分时会从剩余偏移继续发，整包发完才增加 `SentPacketCount`。同一消息号再次 `RegisterHandler` 会覆盖并打警告。
 
@@ -168,4 +173,4 @@ new NetworkModule(), // Dependencies: Logging + MemoryPool
 - TCP 与 KCP 默认是明文。需要加密时用 `wss://`，或在 `INetworkChannelHelper` 里自行封装载荷；框架不提供 TLS 套接字
 - HTTP 是短请求，不要塞进 `INetworkChannel`
 - 消息包走 `MemoryPool`，热路径避免额外 `IDisposable`
-- 心跳默认关闭（`HeartBeatInterval <= 0`）；有服务端再打开
+- 心跳默认关闭（`HeartBeatInterval <= 0`）；有服务端再打开。打开后连续丢失 `MaxMissHeartBeatCount` 次即断开（半开连接在 TCP 层不会报错，只能靠心跳发现）

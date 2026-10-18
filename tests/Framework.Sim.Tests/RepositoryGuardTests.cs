@@ -37,6 +37,23 @@ namespace Framework.Sim.Tests
         }
 
         [Test]
+        public void UnityTestWorkflowUsesProjectEditorVersion()
+        {
+            var root = FindRepoRoot();
+            var projectVersion = File.ReadAllText(Path.Combine(root, "ProjectSettings", "ProjectVersion.txt"));
+            var editor = Regex.Match(projectVersion, @"m_EditorVersion:\s*(\S+)").Groups[1].Value;
+            Assert.IsNotEmpty(editor);
+
+            var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "editmode-tests.yml"));
+            var versions = Regex.Matches(workflow, @"unityVersion:\s*(\S+)");
+            Assert.Greater(versions.Count, 0);
+            foreach (Match version in versions)
+            {
+                Assert.AreEqual(editor, version.Groups[1].Value, "editmode-tests.yml 的 unityVersion 要与 ProjectVersion.txt 一致。");
+            }
+        }
+
+        [Test]
         public void RelativeMarkdownLinksResolve()
         {
             var root = FindRepoRoot();

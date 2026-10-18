@@ -706,8 +706,9 @@ namespace Framework.Res
 
             public SimpleRemoteService(string defaultHostServer, string fallbackHostServer)
             {
-                _defaultHostServer = defaultHostServer;
-                _fallbackHostServer = fallbackHostServer;
+                // 去掉末尾的 /，避免拼成 host//file。
+                _defaultHostServer = (defaultHostServer ?? string.Empty).TrimEnd('/');
+                _fallbackHostServer = (fallbackHostServer ?? string.Empty).TrimEnd('/');
             }
 
             public IReadOnlyList<string> GetRemoteUrls(string fileName)

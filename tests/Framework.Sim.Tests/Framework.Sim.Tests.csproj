@@ -11,16 +11,16 @@
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DefineConstants>$(DefineConstants);FRAMEWORK_LOG_VERBOSE</DefineConstants>
-    <NoWarn>$(NoWarn);CS1591;CS0618;CS0649;CS0414;CS0162;CS0168;CS0219;CS0169;CS0067</NoWarn>
     <!--
-      NoWarn 是工程级的：Farseer / FixedMath 与自研模拟层编在同一个程序集里，才能互相访问 internal。
-      拆成两个工程会切断这些 internal。第三方布局调整之前，不为自研代码单独打开警告即错误。
+      Farseer / FixedMath 与自研模拟层编在同一个程序集里，才能互相访问 internal，所以警告不能按工程分开。
+      第三方目录的编译警告在仓库根的 .editorconfig 里按路径关掉，其余代码一律警告即错误。
     -->
     <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../'))</RepoRoot>
     <Battle>$(RepoRoot)Packages/com.jokerseed.framework.battle/Runtime/</Battle>
     <Core>$(RepoRoot)Packages/com.jokerseed.framework.core/Runtime/</Core>
+    <Network>$(RepoRoot)Packages/com.jokerseed.framework.network/Runtime/</Network>
   </PropertyGroup>
 
   <ItemGroup Label="Engine-free framework sources">
@@ -38,6 +38,12 @@
     <Compile Include="$(Core)Events/**/*.cs" />
     <Compile Include="$(Core)Fsm/Fsm.cs;$(Core)Fsm/FsmState.cs" />
     <Compile Include="$(Core)DebugConsole/DebugCommandRegistry.cs" />
+    <Compile Include="$(Core)MemoryPool/**/*.cs" Exclude="$(Core)MemoryPool/MemoryPoolManager.cs;$(Core)MemoryPool/MemoryPoolModule.cs" />
+    <Compile Include="$(Core)Save/FileSaveStorage.cs;$(Core)Save/ISaveStorage.cs" />
+  </ItemGroup>
+
+  <ItemGroup Label="Engine-free network sources (TCP / KCP / WebSocket channels; HTTP, RPC and Unity entry points excluded)">
+    <Compile Include="$(Network)**/*.cs" Exclude="$(Network)NetworkManager.cs;$(Network)NetworkModule.cs;$(Network)Http/**;$(Network)Rpc/**;$(Network)ThirdParty/KCP/KcpOnUdp.cs;$(Network)ThirdParty/KCP/KcpClient.cs" />
     <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.battle/Editor/Determinism/DeterminismRules.cs" />
   </ItemGroup>
 

@@ -1,15 +1,21 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Framework.Events;
 using Framework.Logging;
 
 namespace Framework.Network
 {
-    /// <summary>TCP 异步频道：IO 完成端口收发，主线程分发消息与事件。</summary>
+    /// <summary>
+    /// TCP 异步频道：IO 完成端口收发，主线程分发消息与事件。
+    /// 域名用 <see cref="Dns.GetHostAddressesAsync(string)"/> 在后台解析，不阻塞主线程；解析到多个地址时依次尝试（IPv4 优先），
+    /// 单次连接超过 <see cref="ConnectTimeoutSeconds"/> 视为失败。发送缓冲从 <see cref="ArrayPool{T}"/> 租用，发送完成后归还。
+    /// </summary>
     public sealed class TcpNetworkChannel : INetworkChannel, INetworkChannelDriver
     {
         const int ReceiveBufferSize = 8192;
@@ -17,7 +23,7 @@ namespace Framework.Network
 
         readonly object _sync = new object();
         readonly Queue<PendingDispatch> _pending = new Queue<PendingDispatch>(32);
-        readonly Queue<byte[]> _sendQueue = new Queue<byte[]>(16);
+        readonly Queue<ArraySegment<byte>> _sendQueue = new Queue<ArraySegment<byte>>(16);
         readonly Dictionary<ushort, Action<INetworkChannel, NetworkPacket>> _handlers =
             new Dictionary<ushort, Action<INetworkChannel, NetworkPacket>>(32);
         readonly INetworkChannelHelper _helper;
@@ -31,6 +37,10 @@ namespace Framework.Network
         bool _queuedConnect;
         IPAddress _queuedAddress;
         int _queuedPort;
+        IPAddress[] _candidates;
+        int _candidateIndex;
+        int _candidatePort;
+        float _connectElapsed;
 
         /// <summary>创建 TCP 频道。</summary>
         /// <param name="name">频道名称。</param>
@@ -89,6 +99,12 @@ namespace Framework.Network
         public int MissHeartBeatCount { get; private set; }
 
         /// <inheritdoc />
+        public int MaxMissHeartBeatCount { get; set; } = 3;
+
+        /// <summary>单个地址的连接超时（秒，含域名解析）；小于等于 0 表示不限，交给系统默认超时。默认 10。</summary>
+        public float ConnectTimeoutSeconds { get; set; } = 10f;
+
+        /// <inheritdoc />
         public int SentPacketCount { get; private set; }
 
         /// <inheritdoc />
@@ -103,27 +119,139 @@ namespace Framework.Network
                 return;
             }
 
-            if (!IPAddress.TryParse(host, out var address))
+            if (IPAddress.TryParse(host, out var literal))
             {
-                try
-                {
-                    var addresses = Dns.GetHostAddresses(host);
-                    address = SelectAddress(addresses);
-                }
-                catch (Exception ex)
-                {
-                    EnqueueError(NetworkErrorCode.AddressError, SocketError.HostNotFound, ex.Message);
-                    return;
-                }
-            }
-
-            if (address == null)
-            {
-                EnqueueError(NetworkErrorCode.AddressError, SocketError.AddressNotAvailable, $"No usable address for {host}.");
+                Connect(literal, port);
                 return;
             }
 
-            Connect(address, port);
+            var busy = false;
+            lock (_sync)
+            {
+                busy = State == NetworkChannelState.Connecting || State == NetworkChannelState.Connected;
+            }
+
+            if (busy)
+            {
+                EnqueueError(NetworkErrorCode.ConnectError, SocketError.IsConnected, "Channel is already connecting or connected.");
+                return;
+            }
+
+            CloseSocket();
+            int generation;
+            lock (_sync)
+            {
+                // 解析期间就处于 Connecting：防止重复 Connect，也让连接超时把解析时间算进去。
+                State = NetworkChannelState.Connecting;
+                _closed = false;
+                _connectElapsed = 0f;
+                generation = _generation;
+            }
+
+            // 移动网络上 DNS 可能要几秒，同步解析会卡住主线程（Android 上可能触发 ANR）。
+            Dns.GetHostAddressesAsync(host).ContinueWith(
+                task => OnHostResolved(task, host, port, generation),
+                TaskScheduler.Default);
+        }
+
+        void OnHostResolved(Task<IPAddress[]> task, string host, int port, int generation)
+        {
+            var addresses = task.Status == TaskStatus.RanToCompletion ? OrderAddresses(task.Result) : null;
+            IPAddress first = null;
+            var stale = false;
+            lock (_sync)
+            {
+                if (generation != _generation || State != NetworkChannelState.Connecting || _session != null)
+                {
+                    // 解析期间被 Close 或重新 Connect 了。
+                    stale = true;
+                }
+                else if (addresses == null || addresses.Length == 0)
+                {
+                    State = NetworkChannelState.Disconnected;
+                    _closed = true;
+                }
+                else
+                {
+                    _candidates = addresses;
+                    _candidateIndex = 0;
+                    _candidatePort = port;
+                    first = addresses[0];
+                }
+            }
+
+            if (stale)
+            {
+                return;
+            }
+
+            if (first == null)
+            {
+                var message = task.Exception != null
+                    ? task.Exception.GetBaseException().Message
+                    : $"No usable address for {host}.";
+                EnqueueError(NetworkErrorCode.AddressError, SocketError.HostNotFound, message);
+                return;
+            }
+
+            BeginConnect(first, port, generation);
+        }
+
+        /// <summary>IPv4 优先，其余按系统返回顺序作为后备；只有 IPv6 的网络（如 iOS NAT64）直接用 IPv6。</summary>
+        static IPAddress[] OrderAddresses(IPAddress[] addresses)
+        {
+            if (addresses == null || addresses.Length == 0)
+            {
+                return null;
+            }
+
+            var ordered = new List<IPAddress>(addresses.Length);
+            for (var i = 0; i < addresses.Length; i++)
+            {
+                if (addresses[i].AddressFamily == AddressFamily.InterNetwork)
+                {
+                    ordered.Add(addresses[i]);
+                }
+            }
+
+            for (var i = 0; i < addresses.Length; i++)
+            {
+                if (addresses[i].AddressFamily != AddressFamily.InterNetwork)
+                {
+                    ordered.Add(addresses[i]);
+                }
+            }
+
+            return ordered.ToArray();
+        }
+
+        /// <summary>当前地址连接失败或超时时换下一个候选地址。</summary>
+        /// <returns>已发起下一次连接时返回 true；没有更多候选时返回 false。</returns>
+        bool TryConnectNextCandidate(IoSession failed)
+        {
+            IPAddress next;
+            int port;
+            int generation;
+            lock (_sync)
+            {
+                if (_closed || !ReferenceEquals(_session, failed) || _candidates == null || _candidateIndex + 1 >= _candidates.Length)
+                {
+                    return false;
+                }
+
+                _candidateIndex++;
+                next = _candidates[_candidateIndex];
+                port = _candidatePort;
+                _session = null;
+                _generation++;
+                generation = _generation;
+                State = NetworkChannelState.Connecting;
+                _connectElapsed = 0f;
+            }
+
+            failed.Release();
+            BeginConnect(next, port, generation);
+            return true;
         }
 
         /// <inheritdoc />
@@ -204,10 +332,13 @@ namespace Framework.Network
                     return;
                 }
 
-                var bytes = _serializeStream.ToArray();
+                // 从池里租发送缓冲，发送完成后在 OnSendCompleted 归还，避免每条消息 ToArray 一次。
+                var length = (int)_serializeStream.Length;
+                var buffer = ArrayPool<byte>.Shared.Rent(length);
+                Buffer.BlockCopy(_serializeStream.GetBuffer(), 0, buffer, 0, length);
                 lock (_sync)
                 {
-                    _sendQueue.Enqueue(bytes);
+                    _sendQueue.Enqueue(new ArraySegment<byte>(buffer, 0, length));
                 }
 
                 TrySend();
@@ -263,7 +394,43 @@ namespace Framework.Network
         public void Update(float elapseSeconds)
         {
             ProcessPending();
+            UpdateConnectTimeout(elapseSeconds);
             UpdateHeartBeat(elapseSeconds);
+        }
+
+        /// <summary>连接（含域名解析）超过 <see cref="ConnectTimeoutSeconds"/> 时换下一个地址；没有更多地址时报错并关闭。</summary>
+        void UpdateConnectTimeout(float elapseSeconds)
+        {
+            IoSession session;
+            int generation;
+            lock (_sync)
+            {
+                if (State != NetworkChannelState.Connecting || ConnectTimeoutSeconds <= 0f)
+                {
+                    _connectElapsed = 0f;
+                    return;
+                }
+
+                _connectElapsed += elapseSeconds;
+                if (_connectElapsed < ConnectTimeoutSeconds)
+                {
+                    return;
+                }
+
+                session = _session;
+                generation = _generation;
+            }
+
+            if (session != null && TryConnectNextCandidate(session))
+            {
+                return;
+            }
+
+            EnqueueError(NetworkErrorCode.ConnectError, SocketError.TimedOut, $"Connect timed out after {ConnectTimeoutSeconds}s.");
+            if (CloseSocket(generation))
+            {
+                Enqueue(new PendingDispatch { Kind = PendingKind.Closed });
+            }
         }
 
         /// <summary>关闭频道并释放 Socket 资源。</summary>
@@ -282,7 +449,7 @@ namespace Framework.Network
                     }
                 }
 
-                _sendQueue.Clear();
+                ClearSendQueue();
             }
 
             for (var i = 0; i < released.Count; i++)
@@ -325,6 +492,14 @@ namespace Framework.Network
             }
 
             Enqueue(new PendingDispatch { Kind = PendingKind.MissHeartBeat, MissCount = miss });
+            if (MaxMissHeartBeatCount > 0 && miss >= MaxMissHeartBeatCount)
+            {
+                // 半开连接（对端掉电、换网）在 TCP 层不会报错，只能靠心跳判定。
+                EnqueueError(NetworkErrorCode.HeartBeatTimeout, SocketError.TimedOut, $"Missed {miss} heartbeats.");
+                Close();
+                return;
+            }
+
             try
             {
                 _helper.TrySendHeartBeat(this);
@@ -474,6 +649,13 @@ namespace Framework.Network
 
             if (e.SocketError != SocketError.Success)
             {
+                // 域名解析出多个地址时，先换下一个地址再报错。
+                if (TryConnectNextCandidate(session))
+                {
+                    session.DisposeConnectArgs();
+                    return;
+                }
+
                 EnqueueError(NetworkErrorCode.ConnectError, e.SocketError, e.SocketError.ToString());
                 if (CloseSocket(session.Generation))
                 {
@@ -772,7 +954,8 @@ namespace Framework.Network
                 var data = _sendQueue.Dequeue();
                 session.Sending = true;
                 session.SendPosted = true;
-                session.SendArgs.SetBuffer(data, 0, data.Length);
+                session.SendingBuffer = data.Array;
+                session.SendArgs.SetBuffer(data.Array, 0, data.Count);
                 socket = session.Socket;
                 args = session.SendArgs;
             }
@@ -892,13 +1075,22 @@ namespace Framework.Network
                 return;
             }
 
+            byte[] sent = null;
             lock (_sync)
             {
                 if (ReferenceEquals(_session, session))
                 {
                     SentPacketCount++;
                     session.Sending = false;
+                    sent = session.SendingBuffer;
+                    session.SendingBuffer = null;
                 }
+            }
+
+            // 只在整条消息发完后归还。出错路径不归还：异步发送可能仍在引用这块内存，交给 GC 更安全。
+            if (sent != null)
+            {
+                ArrayPool<byte>.Shared.Return(sent);
             }
 
             TrySend();
@@ -912,6 +1104,19 @@ namespace Framework.Network
         /// <param name="generation">发起这次操作时的连接代数。</param>
         /// <returns>这一代确实被关掉时返回 true。</returns>
         bool CloseSocket(int generation) => FinishClose(true, generation);
+
+        /// <summary>丢弃尚未发出的消息并把它们的缓冲还给池（这些缓冲没有交给 socket，可以安全复用）。须在 <c>_sync</c> 内调用。</summary>
+        void ClearSendQueue()
+        {
+            while (_sendQueue.Count > 0)
+            {
+                var segment = _sendQueue.Dequeue();
+                if (segment.Array != null)
+                {
+                    ArrayPool<byte>.Shared.Return(segment.Array);
+                }
+            }
+        }
 
         bool FinishClose(bool matchGeneration, int generation)
         {
@@ -935,7 +1140,9 @@ namespace Framework.Network
                 MissHeartBeatCount = 0;
                 SentPacketCount = 0;
                 ReceivedPacketCount = 0;
-                _sendQueue.Clear();
+                ClearSendQueue();
+                _candidates = null;
+                _connectElapsed = 0f;
                 session = _session;
                 _session = null;
             }
@@ -1003,6 +1210,7 @@ namespace Framework.Network
 
                 _closed = false;
                 State = NetworkChannelState.Connecting;
+                _connectElapsed = 0f;
                 var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
                 {
                     NoDelay = true,
@@ -1052,24 +1260,6 @@ namespace Framework.Network
             }
         }
 
-        static IPAddress SelectAddress(IPAddress[] addresses)
-        {
-            if (addresses == null || addresses.Length == 0)
-            {
-                return null;
-            }
-
-            for (var i = 0; i < addresses.Length; i++)
-            {
-                if (addresses[i].AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return addresses[i];
-                }
-            }
-
-            return addresses[0];
-        }
-
         /// <summary>一次连接自带的 socket 和三套异步参数。回调只读这份代号。</summary>
         sealed class IoSession
         {
@@ -1104,6 +1294,9 @@ namespace Framework.Network
 
             /// <summary>有一包还没发完。</summary>
             public bool Sending;
+
+            /// <summary>正在发送的池化缓冲；整条发完后归还给 <see cref="ArrayPool{T}"/>。</summary>
+            public byte[] SendingBuffer;
 
             /// <summary>接收操作正在进行。</summary>
             public bool ReceiveInFlight;

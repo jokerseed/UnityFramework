@@ -30,28 +30,28 @@ namespace Framework.GAS.Abilities.Builtin
         /// <summary>构造弹道技能。</summary>
         public ProjectileAbility(
             string abilityId,
-            float cooldown,
-            float speed,
-            float radius,
-            float lifetime,
-            float damage,
+            FP cooldown,
+            FP speed,
+            FP radius,
+            FP lifetime,
+            FP damage,
             int teamId = 0,
             int pierceCount = 0,
-            float explodeRadius = 0f,
+            FP explodeRadius = default,
             string hitEffectId = null,
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
+            : base(abilityId, cooldown, requiredTags, blockedTags)
         {
-            _speed = (FP)(speed);
-            _radius = (FP)(radius);
-            _lifetime = (FP)(lifetime);
-            _damage = (FP)(damage);
+            _speed = speed;
+            _radius = radius;
+            _lifetime = lifetime;
+            _damage = damage;
             _teamId = teamId;
             _pierceCount = pierceCount;
-            _explodeRadius = (FP)(explodeRadius);
+            _explodeRadius = explodeRadius;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
             _cost = costAttributes ?? new Dictionary<string, FP>();
@@ -125,18 +125,18 @@ namespace Framework.GAS.Abilities.Builtin
         /// <summary>构造近战技能。</summary>
         public MeleeStrikeAbility(
             string abilityId,
-            float cooldown,
-            float damage,
-            float range,
+            FP cooldown,
+            FP damage,
+            FP range,
             Targeting.ITargetSelector targetSelector,
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
+            : base(abilityId, cooldown, requiredTags, blockedTags)
         {
-            _damage = (FP)(damage);
-            _range = (FP)(range);
+            _damage = damage;
+            _range = range;
             _targetSelector = targetSelector;
             _damageType = damageType;
             _cost = costAttributes ?? new Dictionary<string, FP>();
@@ -207,19 +207,19 @@ namespace Framework.GAS.Abilities.Builtin
         /// <summary>构造圆形 AOE。</summary>
         public CircleAoeAbility(
             string abilityId,
-            float cooldown,
-            float damage,
-            float radius,
+            FP cooldown,
+            FP damage,
+            FP radius,
             int teamId,
             string hitEffectId = null,
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
+            : base(abilityId, cooldown, requiredTags, blockedTags)
         {
-            _damage = (FP)(damage);
-            _radius = (FP)(radius);
+            _damage = damage;
+            _radius = radius;
             _teamId = teamId;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
@@ -264,21 +264,21 @@ namespace Framework.GAS.Abilities.Builtin
         /// <summary>构造扇形 AOE。</summary>
         public ConeAoeAbility(
             string abilityId,
-            float cooldown,
-            float damage,
-            float range,
-            float halfAngleDegrees,
+            FP cooldown,
+            FP damage,
+            FP range,
+            FP halfAngleDegrees,
             int teamId,
             string hitEffectId = null,
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
+            : base(abilityId, cooldown, requiredTags, blockedTags)
         {
-            _damage = (FP)(damage);
-            _range = (FP)(range);
-            _halfAngleDegrees = (FP)(halfAngleDegrees);
+            _damage = damage;
+            _range = range;
+            _halfAngleDegrees = halfAngleDegrees;
             _teamId = teamId;
             _hitEffectId = hitEffectId;
             _damageType = damageType;
@@ -319,10 +319,10 @@ namespace Framework.GAS.Abilities.Builtin
         /// <param name="cooldown">冷却秒数。</param>
         /// <param name="channelTime">引导时长（秒）。</param>
         /// <param name="projectile">引导结束后发射的弹道技能。</param>
-        public ChanneledProjectileAbility(string abilityId, float cooldown, float channelTime, ProjectileAbility projectile)
-            : base(abilityId, (FP)(cooldown), projectile.RequiredTags, projectile.BlockedTags)
+        public ChanneledProjectileAbility(string abilityId, FP cooldown, FP channelTime, ProjectileAbility projectile)
+            : base(abilityId, cooldown, projectile.RequiredTags, projectile.BlockedTags)
         {
-            _channelTime = (FP)(channelTime);
+            _channelTime = channelTime;
             _projectile = projectile;
         }
 
@@ -395,6 +395,12 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>近战扇形多目标：前摇、判定窗口、后摇；窗口内每个目标只结算一次。</summary>
     public sealed class MeleeSweepAbility : GameplayAbility
     {
+        /// <summary>未指定判定窗口时的默认值（0.1 秒）。</summary>
+        public static readonly FP DefaultHitDuration = FixedConfig.FromConfig(0.1f);
+
+        /// <summary>未指定后摇时的默认值（0.2 秒）。</summary>
+        public static readonly FP DefaultRecovery = FixedConfig.FromConfig(0.2f);
+
         readonly Targeting.ConeEnemyQuery _queryCone;
         readonly FP _damage;
         readonly FP _range;
@@ -419,8 +425,8 @@ namespace Framework.GAS.Abilities.Builtin
         /// <param name="halfAngleDegrees">扇形半角（度）。</param>
         /// <param name="queryCone">扇形敌对查询；不可为 null。</param>
         /// <param name="windup">前摇秒数。</param>
-        /// <param name="hitDuration">判定窗口秒数。</param>
-        /// <param name="recovery">后摇秒数。</param>
+        /// <param name="hitDuration">判定窗口秒数；null 时用 <see cref="DefaultHitDuration"/>。</param>
+        /// <param name="recovery">后摇秒数；null 时用 <see cref="DefaultRecovery"/>。</param>
         /// <param name="knockback">击退距离（米）。</param>
         /// <param name="hitEffectId">命中效果 ID；空则不施加。</param>
         /// <param name="comboEffectId">后摇时自身连招窗口效果 ID；空则不施加。</param>
@@ -430,31 +436,31 @@ namespace Framework.GAS.Abilities.Builtin
         /// <param name="costAttributes">消耗。</param>
         public MeleeSweepAbility(
             string abilityId,
-            float cooldown,
-            float damage,
-            float range,
-            float halfAngleDegrees,
+            FP cooldown,
+            FP damage,
+            FP range,
+            FP halfAngleDegrees,
             Targeting.ConeEnemyQuery queryCone,
-            float windup = 0f,
-            float hitDuration = 0.1f,
-            float recovery = 0.2f,
-            float knockback = 0f,
+            FP windup = default,
+            FP? hitDuration = null,
+            FP? recovery = null,
+            FP knockback = default,
             string hitEffectId = null,
             string comboEffectId = null,
             BattleDamageType damageType = BattleDamageType.Physical,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null,
             IReadOnlyDictionary<string, FP> costAttributes = null)
-            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
+            : base(abilityId, cooldown, requiredTags, blockedTags)
         {
             _queryCone = queryCone;
-            _damage = (FP)(damage);
-            _range = (FP)(range);
-            _halfAngleDegrees = (FP)(halfAngleDegrees);
-            _windup = (FP)(windup);
-            _hitDuration = (FP)(hitDuration);
-            _recovery = (FP)(recovery);
-            _knockback = (FP)(knockback);
+            _damage = damage;
+            _range = range;
+            _halfAngleDegrees = halfAngleDegrees;
+            _windup = windup;
+            _hitDuration = hitDuration ?? DefaultHitDuration;
+            _recovery = recovery ?? DefaultRecovery;
+            _knockback = knockback;
             _hitEffectId = hitEffectId;
             _comboEffectId = comboEffectId;
             _damageType = damageType;
@@ -549,6 +555,9 @@ namespace Framework.GAS.Abilities.Builtin
     /// <summary>闪避冲刺：给自身上无敌帧，并沿朝向写入击退冲量。</summary>
     public sealed class DashAbility : GameplayAbility
     {
+        /// <summary>持续时间不大于 0 时使用的默认值（0.25 秒）。</summary>
+        public static readonly FP DefaultDuration = FixedConfig.FromConfig(0.25f);
+
         readonly FP _distance;
         readonly FP _duration;
         readonly string _selfEffectId;
@@ -557,22 +566,22 @@ namespace Framework.GAS.Abilities.Builtin
         /// <param name="abilityId">技能 ID。</param>
         /// <param name="cooldown">冷却秒数。</param>
         /// <param name="distance">冲刺距离（米）。</param>
-        /// <param name="duration">无敌与技能持续秒数。</param>
+        /// <param name="duration">无敌与技能持续秒数；不大于 0 时用 <see cref="DefaultDuration"/>。</param>
         /// <param name="selfEffectId">施加到自身的效果 ID（如 IFrame）；空则只位移。</param>
         /// <param name="requiredTags">激活前提标签。</param>
         /// <param name="blockedTags">阻止激活标签。</param>
         public DashAbility(
             string abilityId,
-            float cooldown,
-            float distance,
-            float duration,
+            FP cooldown,
+            FP distance,
+            FP duration,
             string selfEffectId,
             IReadOnlyList<GameplayTag> requiredTags = null,
             IReadOnlyList<GameplayTag> blockedTags = null)
-            : base(abilityId, (FP)(cooldown), requiredTags, blockedTags)
+            : base(abilityId, cooldown, requiredTags, blockedTags)
         {
-            _distance = (FP)(distance);
-            _duration = duration > 0f ? (FP)(duration) : (FP)0.25f;
+            _distance = distance;
+            _duration = duration > FP.Zero ? duration : DefaultDuration;
             _selfEffectId = selfEffectId;
         }
 

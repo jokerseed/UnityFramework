@@ -32,7 +32,7 @@ namespace Framework.UI
         const int InputBlockerSortingOrder = 30000;
 
         Transform _uiRoot;
-        Transform _eventSystemRoot;
+        GameObject _ownedEventSystem;
         GameObject _inputBlocker;
         int _inputBlockCount;
         int _inputBlockGeneration;
@@ -384,10 +384,11 @@ namespace Framework.UI
 
             _layerRoots.Clear();
 
-            if (_eventSystemRoot != null)
+            // 只销毁自己创建的 EventSystem；场景里自带的不归 UIManager 管。
+            if (_ownedEventSystem != null)
             {
-                Destroy(_eventSystemRoot.gameObject);
-                _eventSystemRoot = null;
+                Destroy(_ownedEventSystem);
+                _ownedEventSystem = null;
             }
 
             if (_uiRoot != null)
@@ -407,6 +408,14 @@ namespace Framework.UI
                 return;
             }
 
+            // 场景自带的 EventSystem 会随场景卸载；没有任何 EventSystem 时由 UIManager 补一个常驻的，否则 UI 收不到点击。
+            if (EventSystem.current == null)
+            {
+                EnsureEventSystem();
+            }
+
+            AbortStoppedShows();
+
             if (BackKeyEnabled && BackPressedThisFrame() && !IsInputBlocked && !HandleBack())
             {
                 BackUnhandled?.Invoke();
@@ -416,9 +425,9 @@ namespace Framework.UI
             for (var i = 0; i < _stack.Count; i++)
             {
                 var window = _stack[i];
-                if (window != null && window.IsCreated && window.GameObject != null && window.GameObject.activeSelf)
+                if (window != null && window.IsCreated && !window.IsOccluded && window.GameObject != null && window.GameObject.activeSelf)
                 {
-                    window.OnUpdate(deltaTime);
+                    window.InternalUpdate(deltaTime);
                 }
             }
         }
@@ -507,6 +516,38 @@ namespace Framework.UI
 
             pending.Cancel();
             return true;
+        }
+
+        /// <summary>
+        /// 打开窗口的协程被外部停掉（例如 <c>CoroutineManager.StopAllGlobal</c>）时，Unity 不会执行协程里的 finally，
+        /// 已加载的资源和实例不会释放，回调也不会触发。这里发现协程已停但打开尚未结束时补做收尾。
+        /// </summary>
+        void AbortStoppedShows()
+        {
+            if (_pendingShows.Count == 0)
+            {
+                return;
+            }
+
+            List<UIShowHandle> stopped = null;
+            foreach (var pair in _pendingShows)
+            {
+                if (pair.Value.IsCoroutineStopped)
+                {
+                    (stopped ??= new List<UIShowHandle>()).Add(pair.Value);
+                }
+            }
+
+            if (stopped == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < stopped.Count; i++)
+            {
+                GameLog.Warning(LogCategories.UI, $"ShowAsync {LogStyle.Name(stopped[i].WindowType?.Name)} coroutine was stopped externally; aborting.");
+                stopped[i].AbortIfStillIncomplete();
+            }
         }
 
         void CancelAllPendingShows()
@@ -676,7 +717,8 @@ namespace Framework.UI
 
         IEnumerator DelayedUnloadCoroutine(Type windowType, float delaySeconds)
         {
-            yield return new WaitForSeconds(delaySeconds);
+            // 用真实时间：暂停界面把 timeScale 设为 0 时，缩放时间不走，窗口会永远不卸载。
+            yield return new WaitForSecondsRealtime(delaySeconds);
             _delayUnloadTimers.Remove(windowType);
             if (!_cached.TryGetValue(windowType, out var window))
             {
@@ -811,16 +853,20 @@ namespace Framework.UI
             }
         }
 
+        /// <summary>
+        /// 栈里的窗口都保持激活；被上层全屏窗口挡住的只关 Canvas 与射线检测（<see cref="UIWindow.SetOccluded"/>），
+        /// 避免整棵 UI 反复 SetActive 带来的 OnEnable/OnDisable 与 Canvas 重建开销。
+        /// </summary>
         void RefreshVisibility()
         {
             var blockBelow = false;
             for (var i = _stack.Count - 1; i >= 0; i--)
             {
                 var window = _stack[i];
-                var visible = !blockBelow;
-                window.SetVisible(visible);
+                window.SetVisible(true);
+                window.SetOccluded(blockBelow);
 
-                if (visible && window.FullScreen)
+                if (!blockBelow && window.FullScreen)
                 {
                     blockBelow = true;
                 }
@@ -935,9 +981,13 @@ namespace Framework.UI
             }
         }
 
+        /// <summary>
+        /// 没有任何 EventSystem 时在 UIManager（常驻）下创建一个，并记为自己所有。
+        /// 场景里已有 EventSystem 时直接使用、不接管：它随场景卸载后，<see cref="Update"/> 会再补一个常驻的。
+        /// </summary>
         void EnsureEventSystem()
         {
-            if (_eventSystemRoot != null)
+            if (_ownedEventSystem != null || EventSystem.current != null)
             {
                 return;
             }
@@ -945,13 +995,7 @@ namespace Framework.UI
             var existing = transform.Find("EventSystem");
             if (existing != null)
             {
-                _eventSystemRoot = existing;
-                return;
-            }
-
-            if (EventSystem.current != null)
-            {
-                _eventSystemRoot = EventSystem.current.transform;
+                _ownedEventSystem = existing.gameObject;
                 return;
             }
 
@@ -962,7 +1006,7 @@ namespace Framework.UI
 #endif
             var eventSystemGo = new GameObject("EventSystem", typeof(EventSystem), inputModule);
             eventSystemGo.transform.SetParent(transform, false);
-            _eventSystemRoot = eventSystemGo.transform;
+            _ownedEventSystem = eventSystemGo;
         }
 
         void EnsureInitialized()

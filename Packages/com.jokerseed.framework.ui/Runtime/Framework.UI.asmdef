@@ -9,7 +9,8 @@
         "Framework.Res",
         "Framework.Coroutine",
         "Framework.Events",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -23,6 +24,11 @@
             "name": "com.unity.inputsystem",
             "expression": "1.0.0",
             "define": "FRAMEWORK_INPUT_SYSTEM"
+        },
+        {
+            "name": "com.unity.textmeshpro",
+            "expression": "1.0.0",
+            "define": "FRAMEWORK_TMP"
         }
     ],
     "noEngineReferences": false

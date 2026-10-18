@@ -9,7 +9,7 @@ namespace Framework.Network
 {
     /// <summary>
     /// 请求-响应 RPC：在载荷前加 4 字节小端请求号，服务端把同一请求号放在响应载荷前面回发。
-    /// 支持超时、取消；频道关闭时所有等待中的调用以 <see cref="InvalidOperationException"/> 结束。
+    /// 支持超时、取消；频道关闭或报连接/收发/解析/心跳错误时，所有等待中的调用以 <see cref="InvalidOperationException"/> 结束。
     /// 主线程使用；用完须 <see cref="Dispose"/>，以注销响应处理器和事件监听。
     /// </summary>
     public sealed class NetworkRpcClient : IDisposable
@@ -33,6 +33,7 @@ namespace Framework.Network
             DefaultTimeoutSeconds = defaultTimeoutSeconds;
             _onResponse = OnResponse;
             GameEvent.Listen<NetworkClosedEvent>(OnChannelClosed);
+            GameEvent.Listen<NetworkErrorEvent>(OnChannelError);
         }
 
         /// <summary>默认超时（秒）；小于等于 0 表示不超时。</summary>
@@ -112,6 +113,7 @@ namespace Framework.Network
 
             _disposed = true;
             GameEvent.RemoveListener<NetworkClosedEvent>(OnChannelClosed);
+            GameEvent.RemoveListener<NetworkErrorEvent>(OnChannelError);
             foreach (var id in _responseIds)
             {
                 _channel.UnregisterHandler(id);
@@ -186,6 +188,29 @@ namespace Framework.Network
             if (e.ChannelName == _channel.Name)
             {
                 FailAll(new InvalidOperationException($"[Network] RPC channel '{_channel.Name}' closed."));
+            }
+        }
+
+        /// <summary>
+        /// 频道出错但不一定随后关闭（例如序列化失败、未连接时发送）：等待中的调用立即失败，
+        /// 不再依赖超时（超时设为 0 时会永远等下去）。
+        /// </summary>
+        void OnChannelError(NetworkErrorEvent e)
+        {
+            if (e.ChannelName != _channel.Name)
+            {
+                return;
+            }
+
+            switch (e.ErrorCode)
+            {
+                case NetworkErrorCode.ConnectError:
+                case NetworkErrorCode.SendError:
+                case NetworkErrorCode.ReceiveError:
+                case NetworkErrorCode.DeserializeError:
+                case NetworkErrorCode.HeartBeatTimeout:
+                    FailAll(new InvalidOperationException($"[Network] RPC channel '{_channel.Name}' failed: {e.ErrorCode} {e.Message}"));
+                    break;
             }
         }
 

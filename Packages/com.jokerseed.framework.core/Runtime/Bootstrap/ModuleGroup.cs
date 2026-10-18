@@ -51,7 +51,7 @@ namespace Framework.Bootstrap
         /// <summary>初始化过程发生错误时触发；参数为模块组实例与异常对象。</summary>
         public event Action<ModuleGroup, Exception> Failed;
 
-        /// <summary>初始化进度变化时触发；参数依次为模块组实例、已完成数、总数。</summary>
+        /// <summary>每个模块初始化成功后触发一次；参数依次为模块组实例、已完成数、总数。最后一个模块完成时为 total/total。</summary>
         public event Action<ModuleGroup, int, int> ProgressChanged;
 
         internal void Configure(IEnumerable<IGameModule> modules)

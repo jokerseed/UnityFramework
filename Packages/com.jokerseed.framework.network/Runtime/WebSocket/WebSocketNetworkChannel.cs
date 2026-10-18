@@ -110,6 +110,9 @@ namespace Framework.Network
         }
 
         /// <inheritdoc />
+        public int MaxMissHeartBeatCount { get; set; } = 3;
+
+        /// <inheritdoc />
         public int SentPacketCount
         {
             get
@@ -480,6 +483,13 @@ namespace Framework.Network
             }
 
             Enqueue(new PendingDispatch { Kind = PendingKind.MissHeartBeat, MissCount = miss });
+            if (MaxMissHeartBeatCount > 0 && miss >= MaxMissHeartBeatCount)
+            {
+                EnqueueError(NetworkErrorCode.HeartBeatTimeout, SocketError.TimedOut, $"Missed {miss} heartbeats.");
+                Close();
+                return;
+            }
+
             try
             {
                 _helper.TrySendHeartBeat(this);

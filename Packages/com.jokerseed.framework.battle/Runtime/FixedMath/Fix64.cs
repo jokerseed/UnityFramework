@@ -33,7 +33,7 @@ namespace Framework.FixedMath {
         public const int LUT_SIZE = (int)(PI_OVER_2 >> 15);
 
         // Precision of this type is 2^-32, that is 2,3283064365386962890625E-10
-        public static readonly decimal Precision = (decimal)(new FP(1L));//0.00000000023283064365386962890625m;
+        public static readonly decimal Precision = (decimal)(new FP(1L)); // determinism-allow: 边界常量，只用于显示精度
         public static readonly FP MaxValue = new FP(MAX_VALUE-1);
         public static readonly FP MinValue = new FP(MIN_VALUE+2);
         public static readonly FP One = new FP(ONE);
@@ -65,8 +65,8 @@ namespace Framework.FixedMath {
         public static readonly FP Pi = new FP(PI);
         public static readonly FP PiOver2 = new FP(PI_OVER_2);
         public static readonly FP PiTimes2 = new FP(PI_TIMES_2);
-        public static readonly FP PiInv = (FP)0.3183098861837906715377675267M;
-        public static readonly FP PiOver2Inv = (FP)0.6366197723675813430755350535M;
+        public static readonly FP PiInv = (FP)0.3183098861837906715377675267M; // determinism-allow: decimal 字面量精确换算成定点常量
+        public static readonly FP PiOver2Inv = (FP)0.6366197723675813430755350535M; // determinism-allow: decimal 字面量精确换算成定点常量
 
         public static readonly FP Deg2Rad = Pi / new FP(180);
 
@@ -878,7 +878,7 @@ namespace Framework.FixedMath {
         /// </summary>
         /// <param name="value">双精度值。</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static explicit operator FP(double value) {
+        public static explicit operator FP(double value) { // determinism-allow: 与外界交换数值的转换边界
             FP result;
             result._serializedValue = (long)(value * ONE);
             return result;
@@ -886,11 +886,11 @@ namespace Framework.FixedMath {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static explicit operator double(FP value) {
-            return (double)value._serializedValue / ONE;
+        public static explicit operator double(FP value) { // determinism-allow: 与外界交换数值的转换边界
+            return (double)value._serializedValue / ONE; // determinism-allow: 与外界交换数值的转换边界
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static explicit operator FP(decimal value) {
+        public static explicit operator FP(decimal value) { // determinism-allow: 与外界交换数值的转换边界
             FP result;
             result._serializedValue = (long)(value * ONE);
             return result;
@@ -904,8 +904,8 @@ namespace Framework.FixedMath {
             //return new FP(value * ONE);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static explicit operator decimal(FP value) {
-            return (decimal)value._serializedValue / ONE;
+        public static explicit operator decimal(FP value) { // determinism-allow: 与外界交换数值的转换边界
+            return (decimal)value._serializedValue / ONE; // determinism-allow: 与外界交换数值的转换边界
         }
 
         public float AsFloat() {
@@ -920,12 +920,12 @@ namespace Framework.FixedMath {
             return (long)this;
         }
 
-        public double AsDouble() {
-            return (double)this;
+        public double AsDouble() { // determinism-allow: 与外界交换数值的转换边界
+            return (double)this; // determinism-allow: 与外界交换数值的转换边界
         }
 
-        public decimal AsDecimal() {
-            return (decimal)this;
+        public decimal AsDecimal() { // determinism-allow: 与外界交换数值的转换边界
+            return (decimal)this; // determinism-allow: 与外界交换数值的转换边界
         }
 
         public static float ToFloat(FP value) {
@@ -988,7 +988,7 @@ namespace Framework.FixedMath {
                         writer.WriteLine();
                         writer.Write("            ");
                     }
-                    var acos = Math.Acos(angle);
+                    var acos = Math.Acos(angle); // determinism-allow: 离线生成查找表
                     var rawValue = ((FP)acos)._serializedValue;
                     writer.Write(string.Format("0x{0:X}L, ", rawValue));
                 }
@@ -1008,8 +1008,8 @@ namespace Framework.FixedMath {
         internal static void GenerateSinLut() {
             var values = new long[LUT_SIZE];
             for (int i = 0; i < LUT_SIZE; ++i) {
-                var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
-                values[i] = ((FP)Math.Sin(angle))._serializedValue;
+                var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1); // determinism-allow: 离线生成查找表
+                values[i] = ((FP)Math.Sin(angle))._serializedValue; // determinism-allow: 离线生成查找表
             }
             File.WriteAllText("Fix64SinLut.cs", FixedLutCodec.WriteSource("SinLut", values));
         }
@@ -1018,12 +1018,12 @@ namespace Framework.FixedMath {
         internal static void GenerateTanLut() {
             var values = new long[LUT_SIZE];
             for (int i = 0; i < LUT_SIZE; ++i) {
-                var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1);
-                var tan = Math.Tan(angle);
-                if (tan > (double)MaxValue || tan < 0.0) {
-                    tan = (double)MaxValue;
+                var angle = i * Math.PI * 0.5 / (LUT_SIZE - 1); // determinism-allow: 离线生成查找表
+                var tan = Math.Tan(angle); // determinism-allow: 离线生成查找表
+                if (tan > (double)MaxValue || tan < 0.0) { // determinism-allow: 离线生成查找表
+                    tan = (double)MaxValue; // determinism-allow: 离线生成查找表
                 }
-                values[i] = (((decimal)tan > (decimal)MaxValue || tan < 0.0) ? MaxValue : (FP)tan)._serializedValue;
+                values[i] = (((decimal)tan > (decimal)MaxValue || tan < 0.0) ? MaxValue : (FP)tan)._serializedValue; // determinism-allow: 离线生成查找表
             }
             File.WriteAllText("Fix64TanLut.cs", FixedLutCodec.WriteSource("TanLut", values));
         }

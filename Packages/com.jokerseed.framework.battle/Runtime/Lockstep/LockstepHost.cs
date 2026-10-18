@@ -36,6 +36,9 @@ namespace Framework.Lockstep
     /// 等输入锁步，外加按检查点回滚。
     /// 某一步在所有玩家的输入到齐之前不会调用 <see cref="ILockstepSimulation.Simulate"/>。
     /// 已经模拟过的步若收到不同输入，会恢复不大于该步的检查点并重放。
+    /// 只接受窗口内的输入：最早 <see cref="MaxRollbackTicks"/> 步之前，最晚 <see cref="MaxInputAheadTicks"/> 步之后；
+    /// 窗口外的远端输入丢弃并触发 <see cref="InputRejected"/>。窗口外的输入行会被裁掉；
+    /// 模拟实现了 <see cref="ILockstepCheckpointPruning"/> 时，也会通知它丢弃用不到的旧检查点，所以长局内存不随时长增长。
     /// 每条输入带模拟逻辑版本；收到版本不同的输入时触发 <see cref="SimulationVersionMismatch"/>，之后 <see cref="TryAdvance"/> 抛异常。
     /// 真实传输不在这里；测试使用 <see cref="LoopbackCommunicator"/>。
     /// </summary>
@@ -43,6 +46,15 @@ namespace Framework.Lockstep
     {
         /// <summary>输入事件码。其他事件码会被忽略。</summary>
         public const byte InputEventCode = 42;
+
+        /// <summary>默认最多回滚的步数（20Hz 下 6 秒）。</summary>
+        public const int DefaultMaxRollbackTicks = 120;
+
+        /// <summary>默认最多提前接收的步数。</summary>
+        public const int DefaultMaxInputAheadTicks = 120;
+
+        // 输入行攒够这么多再一起裁，避免每步都搬动列表。
+        const int PruneBatch = 32;
 
         readonly ICommunicator _communicator;
         readonly ILockstepSimulation _simulation;
@@ -55,6 +67,12 @@ namespace Framework.Lockstep
         readonly List<bool[]> _predicted = new List<bool[]>();
         readonly List<long> _checksums = new List<long>();
 
+        // _inputs[0] 对应的逻辑步。
+        int _baseTick;
+
+        // 已经通知模拟丢弃到哪一步之前的检查点。
+        int _checkpointFloor;
+
         /// <summary>创建主机并监听通讯端上的输入事件。</summary>
         /// <param name="communicator">通讯端；不可为 null。</param>
         /// <param name="localPlayerId">本端玩家，必须出现在 <paramref name="playerIds"/> 里。</param>
@@ -62,16 +80,34 @@ namespace Framework.Lockstep
         /// <param name="snapshotInterval">每隔多少步保存一次检查点，至少为 1。0 号步总会保存。</param>
         /// <param name="simulation">模拟；不可为 null。</param>
         /// <param name="simulationVersion">本端模拟逻辑版本（战斗层传 <c>BattleSimulationVersion.Current</c>）。</param>
+        /// <param name="maxRollbackTicks">最多回滚多少步；更早的输入被拒绝。至少为 1。</param>
+        /// <param name="maxInputAheadTicks">最多提前接收多少步的输入；更晚的输入被拒绝。至少为 1。</param>
         /// <exception cref="ArgumentNullException">通讯端、玩家列表或模拟为 null。</exception>
         /// <exception cref="ArgumentException">间隔小于 1，或本端不在玩家列表中，或玩家 ID 重复。</exception>
+        /// <exception cref="ArgumentOutOfRangeException">回滚窗口或提前窗口小于 1。</exception>
         public LockstepHost(
             ICommunicator communicator,
             int localPlayerId,
             int[] playerIds,
             int snapshotInterval,
             ILockstepSimulation simulation,
-            int simulationVersion)
+            int simulationVersion,
+            int maxRollbackTicks = DefaultMaxRollbackTicks,
+            int maxInputAheadTicks = DefaultMaxInputAheadTicks)
         {
+            if (maxRollbackTicks < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxRollbackTicks));
+            }
+
+            if (maxInputAheadTicks < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxInputAheadTicks));
+            }
+
+            MaxRollbackTicks = maxRollbackTicks;
+            MaxInputAheadTicks = maxInputAheadTicks;
+
             if (communicator == null)
             {
                 throw new ArgumentNullException(nameof(communicator));
@@ -132,15 +168,35 @@ namespace Framework.Lockstep
         /// <summary>首次收到某玩家版本不同的输入时触发：参数为玩家 ID 与对方版本。</summary>
         public event Action<int, int> SimulationVersionMismatch;
 
+        /// <summary>远端输入落在窗口外被丢弃时触发：参数为玩家 ID 与该输入的逻辑步。</summary>
+        public event Action<int, int> InputRejected;
+
+        /// <summary>最多回滚的步数。</summary>
+        public int MaxRollbackTicks { get; }
+
+        /// <summary>最多提前接收的步数。</summary>
+        public int MaxInputAheadTicks { get; }
+
+        /// <summary>当前还接受输入的最早逻辑步。</summary>
+        public int OldestAcceptedTick => Math.Max(_baseTick, ConfirmedTick - MaxRollbackTicks);
+
+        /// <summary>该步的输入是否还在接收窗口内。</summary>
+        /// <param name="tick">逻辑步。</param>
+        /// <returns>在窗口内返回 true。</returns>
+        public bool IsInInputWindow(int tick)
+        {
+            return tick >= 0 && tick >= OldestAcceptedTick && tick < ConfirmedTick + MaxInputAheadTicks;
+        }
+
         /// <summary>提交本端这一步的输入，并广播给其他玩家。</summary>
         /// <param name="tick">逻辑步。</param>
         /// <param name="payload">载荷；null 当作空数组。</param>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="tick"/> 小于 0。</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="tick"/> 不在 <see cref="IsInInputWindow"/> 的窗口内。</exception>
         public void SubmitLocal(int tick, byte[] payload)
         {
-            if (tick < 0)
+            if (!IsInInputWindow(tick))
             {
-                throw new ArgumentOutOfRangeException(nameof(tick));
+                throw new ArgumentOutOfRangeException(nameof(tick), tick, "Tick is outside the lockstep input window.");
             }
 
             var copy = Copy(payload);
@@ -174,7 +230,8 @@ namespace Framework.Lockstep
             }
 
             EnsureTick(ConfirmedTick);
-            if (_inputs[ConfirmedTick][index] != null && !_predicted[ConfirmedTick][index])
+            var row = ConfirmedTick - _baseTick;
+            if (_inputs[row][index] != null && !_predicted[row][index])
             {
                 return false;
             }
@@ -199,6 +256,7 @@ namespace Framework.Lockstep
             }
 
             AdvanceOne();
+            Prune();
             return true;
         }
 
@@ -232,6 +290,12 @@ namespace Framework.Lockstep
                 return;
             }
 
+            if (!IsInInputWindow(message.Tick))
+            {
+                InputRejected?.Invoke(message.PlayerId, message.Tick);
+                return;
+            }
+
             Store(index, message.Tick, Copy(message.Payload), predicted: false);
         }
 
@@ -242,18 +306,47 @@ namespace Framework.Lockstep
                 _simulation.SaveCheckpoint(ConfirmedTick);
             }
 
-            _simulation.Simulate(ConfirmedTick, _playerIds, _inputs[ConfirmedTick]);
+            _simulation.Simulate(ConfirmedTick, _playerIds, _inputs[ConfirmedTick - _baseTick]);
             _checksums.Add(_simulation.Checksum);
             ConfirmedTick++;
+        }
+
+        /// <summary>
+        /// 回滚最早只会落到窗口下界之前最近的那个检查点，比它更早的检查点和输入行都用不到了。
+        /// 输入行要保留到这个检查点为止，否则从它重放时缺输入。
+        /// </summary>
+        void Prune()
+        {
+            var lowerBound = ConfirmedTick - MaxRollbackTicks;
+            if (lowerBound <= 0)
+            {
+                return;
+            }
+
+            var keepFrom = lowerBound - lowerBound % _interval;
+            if (keepFrom > _checkpointFloor)
+            {
+                _checkpointFloor = keepFrom;
+                (_simulation as ILockstepCheckpointPruning)?.DiscardCheckpointsBefore(keepFrom);
+            }
+
+            var drop = keepFrom - _baseTick;
+            if (drop >= PruneBatch)
+            {
+                _inputs.RemoveRange(0, drop);
+                _predicted.RemoveRange(0, drop);
+                _baseTick = keepFrom;
+            }
         }
 
         void Store(int playerIndex, int tick, byte[] payload, bool predicted)
         {
             EnsureTick(tick);
-            var previous = _inputs[tick][playerIndex];
+            var row = tick - _baseTick;
+            var previous = _inputs[row][playerIndex];
             var changed = !Same(previous, payload);
-            _inputs[tick][playerIndex] = payload;
-            _predicted[tick][playerIndex] = predicted;
+            _inputs[row][playerIndex] = payload;
+            _predicted[row][playerIndex] = predicted;
             if (changed && tick < ConfirmedTick)
             {
                 RollbackFrom(tick);
@@ -279,7 +372,7 @@ namespace Framework.Lockstep
 
         void EnsureTick(int tick)
         {
-            while (_inputs.Count <= tick)
+            while (_inputs.Count <= tick - _baseTick)
             {
                 _inputs.Add(new byte[_playerIds.Length][]);
                 _predicted.Add(new bool[_playerIds.Length]);
@@ -288,12 +381,12 @@ namespace Framework.Lockstep
 
         bool HasAll(int tick)
         {
-            if (tick >= _inputs.Count)
+            if (tick - _baseTick >= _inputs.Count)
             {
                 return false;
             }
 
-            var row = _inputs[tick];
+            var row = _inputs[tick - _baseTick];
             for (var i = 0; i < row.Length; i++)
             {
                 if (row[i] == null)

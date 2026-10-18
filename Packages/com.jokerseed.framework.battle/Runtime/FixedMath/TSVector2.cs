@@ -526,7 +526,7 @@ namespace Framework.FixedMath {
             // 将角度转换为0-360度范围
             if (degrees < 0)
             {
-                degrees += (FP)(360.0);
+                degrees += (FP)360;
             }
 
             return degrees;

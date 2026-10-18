@@ -168,7 +168,7 @@ namespace Framework.Lockstep.Physics2D
             // Math.Pow 走 float，结果不确定。不要在模拟路径调用 ComputeSubmergedArea。
             // TODO - PORT
             //FP com = -2.0f / 3.0f * (FP)Math.Pow(_2radius - l2, 1.5f) / area;
-            FP com = new FP(-2) / new FP(3) * (FP)Math.Pow((_2radius - l2).AsFloat(), 1.5f) / area;
+            FP com = new FP(-2) / new FP(3) * (FP)Math.Pow((_2radius - l2).AsFloat(), 1.5f) / area; // determinism-allow: 只给浮力控制器用，战斗不调用
 
             sc.x = p.x + normal.x * com;
             sc.y = p.y + normal.y * com;

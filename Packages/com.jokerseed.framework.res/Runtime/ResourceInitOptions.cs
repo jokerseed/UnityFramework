@@ -13,8 +13,11 @@ namespace Framework.Res
         /// <summary>资源包运行模式。</summary>
         public ResourcePlayMode PlayMode = ResourcePlayMode.EditorSimulate;
 
-        /// <summary>主 CDN 服务器地址；仅 <see cref="ResourcePlayMode.Host"/> 模式下使用。</summary>
-        public string HostServerUrl = "http://127.0.0.1/CDN";
+        /// <summary>
+        /// 主 CDN 服务器地址；仅 <see cref="ResourcePlayMode.Host"/> 模式下使用。末尾的 <c>/</c> 可有可无。
+        /// 默认 https：Android 9+ 与 iOS ATS 默认禁止明文 http，确需 http 时须在平台配置里显式放行。
+        /// </summary>
+        public string HostServerUrl = "https://127.0.0.1/CDN";
 
         /// <summary>备用 CDN 服务器地址；为空或 null 时回退到 <see cref="HostServerUrl"/>。</summary>
         public string FallbackHostServerUrl;

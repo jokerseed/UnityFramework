@@ -1,30 +1,50 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Framework.Logging
 {
     /// <summary>
     /// 全局日志入口：级别/分类过滤、格式化、自定义 Sink。
     /// 由 <see cref="LoggingModule"/> 初始化，也可在编辑器下直接 Configure。
+    /// 可在任意线程写日志：Sink 列表与分类过滤表都是只读快照，修改时在锁内整体替换（写时复制），读路径不加锁。
+    /// 单个 Sink 抛出的异常会被吞掉，日志系统不会把异常抛给调用方。
     /// </summary>
     public static class GameLog
     {
-        static readonly List<ILogSink> Sinks = new List<ILogSink>();
-        static readonly Dictionary<string, LogCategoryFilter> CategoryFilters =
-            new Dictionary<string, LogCategoryFilter>(StringComparer.Ordinal);
+        /// <summary>分类过滤规则的不可变副本；不引用调用方传入、之后还可能被修改的 <see cref="LogCategoryFilter"/>。</summary>
+        sealed class FilterState
+        {
+            public readonly bool Enabled;
+            public readonly bool UseCustomMinLevel;
+            public readonly LogLevel MinLevel;
 
-        static LogLevel _minLevel = LogLevel.Info;
-        static LogFormatter _formatter = DefaultFormatter;
-        static bool _configured;
-        static bool _useRichText = true;
+            public FilterState(bool enabled, bool useCustomMinLevel, LogLevel minLevel)
+            {
+                Enabled = enabled;
+                UseCustomMinLevel = useCustomMinLevel;
+                MinLevel = minLevel;
+            }
+        }
+
+        static readonly object Gate = new object();
+        static readonly Dictionary<string, FilterState> EmptyFilters =
+            new Dictionary<string, FilterState>(StringComparer.Ordinal);
+
+        static volatile ILogSink[] _sinks = Array.Empty<ILogSink>();
+        static volatile Dictionary<string, FilterState> _filters = EmptyFilters;
+        static volatile LogFormatter _formatter = DefaultFormatter;
         static ILogSink _fallbackSink;
+        static volatile bool _configured;
+        static volatile bool _useRichText = true;
+        static int _minLevel = (int)LogLevel.Info;
 
         /// <summary>是否已通过 <see cref="Configure"/> 完成初始化配置。</summary>
         public static bool IsConfigured => _configured;
 
         /// <summary>当前全局最低日志级别。</summary>
-        public static LogLevel MinLevel => _minLevel;
+        public static LogLevel MinLevel => (LogLevel)Volatile.Read(ref _minLevel);
 
         /// <summary>是否对默认格式使用 Unity 富文本（颜色 / 加粗）。</summary>
         public static bool UseRichText => _useRichText;
@@ -58,11 +78,7 @@ namespace Framework.Logging
 
             Shutdown();
 
-            _minLevel = options.MinLevel;
-            _useRichText = options.UseRichText;
-            _configured = true;
-
-            CategoryFilters.Clear();
+            var filters = new Dictionary<string, FilterState>(StringComparer.Ordinal);
             if (options.CategoryFilters != null)
             {
                 for (var i = 0; i < options.CategoryFilters.Length; i++)
@@ -73,8 +89,16 @@ namespace Framework.Logging
                         continue;
                     }
 
-                    CategoryFilters[filter.Category] = filter;
+                    filters[filter.Category] = new FilterState(filter.Enabled, filter.UseCustomMinLevel, filter.MinLevel);
                 }
+            }
+
+            lock (Gate)
+            {
+                Volatile.Write(ref _minLevel, (int)options.MinLevel);
+                _useRichText = options.UseRichText;
+                _filters = filters;
+                _configured = true;
             }
 
             if (options.UnityConsoleEnabled)
@@ -93,9 +117,18 @@ namespace Framework.Logging
                 throw new ArgumentNullException(nameof(sink));
             }
 
-            if (!Sinks.Contains(sink))
+            lock (Gate)
             {
-                Sinks.Add(sink);
+                var current = _sinks;
+                if (Array.IndexOf(current, sink) >= 0)
+                {
+                    return;
+                }
+
+                var next = new ILogSink[current.Length + 1];
+                Array.Copy(current, next, current.Length);
+                next[current.Length] = sink;
+                _sinks = next;
             }
         }
 
@@ -108,14 +141,27 @@ namespace Framework.Logging
                 return;
             }
 
-            Sinks.Remove(sink);
+            lock (Gate)
+            {
+                var current = _sinks;
+                var index = Array.IndexOf(current, sink);
+                if (index < 0)
+                {
+                    return;
+                }
+
+                var next = new ILogSink[current.Length - 1];
+                Array.Copy(current, 0, next, 0, index);
+                Array.Copy(current, index + 1, next, index, current.Length - index - 1);
+                _sinks = next;
+            }
         }
 
         /// <summary>动态设置全局最低日志级别。</summary>
         /// <param name="level">新的最低日志级别。</param>
         public static void SetMinLevel(LogLevel level)
         {
-            _minLevel = level;
+            Volatile.Write(ref _minLevel, (int)level);
         }
 
         /// <summary>启用或禁用指定分类的日志输出。</summary>
@@ -128,13 +174,10 @@ namespace Framework.Logging
                 return;
             }
 
-            if (!CategoryFilters.TryGetValue(category, out var filter))
-            {
-                filter = new LogCategoryFilter { Category = category };
-                CategoryFilters[category] = filter;
-            }
-
-            filter.Enabled = enabled;
+            UpdateFilter(category, old => new FilterState(
+                enabled,
+                old != null && old.UseCustomMinLevel,
+                old != null ? old.MinLevel : LogLevel.Info));
         }
 
         /// <summary>为指定分类设置自定义最低日志级别。</summary>
@@ -147,14 +190,7 @@ namespace Framework.Logging
                 return;
             }
 
-            if (!CategoryFilters.TryGetValue(category, out var filter))
-            {
-                filter = new LogCategoryFilter { Category = category };
-                CategoryFilters[category] = filter;
-            }
-
-            filter.UseCustomMinLevel = true;
-            filter.MinLevel = level;
+            UpdateFilter(category, old => new FilterState(old == null || old.Enabled, true, level));
         }
 
         /// <summary>判断指定分类与级别的日志是否应当输出。</summary>
@@ -168,13 +204,13 @@ namespace Framework.Logging
                 return true;
             }
 
-            if (level < _minLevel)
+            if ((int)level < Volatile.Read(ref _minLevel))
             {
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(category) ||
-                !CategoryFilters.TryGetValue(category, out var filter))
+                !_filters.TryGetValue(category, out var filter))
             {
                 return true;
             }
@@ -245,13 +281,27 @@ namespace Framework.Logging
         /// <summary>关闭日志系统，清除所有 Sink、过滤规则并重置配置状态。</summary>
         public static void Shutdown()
         {
-            Sinks.Clear();
-            CategoryFilters.Clear();
-            _minLevel = LogLevel.Info;
-            _formatter = DefaultFormatter;
-            _useRichText = true;
-            _configured = false;
-            _fallbackSink = null;
+            lock (Gate)
+            {
+                _sinks = Array.Empty<ILogSink>();
+                _filters = EmptyFilters;
+                Volatile.Write(ref _minLevel, (int)LogLevel.Info);
+                _formatter = DefaultFormatter;
+                _useRichText = true;
+                _configured = false;
+                Volatile.Write(ref _fallbackSink, null);
+            }
+        }
+
+        static void UpdateFilter(string category, Func<FilterState, FilterState> update)
+        {
+            lock (Gate)
+            {
+                var next = new Dictionary<string, FilterState>(_filters, StringComparer.Ordinal);
+                next.TryGetValue(category, out var old);
+                next[category] = update(old);
+                _filters = next;
+            }
         }
 
         static void Write(LogLevel level, string category, string message, Exception exception = null)
@@ -262,16 +312,36 @@ namespace Framework.Logging
             }
 
             var entry = new LogEntry(level, category, message, exception, DateTime.UtcNow);
-            if (Sinks.Count == 0)
+            var sinks = _sinks;
+            if (sinks.Length == 0)
             {
-                _fallbackSink ??= new UnityConsoleLogSink(_formatter);
-                _fallbackSink.Write(in entry);
+                var fallback = Volatile.Read(ref _fallbackSink);
+                if (fallback == null)
+                {
+                    // 不固定格式化器：兜底 Sink 始终跟随当前 Formatter。
+                    Interlocked.CompareExchange(ref _fallbackSink, new UnityConsoleLogSink(), null);
+                    fallback = Volatile.Read(ref _fallbackSink);
+                }
+
+                WriteSafe(fallback, in entry);
                 return;
             }
 
-            for (var i = 0; i < Sinks.Count; i++)
+            for (var i = 0; i < sinks.Length; i++)
             {
-                Sinks[i].Write(in entry);
+                WriteSafe(sinks[i], in entry);
+            }
+        }
+
+        static void WriteSafe(ILogSink sink, in LogEntry entry)
+        {
+            try
+            {
+                sink.Write(in entry);
+            }
+            catch
+            {
+                // 一个 Sink 出错不影响其它 Sink，也不把异常抛给写日志的业务代码。
             }
         }
     }

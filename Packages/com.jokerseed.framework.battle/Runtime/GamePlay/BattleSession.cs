@@ -110,7 +110,7 @@ namespace Framework.GamePlay
         /// <param name="afterFixedStep">每个逻辑步执行后的回调；参数为固定步长。</param>
         /// <returns>本次渲染帧实际推进的逻辑步数。</returns>
         public int Tick(
-            float deltaTime,
+            float deltaTime, // determinism-allow: 渲染帧入口，在这里一次性转入定点累加器
             Action<FP> beforeFixedStep = null,
             Action<FP> afterFixedStep = null)
         {

@@ -263,11 +263,49 @@ namespace Framework.Lockstep.Physics2D {
             }
 
             dynamicTreeClone.Restore((DynamicTreeBroadPhase)world.ContactManager.BroadPhase);
+            RelinkFixtureProxies(world);
 
             world._worldHasNewFixture = this._worldHasNewFixture;
 
             world._bodyIdCounter = bodyCounter;
             world._fixtureIdCounter = fixtureCounter;
+        }
+
+        /// <summary>
+        /// 本地修改：克隆只还原宽相树，不还原各 Fixture 的 Proxies / ProxyCount。
+        /// 快照与恢复之间若有刚体被停用（DestroyProxies）或重新启用，Fixture 上的代理表就和树对不上：
+        /// 刚体移动时不再更新树节点，或拿着已释放的节点号查重叠。这里按恢复后的树重建每个 Fixture 的代理表。
+        /// 树节点里存的 ProxyId 是加入树之前的值，不可信，所以用节点下标作为代理号。
+        /// </summary>
+        static void RelinkFixtureProxies(Physics2D.World world) {
+            List<Physics2D.Body> bodies = world.BodyList;
+            for (int b = 0; b < bodies.Count; b++) {
+                List<Physics2D.Fixture> fixtures = bodies[b].FixtureList;
+                for (int f = 0; f < fixtures.Count; f++) {
+                    fixtures[f].ProxyCount = 0;
+                }
+            }
+
+            TreeNode<FixtureProxy>[] nodes = ((DynamicTreeBroadPhase)world.ContactManager.BroadPhase)._tree._nodes;
+            for (int i = 0; i < nodes.Length; i++) {
+                TreeNode<FixtureProxy> node = nodes[i];
+                if (node == null || node.Height != 0 || !node.IsLeaf()) {
+                    continue;
+                }
+
+                FixtureProxy proxy = node.UserData;
+                Physics2D.Fixture fixture = proxy.Fixture;
+                if (fixture == null || fixture.Proxies == null || proxy.ChildIndex < 0 || proxy.ChildIndex >= fixture.Proxies.Length) {
+                    continue;
+                }
+
+                proxy.ProxyId = i;
+                node.UserData = proxy;
+                fixture.Proxies[proxy.ChildIndex] = proxy;
+                if (fixture.ProxyCount < proxy.ChildIndex + 1) {
+                    fixture.ProxyCount = proxy.ChildIndex + 1;
+                }
+            }
         }
 
     }

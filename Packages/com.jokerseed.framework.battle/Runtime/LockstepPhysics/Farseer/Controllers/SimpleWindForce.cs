@@ -27,6 +27,12 @@ namespace Framework.Lockstep.Physics2D
         /// </summary>
         public bool IgnorePosition { get; set; }
 
+        /// <summary>
+        /// 计算强度浮动（<see cref="AbstractForceController.Variation"/>）用的确定性随机源，须用 <see cref="TSRandom.New"/> 创建并纳入快照。
+        /// Variation 不为 0 时必须设置；原先用的进程级静态随机源已删除。
+        /// </summary>
+        public TSRandom Random { get; set; }
+
 
         public override void ApplyForce(FP dt, FP strength)
         {
@@ -59,7 +65,12 @@ namespace Framework.Lockstep.Physics2D
                     // Calculate random Variation
                     if (Variation != 0)
                     {
-                        FP strengthVariation = Framework.FixedMath.TSRandom.value * TSMath.Clamp(Variation, 0, 1);
+                        if (Random == null)
+                        {
+                            throw new System.InvalidOperationException("SimpleWindForce.Random must be set when Variation is not zero.");
+                        }
+
+                        FP strengthVariation = Random.NextFP() * TSMath.Clamp(Variation, 0, 1);
                         forceVector.Normalize();
                         body.ApplyForce(forceVector * strength * decayMultiplier * strengthVariation);
                     }

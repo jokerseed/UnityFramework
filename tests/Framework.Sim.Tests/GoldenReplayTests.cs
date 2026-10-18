@@ -20,8 +20,14 @@ namespace Framework.Sim.Tests
         /// <summary>第 <see cref="Frames"/> 帧结束时的校验和；改动模拟逻辑后需要同步更新。</summary>
         const long GoldenFinalChecksum = unchecked((long)0xA676A203AE287D9AUL);
 
+        /// <summary>
+        /// <see cref="MinimalBattle.Run"/>（默认种子与步数）最后一步的校验和。上面那份录像只有移动，
+        /// 这一份会施放弹道和近战技能，覆盖技能数值、投射物命中、伤害与效果结算。
+        /// </summary>
+        const long GoldenMinimalBattleChecksum = unchecked((long)0x7C072BFC66511964UL);
+
         /// <summary>golden 值对应的模拟版本。</summary>
-        const int GoldenSimulationVersion = 1;
+        const int GoldenSimulationVersion = 2;
 
         [Test]
         public void SameInputTwice_ProducesSameChecksums()
@@ -69,6 +75,19 @@ namespace Framework.Sim.Tests
             var tape = Record(Seed);
             var actual = tape.Frames[tape.Frames.Count - 1].Checksum;
             Assert.AreEqual(GoldenFinalChecksum, actual,
+                $"逐帧结果变了，实际 0x{actual:X16}。有意改动请把 BattleSimulationVersion.Current 加一并更新 golden 值。");
+        }
+
+        [Test]
+        public void MinimalBattle_FinalChecksum_MatchesGolden()
+        {
+            Assert.AreEqual(GoldenSimulationVersion, BattleSimulationVersion.Current,
+                "模拟版本变了：请重新生成 golden 值并更新 GoldenSimulationVersion。");
+            var report = MinimalBattle.Run();
+            Assert.Less(report.EnemyHealthRaw, report.EnemyHealthAtStartRaw, "弹道没有打中，golden 场景失去了意义。");
+            Assert.Less(report.HeroHealthRaw, report.HeroHealthAtStartRaw, "近战没有打中，golden 场景失去了意义。");
+            var actual = report.Checksums[report.Checksums.Length - 1];
+            Assert.AreEqual(GoldenMinimalBattleChecksum, actual,
                 $"逐帧结果变了，实际 0x{actual:X16}。有意改动请把 BattleSimulationVersion.Current 加一并更新 golden 值。");
         }
 

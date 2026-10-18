@@ -296,10 +296,6 @@ namespace Framework.GamePlay
         public void QueryTargetsInRadius(TSVector origin, FP radius, GAS.Targeting.TargetDataFilter filter, List<ActorId> results)
         {
             results.Clear();
-            if (!_actors.TryGetValue(filter.Source, out var sourceActor))
-            {
-                return;
-            }
 
             var grid = _world.GetSingleton<SpatialHashGrid>();
             if (grid == null)
@@ -320,7 +316,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                if (filter.EnemiesOnly && target.TeamId == sourceActor.TeamId)
+                if (filter.EnemiesOnly && target.TeamId == filter.SourceTeamId)
                 {
                     continue;
                 }
@@ -360,10 +356,6 @@ namespace Framework.GamePlay
             List<ActorId> results)
         {
             results.Clear();
-            if (!_actors.TryGetValue(filter.Source, out var sourceActor))
-            {
-                return;
-            }
 
             var grid = _world.GetSingleton<SpatialHashGrid>();
             if (grid == null)
@@ -397,7 +389,7 @@ namespace Framework.GamePlay
                     continue;
                 }
 
-                if (filter.EnemiesOnly && target.TeamId == sourceActor.TeamId)
+                if (filter.EnemiesOnly && target.TeamId == filter.SourceTeamId)
                 {
                     continue;
                 }

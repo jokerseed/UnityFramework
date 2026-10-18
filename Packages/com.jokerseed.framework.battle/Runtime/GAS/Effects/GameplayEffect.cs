@@ -46,12 +46,12 @@ namespace Framework.GAS.Effects
         /// <summary>修改幅度。</summary>
         public ModifierMagnitude Magnitude { get; }
 
-        /// <summary>构造属性修改规则（常量幅度，兼容旧 API）。</summary>
-        public EffectModifier(string attributeName, EffectModifierOperation operation, float magnitude)
+        /// <summary>构造属性修改规则（常量幅度，兼容旧 API）。幅度按 <see cref="FixedConfig.FromConfig(float)"/> 量化到万分之一。</summary>
+        public EffectModifier(string attributeName, EffectModifierOperation operation, float magnitude) // determinism-allow: 配置边界
         {
             AttributeName = attributeName;
             Operation = operation;
-            Magnitude = ModifierMagnitude.Constant((FP)(magnitude));
+            Magnitude = ModifierMagnitude.Constant(FixedConfig.FromConfig(magnitude));
         }
 
         /// <summary>构造属性修改规则。</summary>
@@ -120,6 +120,9 @@ namespace Framework.GAS.Effects
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
 
+        /// <summary>重复施加时是否重置周期计时；见 <see cref="GameplayEffectDef.ResetPeriodOnRefresh"/>。</summary>
+        public bool ResetPeriodOnRefresh { get; }
+
         /// <summary>从 Def 构造运行时 Spec（兼容旧构造函数）。</summary>
         public GameplayEffectSpec(
             string effectId,
@@ -184,6 +187,7 @@ namespace Framework.GAS.Effects
             CostAttributes = def.CostAttributes;
             SetByCaller = setByCaller;
             MaxStacks = def.MaxStacks;
+            ResetPeriodOnRefresh = def.ResetPeriodOnRefresh;
         }
     }
 

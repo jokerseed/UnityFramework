@@ -45,25 +45,25 @@ namespace Framework.GamePlay
                 var framework = session.Framework;
                 var hero = session.AllocateActorId();
                 var enemy = session.AllocateActorId();
-                framework.CreateActor(hero, TSVector.zero, (FP)120f, teamId: 0);
-                framework.CreateActor(enemy, new TSVector((FP)1.6f, FP.Zero, FP.Zero), (FP)80f, teamId: 1);
+                framework.CreateActor(hero, TSVector.zero, (FP)120, teamId: 0);
+                framework.CreateActor(enemy, new TSVector(FixedConfig.FromConfig(1.6f), FP.Zero, FP.Zero), (FP)80, teamId: 1);
                 framework.GiveAbility(
                     hero,
                     new GameplayAbilityDef(new ProjectileAbility(
                         ProjectileAbilityId,
-                        cooldown: 0.4f,
-                        speed: 6f,
-                        radius: 0.2f,
-                        lifetime: 1f,
-                        damage: 12f,
+                        cooldown: FixedConfig.FromConfig(0.4f),
+                        speed: (FP)6,
+                        radius: FixedConfig.FromConfig(0.2f),
+                        lifetime: FP.One,
+                        damage: (FP)12,
                         teamId: 0)));
                 framework.GiveAbility(
                     enemy,
                     new GameplayAbilityDef(new MeleeStrikeAbility(
                         MeleeAbilityId,
-                        0.5f,
-                        8f,
-                        2.5f,
+                        FP.Half,
+                        (FP)8,
+                        FixedConfig.FromConfig(2.5f),
                         new MeleeTargetSelector(framework.QueryNearestEnemy))));
 
                 var heroStart = HealthRaw(framework, hero);
@@ -110,7 +110,7 @@ namespace Framework.GamePlay
             framework.TryActivateAbility(
                 caster,
                 abilityId,
-                new AbilityActivationContext(origin, direction, target, (FP)2.5f));
+                new AbilityActivationContext(origin, direction, target, FixedConfig.FromConfig(2.5f)));
         }
 
         static long HealthRaw(GamePlayFramework framework, ActorId actorId)

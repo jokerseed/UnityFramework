@@ -1,6 +1,7 @@
-# 每天 02:00（Asia/Shanghai）以及手动触发。不是分支保护的必需检查。
+# 每天 02:00（Asia/Shanghai）、指向 main 的 PR，以及手动触发。不是分支保护的必需检查。
 #
-# 定时任务先看 UNITY_LICENSE 是否为空：空则跳过，避免没有许可证时每晚失败。
+# 定时任务和 PR 先看 UNITY_LICENSE 是否为空：空则跳过，避免没有许可证时失败。
+# fork 来的 PR 拿不到仓库 Secret，同样跳过；引擎无关的模拟层由 ci.yml 的 dotnet 测试覆盖。
 # 手动 Run workflow 仍会进入 Unity 激活；没有 Secret 时在激活阶段失败。本仓库不提供许可证。
 #
 # 需要的仓库 Secret（见 https://game.ci/docs/github/activation ）：
@@ -8,7 +9,8 @@
 #   UNITY_EMAIL     Unity 账号邮箱
 #   UNITY_PASSWORD  Unity 账号密码
 #
-# Unity 版本与 ProjectSettings/ProjectVersion.txt 一致：2021.3.21f1。
+# Unity 版本与 ProjectSettings/ProjectVersion.txt 一致：2021.3.45f2（tests/Framework.Sim.Tests 会检查两处一致）。
+# Library 按 Assets / Packages / ProjectSettings 的哈希缓存，未改动资源时跳过整套导入。
 
 name: EditMode tests
 
@@ -16,6 +18,17 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 18 * * *"
+  pull_request:
+    branches: [main]
+
+# unity-test-runner 用 githubToken 把结果写成 Check Run，需要 checks: write。
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: unity-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   license:
@@ -37,11 +50,20 @@ jobs:
   editmode:
     name: Unity EditMode
     needs: license
-    if: github.event_name != 'schedule' || needs.license.outputs.enabled == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.license.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-editmode-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-editmode-
+            Library-
 
       - name: Run EditMode tests
         id: tests
@@ -52,7 +74,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: .
-          unityVersion: 2021.3.21f1
+          unityVersion: 2021.3.45f2
           testMode: editmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
@@ -66,11 +88,20 @@ jobs:
   playmode:
     name: Unity PlayMode
     needs: license
-    if: github.event_name != 'schedule' || needs.license.outputs.enabled == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.license.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cache Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-playmode-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-playmode-
+            Library-
 
       - name: Run PlayMode tests
         id: tests
@@ -81,7 +112,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: .
-          unityVersion: 2021.3.21f1
+          unityVersion: 2021.3.45f2
           testMode: playmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 

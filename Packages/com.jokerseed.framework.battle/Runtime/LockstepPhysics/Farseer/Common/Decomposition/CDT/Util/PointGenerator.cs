@@ -8,10 +8,10 @@ namespace Framework.Lockstep.Physics2D
 {
     internal class PointGenerator
     {
-        private static readonly TSRandom RNG = TSRandom.New(0);
-
+        // 不用进程级静态随机源：每次调用各建一个固定种子的实例，结果可复现，也不跨调用共享状态。
         public static List<TriangulationPoint> UniformDistribution(int n, FP scale)
         {
+            var RNG = TSRandom.New(0);
             List<TriangulationPoint> points = new List<TriangulationPoint>();
             for (int i = 0; i < n; i++)
             {

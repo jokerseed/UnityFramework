@@ -32,6 +32,16 @@ namespace KcpCSharp {
         private ByteBuf() {
 
         }
+
+        /// <summary>改为包装外部数组的前 <paramref name="length"/> 字节（读位置归零），用于复用同一个包装对象。</summary>
+        public ByteBuf Wrap(byte[] content, int length) {
+            this.data = content;
+            readerIndex = 0;
+            writerIndex = length;
+            markReader = 0;
+            markWriter = 0;
+            return this;
+        }
         /**
 		 *  容量
 		 **/

@@ -191,6 +191,7 @@ namespace Framework.Tests
                 battle + "/BehaviourTree",
                 battle + "/Battle.Core",
                 battle + "/Lockstep",
+                battle + "/LockstepPhysics/Farseer",
                 "Assets/Scripts/Luban",
             };
             for (var i = 0; i < required.Length; i++)

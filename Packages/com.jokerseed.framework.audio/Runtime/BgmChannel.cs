@@ -4,7 +4,12 @@ using UnityEngine;
 
 namespace Framework.Audio
 {
-    /// <summary>BGM 通道：双 AudioSource 交叉淡入淡出。</summary>
+    /// <summary>
+    /// BGM 通道：A/B 两个 AudioSource 交叉淡入淡出。
+    /// 淡入淡出途中再次切歌或停止时，以两个音源当前的实际音量为起点继续：
+    /// 两个都在响时较轻的那个立即停掉、较响的继续淡出，新曲用空出的音源淡入；
+    /// 请求的正是正在淡入（或正在淡出）的那首时不会从头重播。淡入淡出期间每帧读取最新的目标音量。
+    /// </summary>
     sealed class BgmChannel
     {
         readonly AudioSource _sourceA;
@@ -12,63 +17,83 @@ namespace Framework.Audio
         readonly AudioVolumeSettings _volume;
 
         AudioSource _active;
-        AudioSource _idle;
         ICoroutineHandle _fadeHandle;
 
-        /// <summary>当前是否在播放 BGM。</summary>
         public bool IsPlaying => _active != null && _active.isPlaying;
 
-        /// <summary>创建 BGM 通道。</summary>
-        /// <param name="root">AudioSource 挂载父节点。</param>
-        /// <param name="volume">音量设置。</param>
         public BgmChannel(Transform root, AudioVolumeSettings volume)
         {
             _volume = volume;
             _sourceA = CreateSource(root, "BgmA");
             _sourceB = CreateSource(root, "BgmB");
             _active = _sourceA;
-            _idle = _sourceB;
         }
 
-        /// <summary>播放 BGM，可选交叉淡入淡出。</summary>
-        /// <param name="clip">音频 Clip；为 null 时不播放。</param>
-        /// <param name="fadeSeconds">淡入淡出时长（秒）；小于等于 0 时立即切换。</param>
+        /// <summary>指定 Clip 是否正在任一 BGM 音源上播放（含淡出中）。</summary>
+        /// <param name="clip">音频 Clip。</param>
+        /// <returns>正在播放返回 true。</returns>
+        public bool IsUsing(AudioClip clip)
+        {
+            return clip != null
+                   && ((_sourceA.isPlaying && _sourceA.clip == clip) || (_sourceB.isPlaying && _sourceB.clip == clip));
+        }
+
         public void Play(AudioClip clip, float fadeSeconds)
         {
-            StopFade();
             if (clip == null)
             {
                 StopImmediate();
                 return;
             }
 
-            if (_active != null && _active.isPlaying && _active.clip == clip)
+            if (_active.isPlaying && _active.clip == clip)
             {
-                _active.volume = _volume.GetBgmVolume();
+                // 已是当前曲目（可能正在淡入）：淡入照常进行；没有淡入时把音量对齐到目标值。
+                if (!IsFading)
+                {
+                    _active.volume = _volume.GetBgmVolume();
+                }
+
                 return;
             }
 
-            if (fadeSeconds <= 0f)
+            StopFade();
+            var other = Other(_active);
+            if (other.isPlaying && other.clip == clip)
             {
-                StopImmediate();
-                _active = _idle;
-                _idle = _active == _sourceA ? _sourceB : _sourceA;
-                _active.clip = clip;
-                _active.loop = true;
-                _active.volume = _volume.GetBgmVolume();
-                _active.Play();
+                // 切回正在淡出的那首：反向淡入它，不从头播放。
+                StartFade(other, _active, fadeSeconds);
                 return;
             }
 
-            _fadeHandle = GameCoroutine.StartGlobal(CrossFadeCoroutine(clip, fadeSeconds));
+            // 两个都在响时保留较响的一个继续淡出，较轻的直接停掉腾出音源。
+            AudioSource fadingOut = null;
+            if (_sourceA.isPlaying && _sourceB.isPlaying)
+            {
+                fadingOut = _sourceA.volume >= _sourceB.volume ? _sourceA : _sourceB;
+                StopSource(Other(fadingOut));
+            }
+            else if (_sourceA.isPlaying)
+            {
+                fadingOut = _sourceA;
+            }
+            else if (_sourceB.isPlaying)
+            {
+                fadingOut = _sourceB;
+            }
+
+            var incoming = fadingOut != null ? Other(fadingOut) : _active;
+            incoming.clip = clip;
+            incoming.loop = true;
+            incoming.volume = fadeSeconds > 0f ? 0f : _volume.GetBgmVolume();
+            incoming.Play();
+            StartFade(incoming, fadingOut, fadeSeconds);
         }
 
-        /// <summary>停止 BGM。</summary>
-        /// <param name="fadeSeconds">淡出时长（秒）；小于等于 0 时立即停止。</param>
         public void Stop(float fadeSeconds)
         {
             StopFade();
-            if (_active == null || !_active.isPlaying)
+            if (!_sourceA.isPlaying && !_sourceB.isPlaying)
             {
                 return;
             }
@@ -79,82 +104,91 @@ namespace Framework.Audio
                 return;
             }
 
-            _fadeHandle = GameCoroutine.StartGlobal(FadeOutCoroutine(_active, fadeSeconds, StopImmediate));
+            _fadeHandle = GameCoroutine.StartGlobal(FadeOutAllCoroutine(fadeSeconds));
         }
 
-        /// <summary>刷新当前 BGM 音量。</summary>
         public void RefreshVolume()
         {
-            if (_active != null && _active.isPlaying)
+            // 淡入淡出中每帧都会读取最新的目标音量，这里只处理静止状态。
+            if (!IsFading && _active != null && _active.isPlaying)
             {
                 _active.volume = _volume.GetBgmVolume();
             }
         }
 
-        /// <summary>停止全部 AudioSource。</summary>
         public void StopImmediate()
         {
             StopFade();
-            _sourceA.Stop();
-            _sourceB.Stop();
-            _sourceA.clip = null;
-            _sourceB.clip = null;
+            StopSource(_sourceA);
+            StopSource(_sourceB);
             _active = _sourceA;
-            _idle = _sourceB;
         }
 
-        IEnumerator CrossFadeCoroutine(AudioClip clip, float fadeSeconds)
+        bool IsFading => _fadeHandle != null && _fadeHandle.IsRunning;
+
+        AudioSource Other(AudioSource source) => source == _sourceA ? _sourceB : _sourceA;
+
+        void StartFade(AudioSource fadeIn, AudioSource fadeOut, float fadeSeconds)
         {
-            var fadeOut = _active;
-            var fadeIn = _idle;
+            _active = fadeIn;
+            if (fadeSeconds <= 0f)
+            {
+                if (fadeOut != null)
+                {
+                    StopSource(fadeOut);
+                }
 
-            fadeIn.clip = clip;
-            fadeIn.loop = true;
-            fadeIn.volume = 0f;
-            fadeIn.Play();
+                fadeIn.volume = _volume.GetBgmVolume();
+                return;
+            }
 
+            _fadeHandle = GameCoroutine.StartGlobal(CrossFadeCoroutine(fadeIn, fadeOut, fadeSeconds));
+        }
+
+        IEnumerator CrossFadeCoroutine(AudioSource fadeIn, AudioSource fadeOut, float fadeSeconds)
+        {
             var elapsed = 0f;
+            var startIn = fadeIn.volume;
             var startOut = fadeOut != null && fadeOut.isPlaying ? fadeOut.volume : 0f;
-            var targetIn = _volume.GetBgmVolume();
 
             while (elapsed < fadeSeconds)
             {
                 elapsed += Time.unscaledDeltaTime;
                 var t = Mathf.Clamp01(elapsed / fadeSeconds);
+                fadeIn.volume = Mathf.Lerp(startIn, _volume.GetBgmVolume(), t);
                 if (fadeOut != null && fadeOut.isPlaying)
                 {
                     fadeOut.volume = Mathf.Lerp(startOut, 0f, t);
                 }
 
-                fadeIn.volume = Mathf.Lerp(0f, targetIn, t);
                 yield return null;
             }
 
             if (fadeOut != null)
             {
-                fadeOut.Stop();
-                fadeOut.clip = null;
+                StopSource(fadeOut);
             }
 
-            fadeIn.volume = targetIn;
-            _active = fadeIn;
-            _idle = fadeIn == _sourceA ? _sourceB : _sourceA;
+            fadeIn.volume = _volume.GetBgmVolume();
             _fadeHandle = null;
         }
 
-        IEnumerator FadeOutCoroutine(AudioSource source, float fadeSeconds, System.Action onComplete)
+        IEnumerator FadeOutAllCoroutine(float fadeSeconds)
         {
             var elapsed = 0f;
-            var start = source.volume;
+            var startA = _sourceA.volume;
+            var startB = _sourceB.volume;
             while (elapsed < fadeSeconds)
             {
                 elapsed += Time.unscaledDeltaTime;
-                source.volume = Mathf.Lerp(start, 0f, Mathf.Clamp01(elapsed / fadeSeconds));
+                var t = Mathf.Clamp01(elapsed / fadeSeconds);
+                _sourceA.volume = Mathf.Lerp(startA, 0f, t);
+                _sourceB.volume = Mathf.Lerp(startB, 0f, t);
                 yield return null;
             }
 
-            onComplete?.Invoke();
             _fadeHandle = null;
+            StopImmediate();
         }
 
         void StopFade()
@@ -164,6 +198,12 @@ namespace Framework.Audio
                 GameCoroutine.Stop(_fadeHandle);
                 _fadeHandle = null;
             }
+        }
+
+        static void StopSource(AudioSource source)
+        {
+            source.Stop();
+            source.clip = null;
         }
 
         static AudioSource CreateSource(Transform root, string name)

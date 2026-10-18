@@ -58,7 +58,7 @@ var bytes = ConfigManager.Instance.LoadConfigBytes("tbability", cache: true);
 
 ### 异步预热（WebGL / 小游戏）
 
-`LoadTables` 内部按表同步读包。不允许同步加载的平台先异步预热 TextAsset 缓存，再 `LoadTables`（默认 `cacheTableAssets=true`）就只读缓存：
+`LoadTables` 内部按表读取：先查 TextAsset 句柄缓存，未命中才同步读包。不允许同步加载的平台先异步预热缓存，再 `LoadTables` 就只读缓存：
 
 ```csharp
 await ConfigManager.Instance.PreloadTableAssetsAsync(new[] { "tbability", "tbeffect" }, ct);
@@ -67,9 +67,11 @@ var tables = ConfigManager.Instance.LoadTables<cfg.CfgTables>();
 
 表名与 Luban 生成代码里 loader 收到的文件名一致；漏掉的表仍会走同步加载。
 
+`LoadTables` 默认（`cacheTableAssets=false`）在表对象构造完成后释放全部 TextAsset 句柄（包括预热的），只留下表对象。需要在 Editor 下反复热重载时再传 `true`。
+
 ## 热重载
 
-`ReloadTables()` 丢弃表对象和 TextAsset 句柄后重新加载，并触发 `TablesReloaded`。持有旧表引用的业务（技能目录、效果目录等）要订阅该事件自行替换。
+`ReloadTables()` 先完整构建一份新表，成功后才替换旧表和 TextAsset 句柄，并触发 `TablesReloaded`；任一表失败时旧表保持可用。持有旧表引用的业务（技能目录、效果目录等）要订阅该事件自行替换。WebGL 上需要先重新预热再重载。
 
 ## 释放
 

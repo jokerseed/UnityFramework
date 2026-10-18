@@ -14,10 +14,12 @@
 | Mono.Xna（`TSVector2`） | 同上 | MIT | The Mono.Xna Team，见文件头 |
 | Farseer Physics Engine | `Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/Farseer` | Ms-PL | Ian Qvist，见各文件头 |
 | Box2D（Farseer 移植来源） | 同上 | zlib | Erin Catto，http://www.box2d.org |
-| Jitter Physics 物理引擎 | `Packages/com.jokerseed.framework.battle/Runtime/LockstepPhysics/Jitter` | zlib | Thorben Linneweber |
-| Photon TrueSync 数学封装 | `FixedMath`、`Lockstep.Legacy` 部分文件 | 见文件头；**使用方须自行确认授权** | Exit Games |
+| Jitter Physics 物理引擎 | `Packages/com.jokerseed.framework.battle.legacy/Runtime/Jitter`（可选包） | zlib | Thorben Linneweber |
+| Photon TrueSync 数学封装 | `FixedMath`、`Lockstep/Core/TrueSync`、可选包里的 `Lockstep.Legacy` 部分文件 | 见文件头；**使用方须自行确认授权** | Exit Games |
 
 > Ms-PL 要求：以源码形式分发 Farseer 时须保留原许可声明；以二进制形式分发时不得以与 Ms-PL 冲突的许可再授权该部分。
+
+包清单里的 `license` 字段按上表写成 SPDX 表达式：`com.jokerseed.framework.battle` 是 `MIT AND MS-PL AND Apache-2.0 AND Zlib`（自研 MIT，Farseer Ms-PL，FixedMath.Net Apache-2.0，Jitter 线性代数与 Box2D zlib）。TrueSync 时代的旧调度器和 Jitter 3D 引擎拆到了可选包 `com.jokerseed.framework.battle.legacy`，其中部分文件的授权需要使用方自行确认，所以该包写的是 `SEE LICENSE IN THIRD_PARTY_NOTICES.md`。`Lockstep/Core/TrueSync` 下的接口是 Farseer 依赖的基础类型，仍在战斗包里，授权同样需要确认。
 
 ## 二、工程内引用的开源依赖
 

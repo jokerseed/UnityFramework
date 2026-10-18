@@ -8,7 +8,8 @@ namespace Framework.DebugConsole
 {
     /// <summary>
     /// 运行时调试控制台（IMGUI）：查看日志（按级别过滤、看堆栈）并执行 <see cref="Commands"/> 中注册的命令。
-    /// 打开方式：左上角按钮，或旧输入系统下的 <c>`</c> 键。由 <see cref="DebugConsoleModule"/> 创建。
+    /// 打开方式：左上角按钮；旧输入系统下的 <c>`</c> 键或三指轻点；业务也可以调用 <see cref="Toggle"/> 绑定自己的手势。
+    /// 由 <see cref="DebugConsoleModule"/> 创建。日志存放在固定容量的环形缓冲里，满了以后丢弃最早的条目，入队为 O(1)。
     /// </summary>
     public sealed class RuntimeConsole : PersistentSingleton<RuntimeConsole>
     {
@@ -20,10 +21,13 @@ namespace Framework.DebugConsole
             public string Time;
         }
 
+        const int DefaultCapacity = 1000;
+
         readonly ConcurrentQueue<Entry> _incoming = new ConcurrentQueue<Entry>();
-        readonly List<Entry> _entries = new List<Entry>(256);
         readonly List<string> _history = new List<string>(32);
-        int _capacity = 1000;
+        Entry[] _ring = new Entry[DefaultCapacity];
+        int _head;
+        int _count;
         bool _capturing;
         bool _showLog = true;
         bool _showWarning = true;
@@ -46,11 +50,17 @@ namespace Framework.DebugConsole
         /// <summary>是否显示左上角的开关按钮（触屏设备没有键盘时需要）。</summary>
         public bool ShowToggleButton { get; set; } = true;
 
-        /// <summary>保留的日志条数上限；超出后丢弃最早的。</summary>
+        /// <summary>保留的日志条数上限（至少 16）；超出后丢弃最早的。缩小时保留最新的条目。</summary>
         public int Capacity
         {
-            get => _capacity;
-            set => _capacity = Mathf.Max(16, value);
+            get => _ring.Length;
+            set => Resize(Mathf.Max(16, value));
+        }
+
+        /// <summary>切换面板显示。</summary>
+        public void Toggle()
+        {
+            Visible = !Visible;
         }
 
         /// <summary>开始收集日志并注册内置命令（help / clear）。</summary>
@@ -90,7 +100,9 @@ namespace Framework.DebugConsole
             {
             }
 
-            _entries.Clear();
+            Array.Clear(_ring, 0, _ring.Length);
+            _head = 0;
+            _count = 0;
             _selected = -1;
             _infoCount = _warningCount = _errorCount = 0;
         }
@@ -110,23 +122,66 @@ namespace Framework.DebugConsole
         {
             while (_incoming.TryDequeue(out var entry))
             {
-                if (_entries.Count >= _capacity)
-                {
-                    Count(_entries[0].Type, -1);
-                    _entries.RemoveAt(0);
-                    _selected = Mathf.Max(-1, _selected - 1);
-                }
-
-                _entries.Add(entry);
-                Count(entry.Type, 1);
+                Push(entry);
             }
 
 #if ENABLE_LEGACY_INPUT_MANAGER
             if (Input.GetKeyDown(KeyCode.BackQuote))
             {
-                Visible = !Visible;
+                Toggle();
+            }
+
+            if (Input.touchCount == 3 && Input.GetTouch(2).phase == TouchPhase.Began)
+            {
+                Toggle();
             }
 #endif
+        }
+
+        Entry GetEntry(int index) => _ring[(_head + index) % _ring.Length];
+
+        void Push(in Entry entry)
+        {
+            if (_count == _ring.Length)
+            {
+                Count(_ring[_head].Type, -1);
+                _ring[_head] = entry;
+                _head = (_head + 1) % _ring.Length;
+                _selected = Mathf.Max(-1, _selected - 1);
+            }
+            else
+            {
+                _ring[(_head + _count) % _ring.Length] = entry;
+                _count++;
+            }
+
+            Count(entry.Type, 1);
+        }
+
+        void Resize(int capacity)
+        {
+            if (capacity == _ring.Length)
+            {
+                return;
+            }
+
+            var keep = Mathf.Min(_count, capacity);
+            var dropped = _count - keep;
+            var next = new Entry[capacity];
+            for (var i = 0; i < dropped; i++)
+            {
+                Count(GetEntry(i).Type, -1);
+            }
+
+            for (var i = 0; i < keep; i++)
+            {
+                next[i] = GetEntry(dropped + i);
+            }
+
+            _ring = next;
+            _head = 0;
+            _count = keep;
+            _selected = _selected - dropped < 0 ? -1 : _selected - dropped;
         }
 
         void Count(LogType type, int delta)
@@ -191,9 +246,9 @@ namespace Framework.DebugConsole
         {
             var style = new GUIStyle(GUI.skin.label) { richText = true, wordWrap = false };
             _scroll = GUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
-            for (var i = 0; i < _entries.Count; i++)
+            for (var i = 0; i < _count; i++)
             {
-                var entry = _entries[i];
+                var entry = GetEntry(i);
                 if (!IsShown(entry.Type))
                 {
                     continue;
@@ -219,12 +274,12 @@ namespace Framework.DebugConsole
 
         void DrawDetail()
         {
-            if (_selected < 0 || _selected >= _entries.Count)
+            if (_selected < 0 || _selected >= _count)
             {
                 return;
             }
 
-            var entry = _entries[_selected];
+            var entry = GetEntry(_selected);
             var style = new GUIStyle(GUI.skin.textArea) { richText = true, wordWrap = true };
             GUILayout.Label($"{entry.Message}\n{entry.StackTrace}", style, GUILayout.MaxHeight(160));
         }

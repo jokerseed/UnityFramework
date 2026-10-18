@@ -33,6 +33,8 @@ namespace Framework.GAS
         readonly List<ActiveAbilityInstance> _activeInstancesScratch = new List<ActiveAbilityInstance>();
         readonly List<GameplayAbilitySpec> _eventSpecScratch = new List<GameplayAbilitySpec>();
         readonly List<ActiveGameplayEffect> _expiredEffects = new List<ActiveGameplayEffect>();
+        readonly List<ActiveGameplayEffect> _tickEffectsScratch = new List<ActiveGameplayEffect>();
+        readonly Dictionary<string, FP> _attributeSnapshot = new Dictionary<string, FP>();
         readonly AttributeModifierAggregator _aggregator = new AttributeModifierAggregator();
         FP _appliedShieldBonus;
         readonly Dictionary<string, FP> _spawnBases = new Dictionary<string, FP>();
@@ -634,7 +636,8 @@ namespace Framework.GAS
         /// <summary>将伤害上下文经管线处理后扣除生命值。</summary>
         public bool ApplyDamage(in DamageContext context, IEventBus eventBus, AbilitySystemComponent sourceAsc = null)
         {
-            if (eventBus == null)
+            // 死亡是终态：同一帧后到的伤害不再结算，也不重复发伤害、属性变化事件（否则伤害统计、飘字、击杀判定会多算）。
+            if (eventBus == null || IsDead)
             {
                 return false;
             }
@@ -968,7 +971,7 @@ namespace Framework.GAS
                         return false;
                     case EffectStackingPolicy.RefreshDuration:
                         existing.RemainingTime = spec.Duration;
-                        existing.PeriodTimer = spec.Period;
+                        RefreshPeriod(existing, spec);
                         if (sourceAsc != null)
                         {
                             existing.SourceAsc = sourceAsc;
@@ -982,11 +985,11 @@ namespace Framework.GAS
                         }
 
                         existing.RemainingTime = spec.Duration;
-                        existing.PeriodTimer = spec.Period;
+                        RefreshPeriod(existing, spec);
                         return true;
                     case EffectStackingPolicy.AggregateBySource:
                         existing.RemainingTime = spec.Duration;
-                        existing.PeriodTimer = spec.Period;
+                        RefreshPeriod(existing, spec);
                         if (sourceAsc != null)
                         {
                             existing.SourceAsc = sourceAsc;
@@ -1007,6 +1010,18 @@ namespace Framework.GAS
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// 重复施加时默认保留周期计时：否则以短于周期的间隔反复刷新的持续伤害永远不会跳。
+        /// 定义了 <see cref="GameplayEffectSpec.ResetPeriodOnRefresh"/> 时才重置为一个完整周期。
+        /// </summary>
+        static void RefreshPeriod(ActiveGameplayEffect existing, GameplayEffectSpec spec)
+        {
+            if (spec.ResetPeriodOnRefresh)
+            {
+                existing.PeriodTimer = spec.Period;
+            }
         }
 
         static bool IsSameStackGroup(ActiveGameplayEffect existing, GameplayEffectSpec spec, ActorId source)
@@ -1118,10 +1133,25 @@ namespace Framework.GAS
         void TickEffects(FP deltaTime, IEventBus eventBus)
         {
             _expiredEffects.Clear();
-            for (var i = _activeEffects.Count - 1; i >= 0; i--)
+
+            // 遍历副本：周期效果的执行可能施加或移除效果（例如技能结束回调里 RemoveActiveEffect），直接遍历原列表会错位或越界。
+            _tickEffectsScratch.Clear();
+            _tickEffectsScratch.AddRange(_activeEffects);
+            for (var i = _tickEffectsScratch.Count - 1; i >= 0; i--)
             {
-                var effect = _activeEffects[i];
+                var effect = _tickEffectsScratch[i];
+                if (_activeEffects.IndexOf(effect) < 0)
+                {
+                    continue;
+                }
+
                 TickPeriodicEffect(effect, deltaTime, eventBus);
+                if (IsDead)
+                {
+                    // 被周期伤害打死后，本帧剩下的效果不再执行。
+                    _tickEffectsScratch.Clear();
+                    return;
+                }
 
                 if (effect.Spec.DurationPolicy != EffectDurationPolicy.Duration)
                 {
@@ -1524,15 +1554,19 @@ namespace Framework.GAS
             }
         }
 
+        /// <summary>
+        /// 记下重算前的属性值。复用成员字典：每次施加、移除、到期都会重算，热路径不再每次新建字典。
+        /// 只在 <see cref="RecalculateAttributes"/> 里用到，且在发布变化事件之后才可能递归重算，复用是安全的。
+        /// </summary>
         Dictionary<string, FP> CaptureAttributeValues()
         {
-            var result = new Dictionary<string, FP>();
+            _attributeSnapshot.Clear();
             foreach (var pair in Attributes.GetAllAttributes())
             {
-                result[pair.Key] = pair.Value.CurrentValue;
+                _attributeSnapshot[pair.Key] = pair.Value.CurrentValue;
             }
 
-            return result;
+            return _attributeSnapshot;
         }
 
         void PublishAttributeChanges(Dictionary<string, FP> oldValues, IEventBus eventBus)

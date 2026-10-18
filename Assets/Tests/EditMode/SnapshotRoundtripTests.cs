@@ -201,14 +201,14 @@ namespace Framework.Tests
 
                 var sweep = new MeleeSweepAbility(
                     "sweep",
-                    5f,
-                    12f,
-                    2f,
-                    60f,
+                    (FP)5,
+                    (FP)12,
+                    (FP)2,
+                    (FP)60,
                     framework.QueryEnemiesInCone,
-                    0.2f,
-                    0.2f,
-                    0.3f);
+                    FixedConfig.FromConfig(0.2f),
+                    FixedConfig.FromConfig(0.2f),
+                    FixedConfig.FromConfig(0.3f));
                 var specHandle = heroAsc.GiveAbility(new GameplayAbilityDef(sweep));
                 var buff = new GameplayEffectDef(
                     "Buff.Strike",
@@ -288,7 +288,7 @@ namespace Framework.Tests
                     Assert.AreEqual(forward[i], BattleFrameChecksum.Compute(framework), "step " + i);
                 }
 
-                var next = heroAsc.GiveAbility(new GameplayAbilityDef(new DashAbility("dash", 1f, 1f, 0.2f, null)));
+                var next = heroAsc.GiveAbility(new GameplayAbilityDef(new DashAbility("dash", (FP)1, (FP)1, FixedConfig.FromConfig(0.2f), null)));
                 Assert.AreEqual(specHandle.Value + 1, next.Value);
             }
         }

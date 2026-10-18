@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Framework.Core;
 using Framework.Logging;
 
@@ -48,24 +49,76 @@ namespace Framework.Save
             Saved?.Invoke(key);
         }
 
-        /// <summary>读取对象。</summary>
+        /// <summary>
+        /// 读取对象。主存档读取失败或解析失败时，若存储支持 <see cref="ISaveBackupStorage"/>，改读上一份备份并记警告。
+        /// </summary>
         /// <typeparam name="T">数据类型。</typeparam>
         /// <param name="key">存档键。</param>
         /// <param name="value">存在时输出数据。</param>
         /// <returns>存在返回 true；不存在返回 false。</returns>
         /// <exception cref="InvalidOperationException">未配置。</exception>
-        /// <exception cref="FormatException">存档内容损坏或与类型不符。</exception>
+        /// <exception cref="FormatException">存档与备份都损坏或与类型不符。</exception>
         public bool TryLoad<T>(string key, out T value)
         {
             EnsureConfigured();
-            if (!_storage.TryRead(key, out var data))
+            Exception primaryError;
+            try
             {
-                value = default;
+                if (!_storage.TryRead(key, out var data))
+                {
+                    if (TryLoadBackup(key, out value))
+                    {
+                        GameLog.Warning(LogCategories.Save, $"Save {LogStyle.Value(key)} missing, restored from backup.");
+                        return true;
+                    }
+
+                    value = default;
+                    return false;
+                }
+
+                value = _serializer.Deserialize<T>(data);
+                return true;
+            }
+            catch (Exception ex) when (ex is FormatException || ex is IOException)
+            {
+                primaryError = ex;
+            }
+
+            if (TryLoadBackup(key, out value))
+            {
+                GameLog.Warning(LogCategories.Save, $"Save {LogStyle.Value(key)} corrupted ({primaryError.Message}), restored from backup.");
+                return true;
+            }
+
+            throw primaryError is FormatException format
+                ? format
+                : new FormatException($"Save '{key}' cannot be read.", primaryError);
+        }
+
+        bool TryLoadBackup<T>(string key, out T value)
+        {
+            value = default;
+            if (!(_storage is ISaveBackupStorage backups))
+            {
                 return false;
             }
 
-            value = _serializer.Deserialize<T>(data);
-            return true;
+            try
+            {
+                if (!backups.TryReadBackup(key, out var data))
+                {
+                    return false;
+                }
+
+                value = _serializer.Deserialize<T>(data);
+                return true;
+            }
+            catch (Exception ex) when (ex is FormatException || ex is IOException)
+            {
+                GameLog.Warning(LogCategories.Save, $"Backup of {LogStyle.Value(key)} is unusable: {ex.Message}");
+                value = default;
+                return false;
+            }
         }
 
         /// <summary>读取对象；不存在时用 <paramref name="createDefault"/> 创建（不自动保存）。</summary>

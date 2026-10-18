@@ -54,6 +54,63 @@ namespace Framework.Sim.Tests
             }
         }
 
+        [Test]
+        public void StripsRichTextFromMessage()
+        {
+            using (var sink = new FileLogSink(_dir))
+            {
+                var message = $"Group {"<b><color=#80DEEA>launch</color></b>"} ready";
+                var entry = new LogEntry(LogLevel.Info, "Test", message, null, DateTime.UtcNow);
+                sink.Write(in entry);
+                sink.Flush();
+                var text = ReadShared(sink.CurrentPath);
+                StringAssert.Contains("Group launch ready", text);
+                StringAssert.DoesNotContain("<color", text);
+                StringAssert.DoesNotContain("<b>", text);
+            }
+        }
+
+        [Test]
+        public void InfoIsBufferedUntilFlush()
+        {
+            using (var sink = new FileLogSink(_dir))
+            {
+                var entry = new LogEntry(LogLevel.Info, "Test", "buffered", null, DateTime.UtcNow);
+                sink.Write(in entry);
+                sink.Flush();
+                StringAssert.Contains("buffered", ReadShared(sink.CurrentPath));
+            }
+        }
+
+        [Test]
+        public void WriteAfterDisposeDoesNotThrow()
+        {
+            var sink = new FileLogSink(_dir);
+            sink.Dispose();
+            var entry = new LogEntry(LogLevel.Error, "Test", "late", null, DateTime.UtcNow);
+            Assert.DoesNotThrow(() => sink.Write(in entry));
+        }
+
+        [Test]
+        public void GameLogSurvivesThrowingSink()
+        {
+            GameLog.Shutdown();
+            try
+            {
+                GameLog.AddSink(new ThrowingSink());
+                Assert.DoesNotThrow(() => GameLog.Error("Test", "should not throw"));
+            }
+            finally
+            {
+                GameLog.Shutdown();
+            }
+        }
+
+        sealed class ThrowingSink : ILogSink
+        {
+            public void Write(in LogEntry entry) => throw new InvalidOperationException("sink failed");
+        }
+
         static string ReadShared(string path)
         {
             using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))

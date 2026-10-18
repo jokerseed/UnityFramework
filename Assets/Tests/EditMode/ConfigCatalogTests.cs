@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Framework.Battle;
 using Framework.Battle.Commands;
 using Framework.FixedMath;
@@ -11,6 +12,7 @@ using Framework.GAS.Effects;
 using Framework.GAS.Tags;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Framework.Tests
 {
@@ -31,9 +33,10 @@ namespace Framework.Tests
                     Target = actorId,
                     EffectId = "Test.Buff"
                 });
-                Assert.Throws<InvalidOperationException>(() => framework.Tick((FP)1 / 30));
+                // 没注入目录：记一次错误并跳过这条命令，战斗继续推进。
+                LogAssert.Expect(LogType.Error, new Regex(@"Test\.Buff"));
+                framework.Tick((FP)1 / 30);
                 Assert.AreEqual(0, framework.Commands.ApplyEffect.Count);
-                framework.Commands.ClearAll();
                 Assert.AreEqual(0, asc.ActiveEffectCount);
 
                 var effect = new GameplayEffectDef(
@@ -60,12 +63,13 @@ namespace Framework.Tests
                     Target = actorId,
                     EffectId = "Missing.Effect"
                 });
-                Assert.Throws<InvalidOperationException>(() => framework.Tick((FP)1 / 30));
+                // 目录里没有这个效果：同样只记一次错误，已有效果不受影响。
+                LogAssert.Expect(LogType.Error, new Regex(@"Missing\.Effect"));
+                framework.Tick((FP)1 / 30);
                 Assert.AreEqual(0, framework.Commands.ApplyEffect.Count);
-                framework.Commands.ClearAll();
                 Assert.AreEqual(1, asc.ActiveEffectCount);
 
-                var dash = new DashAbility("Test.Dash", 1f, 3f, 0.2f, null);
+                var dash = new DashAbility("Test.Dash", (FP)1, (FP)3, FixedConfig.FromConfig(0.2f), null);
                 var abilities = new FakeAbilityCatalog(dash);
                 GamePlayConfigSetup.RegisterActorAbilities(
                     framework,

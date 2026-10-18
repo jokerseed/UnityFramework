@@ -57,6 +57,12 @@ namespace Framework.GAS.Effects
         /// <summary>叠层上限；≤0 表示不限制。</summary>
         public int MaxStacks { get; }
 
+        /// <summary>
+        /// 重复施加（刷新持续时间或叠层）时是否把周期计时重置为一个完整周期。默认 false：保留当前计时。
+        /// 重置时，刷新间隔比周期短的持续伤害永远不会跳伤害（对应 UE GAS 的 PeriodResetPolicy）。
+        /// </summary>
+        public bool ResetPeriodOnRefresh { get; }
+
         /// <summary>构造效果定义。</summary>
         public GameplayEffectDef(
             string effectId,
@@ -74,7 +80,8 @@ namespace Framework.GAS.Effects
             IReadOnlyList<string> cueTagsOnApply = null,
             IReadOnlyList<string> cueTagsOnRemove = null,
             IReadOnlyDictionary<string, FP> costAttributes = null,
-            int maxStacks = 0)
+            int maxStacks = 0,
+            bool resetPeriodOnRefresh = false)
         {
             EffectId = effectId;
             DurationPolicy = durationPolicy;
@@ -92,6 +99,7 @@ namespace Framework.GAS.Effects
             CueTagsOnRemove = cueTagsOnRemove ?? Array.Empty<string>();
             CostAttributes = costAttributes ?? new Dictionary<string, FP>();
             MaxStacks = maxStacks;
+            ResetPeriodOnRefresh = resetPeriodOnRefresh;
         }
 
         /// <summary>从现有 Spec 包装为 Def（兼容旧 API）。</summary>
@@ -114,6 +122,7 @@ namespace Framework.GAS.Effects
             CueTagsOnRemove = spec.CueTagsOnRemove;
             CostAttributes = spec.CostAttributes;
             MaxStacks = spec.MaxStacks;
+            ResetPeriodOnRefresh = spec.ResetPeriodOnRefresh;
         }
 
         /// <summary>转为运行时 Spec。</summary>
