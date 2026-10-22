@@ -58,7 +58,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Cache Luban CLI
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ThirdParty/luban-4.11.0/Tools/Luban
           key: luban-cli-${{ runner.os }}-${{ hashFiles('ThirdParty/luban-4.11.0/src/**') }}
