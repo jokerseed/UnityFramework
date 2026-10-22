@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache Library
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Library
           key: Library-editmode-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache Library
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: Library
           key: Library-playmode-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
