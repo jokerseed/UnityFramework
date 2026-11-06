@@ -106,6 +106,7 @@ namespace Framework.Network
             CancellationToken cancellationToken)
         {
             Validate(url, timeoutSeconds);
+            cancellationToken.ThrowIfCancellationRequested();
             var timeout = Mathf.Max(1, Mathf.CeilToInt(timeoutSeconds));
             using (var request = new UnityWebRequest(url, method))
             {
@@ -121,9 +122,14 @@ namespace Framework.Network
                 {
                     await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
                 }
-                catch (OperationCanceledException)
+                catch (UnityWebRequestException) when (request.result == UnityWebRequest.Result.ProtocolError)
                 {
-                    throw;
+                    // UniTask treats HTTP 4xx/5xx as exceptions; our API returns their status and body.
+                }
+                catch (UnityWebRequestException ex)
+                {
+                    GameLog.Warning(LogCategories.Network, $"HTTP {method} {url} failed: {request.error}");
+                    throw new InvalidOperationException(request.error ?? "HTTP request failed.", ex);
                 }
 
                 if (request.result == UnityWebRequest.Result.ConnectionError
@@ -148,7 +154,7 @@ namespace Framework.Network
                 throw new ArgumentNullException(nameof(url));
             }
 
-            if (timeoutSeconds <= 0f)
+            if (timeoutSeconds <= 0f || float.IsNaN(timeoutSeconds) || float.IsInfinity(timeoutSeconds))
             {
                 throw new ArgumentOutOfRangeException(nameof(timeoutSeconds));
             }

@@ -174,3 +174,9 @@ new NetworkModule(), // Dependencies: Logging + MemoryPool
 - HTTP 是短请求，不要塞进 `INetworkChannel`
 - 消息包走 `MemoryPool`，热路径避免额外 `IDisposable`
 - 心跳默认关闭（`HeartBeatInterval <= 0`）；有服务端再打开。打开后连续丢失 `MaxMissHeartBeatCount` 次即断开（半开连接在 TCP 层不会报错，只能靠心跳发现）
+
+### HTTP 错误与关闭时限
+
+HTTP 4xx/5xx 返回 `HttpResponse`，保留状态码和响应正文；连接或数据处理失败统一抛出 `InvalidOperationException`，取消仍抛出 `OperationCanceledException`。超时参数必须为有限正数。
+
+原生 WebSocket 主动关闭的两秒时限覆盖待发送链和关闭帧；即使发送阻塞，超时后也会取消并释放套接字。主动关闭不发出错误或关闭通知。

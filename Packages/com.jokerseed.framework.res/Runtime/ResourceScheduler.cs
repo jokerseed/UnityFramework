@@ -59,6 +59,7 @@ namespace Framework.Res
             public Type AssetType;
             public int Priority;
             public AssetHandle YooHandle;
+            public string Error;
             public readonly List<LoadWaiter> Waiters = new List<LoadWaiter>(4);
         }
 
@@ -117,6 +118,11 @@ namespace Framework.Res
             int priority)
         {
             var request = CreateRequest();
+            if (_stopped)
+            {
+                CompleteCancelled(request);
+                return request;
+            }
             var waiter = new LoadWaiter
             {
                 Request = request,
@@ -164,6 +170,11 @@ namespace Framework.Res
             int priority)
         {
             var request = CreateRequest();
+            if (_stopped)
+            {
+                CompleteCancelled(request);
+                return request;
+            }
             var item = new InstantiateItem
             {
                 Request = request,
@@ -292,12 +303,13 @@ namespace Framework.Res
         void StartPendingLoads(float frameStart)
         {
             var started = 0;
-            while (_pendingLoads.Count > 0
+            while (!_stopped && _pendingLoads.Count > 0
                    && started < _options.MaxLoadStartsPerFrame
                    && _inFlight.Count < _options.MaxLoadInFlight
                    && !Exceeded(frameStart, _options.MaxFrameBudgetMs))
             {
                 var item = DequeueFirst(_pendingLoads);
+                started++;
                 if (item.Waiters.Count == 0)
                 {
                     Unregister(item);
@@ -322,7 +334,6 @@ namespace Framework.Res
 
                 SetWaitersStatus(item, ResourceRequestStatus.Processing);
                 _inFlight.Add(item);
-                started++;
             }
         }
 
@@ -350,7 +361,15 @@ namespace Framework.Res
                 }
 
                 _inFlight.Remove(item);
-                _completedLoads.Add(item);
+                var wrapped = new ResourceAssetHandle(item.YooHandle);
+                if (!wrapped.Succeeded)
+                {
+                    FailLoad(item, string.IsNullOrEmpty(wrapped.Error) ? "Load failed." : wrapped.Error);
+                }
+                else
+                {
+                    _completedLoads.Add(item);
+                }
             }
         }
 
@@ -358,84 +377,51 @@ namespace Framework.Res
         {
             var dispatched = 0;
             var categoryStart = Time.realtimeSinceStartup;
-            while (_completedLoads.Count > 0
+            while (!_stopped && _completedLoads.Count > 0
                    && dispatched < _options.MaxCallbacksPerFrame
                    && !Exceeded(frameStart, _options.MaxFrameBudgetMs)
                    && !Exceeded(categoryStart, _options.CallbackBudgetMs))
             {
-                var item = DequeueFirst(_completedLoads);
-                Unregister(item);
-                if (!HasActiveWaiter(item))
+                // Keep undispatched waiters registered, including while invoking user callbacks.
+                // A callback may cancel another waiter, enqueue the same key, or shut us down.
+                var item = _completedLoads[0];
+                var waiter = DequeueFirst(item.Waiters);
+                var last = item.Waiters.Count == 0;
+                if (last)
                 {
-                    ReleaseYooHandle(item);
-                    continue;
+                    _completedLoads.RemoveAt(0);
+                    Unregister(item);
                 }
 
-                var wrapped = new ResourceAssetHandle(item.YooHandle);
-                if (!wrapped.IsValid || !wrapped.Succeeded)
-                {
-                    var error = wrapped.Error;
-                    FailLoad(item, string.IsNullOrEmpty(error) ? "Load failed." : error);
-                    dispatched++;
-                    continue;
-                }
-
-                DistributeSucceededHandles(item);
-                dispatched++;
-            }
-        }
-
-        void DistributeSucceededHandles(LoadItem item)
-        {
-            var originalAssigned = false;
-            for (var i = 0; i < item.Waiters.Count; i++)
-            {
-                var waiter = item.Waiters[i];
-                if (waiter.Request.Status == ResourceRequestStatus.Cancelled)
-                {
-                    continue;
-                }
-
-                AssetHandle yooHandle;
-                if (!originalAssigned)
-                {
-                    yooHandle = item.YooHandle;
-                    originalAssigned = true;
-                }
-                else
+                ResourceAssetHandle wrapped = default;
+                var error = item.Error;
+                if (error == null)
                 {
                     try
                     {
-                        yooHandle = _startLoad(item.Location, item.AssetType);
+                        // Retain the original as the shared load's anchor until the last waiter.
+                        var handle = last ? item.YooHandle : _startLoad(item.Location, item.AssetType);
+                        if (last) item.YooHandle = null;
+                        wrapped = new ResourceAssetHandle(handle);
+                        if (!wrapped.IsValid || !wrapped.Succeeded)
+                        {
+                            error = string.IsNullOrEmpty(wrapped.Error) ? "Load failed." : wrapped.Error;
+                            wrapped.Dispose();
+                            wrapped = default;
+                        }
                     }
                     catch (Exception ex)
                     {
-                        waiter.Request.Status = ResourceRequestStatus.Failed;
-                        waiter.Request.Error = ex.Message;
-                        InvokeSafe(waiter.OnComplete, default, item.Location);
-                        continue;
+                        error = ex.Message;
                     }
                 }
 
-                var wrapped = new ResourceAssetHandle(yooHandle);
-                if (!wrapped.IsValid || !wrapped.Succeeded)
-                {
-                    var extraError = string.IsNullOrEmpty(wrapped.Error) ? "Load failed." : wrapped.Error;
-                    wrapped.Dispose();
-                    waiter.Request.Status = ResourceRequestStatus.Failed;
-                    waiter.Request.Error = extraError;
-                    InvokeSafe(waiter.OnComplete, default, item.Location);
-                    continue;
-                }
-
+                if (last) ReleaseYooHandle(item);
+                waiter.Request.Status = error == null ? ResourceRequestStatus.Succeeded : ResourceRequestStatus.Failed;
+                waiter.Request.Error = error ?? string.Empty;
                 waiter.Request.AssetHandle = wrapped;
-                waiter.Request.Status = ResourceRequestStatus.Succeeded;
+                dispatched++;
                 InvokeSafe(waiter.OnComplete, wrapped, item.Location);
-            }
-
-            if (!originalAssigned)
-            {
-                ReleaseYooHandle(item);
             }
         }
 
@@ -443,7 +429,7 @@ namespace Framework.Res
         {
             var processed = 0;
             var categoryStart = Time.realtimeSinceStartup;
-            while (_pendingInstantiates.Count > 0
+            while (!_stopped && _pendingInstantiates.Count > 0
                    && processed < _options.MaxInstantiatesPerFrame
                    && !Exceeded(frameStart, _options.MaxFrameBudgetMs)
                    && (processed == 0 || !Exceeded(categoryStart, _options.InstantiateBudgetMs)))
@@ -488,7 +474,7 @@ namespace Framework.Res
 
         void TryStartUnload(float frameStart)
         {
-            if (!_unloadRequested || _unloadOperation != null)
+            if (_stopped || !_unloadRequested || _unloadOperation != null)
             {
                 return;
             }
@@ -533,23 +519,10 @@ namespace Framework.Res
 
         void FailLoad(LoadItem item, string error)
         {
-            Unregister(item);
+            // Failures obey the same per-waiter callback budget as successful loads.
             ReleaseYooHandle(item);
-            var message = error ?? string.Empty;
-            for (var i = 0; i < item.Waiters.Count; i++)
-            {
-                var waiter = item.Waiters[i];
-                if (waiter.Request.Status == ResourceRequestStatus.Cancelled)
-                {
-                    continue;
-                }
-
-                waiter.Request.Status = ResourceRequestStatus.Failed;
-                waiter.Request.Error = message;
-                InvokeSafe(waiter.OnComplete, default, item.Location);
-            }
-
-            item.Waiters.Clear();
+            item.Error = error ?? "Load failed.";
+            _completedLoads.Add(item);
         }
 
         void CompleteCancelled(ResourceRequestHandle request)
@@ -645,19 +618,6 @@ namespace Framework.Res
                     request.Status = status;
                 }
             }
-        }
-
-        static bool HasActiveWaiter(LoadItem item)
-        {
-            for (var i = 0; i < item.Waiters.Count; i++)
-            {
-                if (item.Waiters[i].Request.Status != ResourceRequestStatus.Cancelled)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         static void ReleaseYooHandle(LoadItem item)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Framework.Core;
+using Framework.Logging;
 
 namespace Framework.Bootstrap
 {
@@ -10,6 +11,9 @@ namespace Framework.Bootstrap
         internal readonly List<IGameModule> Modules = new List<IGameModule>();
         internal readonly List<IGameModule> Initialized = new List<IGameModule>();
 
+        internal readonly HashSet<ModuleGroup> Providers = new HashSet<ModuleGroup>();
+        internal bool IsNotifying;
+        internal bool IsResetting;
         internal Exception LastError;
 
         /// <summary>当前初始化代号。失败或重新开始时递增，迟到的完成回调据此丢弃。</summary>
@@ -82,21 +86,38 @@ namespace Framework.Bootstrap
         {
             State = state;
             LastError = error;
-            StateChanged?.Invoke(this);
+            Notify(StateChanged, handler => ((Action<ModuleGroup>)handler)(this));
 
             if (state == ModuleGroupState.Ready)
             {
-                Ready?.Invoke(this);
+                Notify(Ready, handler => ((Action<ModuleGroup>)handler)(this));
             }
             else if (state == ModuleGroupState.Failed)
             {
-                Failed?.Invoke(this, error);
+                Notify(Failed, handler => ((Action<ModuleGroup, Exception>)handler)(this, error));
             }
         }
 
         internal void ReportProgress(int current, int total)
         {
-            ProgressChanged?.Invoke(this, current, total);
+            Notify(ProgressChanged, handler => ((Action<ModuleGroup, int, int>)handler)(this, current, total));
+        }
+        void Notify(Delegate handlers, Action<Delegate> invoke)
+        {
+            if (handlers == null) return;
+            IsNotifying = true;
+            try
+            {
+                foreach (var handler in handlers.GetInvocationList())
+                {
+                    try { invoke(handler); }
+                    catch (Exception error)
+                    {
+                        GameLog.Exception(LogCategories.Bootstrap, error, $"Group '{Name}' observer failed.");
+                    }
+                }
+            }
+            finally { IsNotifying = false; }
         }
     }
 }

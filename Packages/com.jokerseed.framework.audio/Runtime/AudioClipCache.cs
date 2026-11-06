@@ -22,6 +22,8 @@ namespace Framework.Audio
         readonly HashSet<string> _loading =
             new HashSet<string>(StringComparer.Ordinal);
 
+        readonly HashSet<ResourceRequestHandle> _requests = new HashSet<ResourceRequestHandle>();
+
         int _generation;
         long _useCounter;
         int _capacity = DefaultCapacity;
@@ -91,9 +93,10 @@ namespace Framework.Audio
                 yield break;
             }
 
+            var generation = _generation;
             if (_loading.Contains(location))
             {
-                while (_loading.Contains(location))
+                while (generation == _generation && _loading.Contains(location))
                 {
                     if (TryGetCached(location, out cached))
                     {
@@ -104,19 +107,25 @@ namespace Framework.Audio
                     yield return null;
                 }
 
-                onComplete?.Invoke(TryGetCached(location, out cached) ? cached : null);
+                onComplete?.Invoke(generation == _generation && TryGetCached(location, out cached) ? cached : null);
                 yield break;
             }
 
-            var generation = _generation;
             _loading.Add(location);
             ResourceAssetHandle handle = default;
+            ResourceRequestHandle request = null;
+            var stored = false;
             try
             {
-                yield return ResourceManager.Instance.LoadAssetScheduled<AudioClip>(location, h => handle = h);
+                request = ResourceManager.Instance.LoadAssetScheduled<AudioClip>(location, h =>
+                {
+                    if (generation != _generation) h.Dispose();
+                    else handle = h;
+                });
+                _requests.Add(request);
+                yield return request;
                 if (generation != _generation)
                 {
-                    handle.Dispose();
                     onComplete?.Invoke(null);
                     yield break;
                 }
@@ -125,12 +134,12 @@ namespace Framework.Audio
                 {
                     if (TryGetCached(location, out cached))
                     {
-                        handle.Dispose();
                         onComplete?.Invoke(cached);
                     }
                     else
                     {
                         StoreHandle(location, handle);
+                        stored = true;
                         onComplete?.Invoke(handle.GetAsset<AudioClip>());
                     }
                 }
@@ -138,13 +147,21 @@ namespace Framework.Audio
                 {
                     GameLog.Error(LogCategories.Audio,
                         $"Load clip async failed: {LogStyle.Name(location)}  error={LogStyle.Value(handle.Error)}");
-                    handle.Dispose();
                     onComplete?.Invoke(null);
                 }
             }
             finally
             {
-                _loading.Remove(location);
+                if (request != null)
+                {
+                    _requests.Remove(request);
+                    request.Cancel();
+                }
+                if (!stored) handle.Dispose();
+                if (generation == _generation)
+                {
+                    _loading.Remove(location);
+                }
             }
         }
 
@@ -152,6 +169,8 @@ namespace Framework.Audio
         public void ReleaseAll()
         {
             _generation++;
+            foreach (var request in _requests) request.Cancel();
+            _requests.Clear();
             foreach (var pair in _handles)
             {
                 pair.Value.Dispose();
@@ -181,7 +200,7 @@ namespace Framework.Audio
         }
 
         /// <summary>超过容量时淘汰最久未用、且不在播放中的 Clip。</summary>
-        void Trim()
+        void Trim(string acquiring = null)
         {
             while (_handles.Count > _capacity)
             {
@@ -190,7 +209,7 @@ namespace Framework.Audio
                 foreach (var pair in _handles)
                 {
                     _lastUse.TryGetValue(pair.Key, out var used);
-                    if (used >= oldest || _loading.Contains(pair.Key))
+                    if (pair.Key == acquiring || used >= oldest || _loading.Contains(pair.Key))
                     {
                         continue;
                     }
@@ -254,7 +273,7 @@ namespace Framework.Audio
 
             _handles[location] = handle;
             _lastUse[location] = ++_useCounter;
-            Trim();
+            Trim(location);
         }
     }
 }

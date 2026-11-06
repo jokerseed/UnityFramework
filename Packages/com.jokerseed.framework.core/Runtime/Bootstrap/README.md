@@ -76,7 +76,7 @@ var manager = ResourceManager.Instance;
 - 组内按依赖波次串行；同波次且 `AllowConcurrentInitialization = true` 可并发（`UniTask.WhenAll`），任一模块失败会取消同波次其余模块
 - 依赖可以是具体类型或接口。同一个依赖匹配到多个模块时直接失败，不会随便挑一个
 - 已经 `Ready` 的其它组可以满足当前组的依赖。还没就绪的组不算
-- **组与组之间**互不影响，可先后或分别 `Run`。`Run` / `RunAsync` 在开始初始化之前就检查组名，找不到组会立刻抛 `KeyNotFoundException`
+- **组与组之间**可先后或分别 `Run`；依赖其它组时，必须先重置依赖方才能重置提供方。`Run` / `RunAsync` 在开始初始化之前就检查组名，找不到组会立刻抛 `KeyNotFoundException`
 
 ## 生命周期
 
@@ -87,10 +87,18 @@ SetModules("b", ...)  →  Idle（独立组）
 Run("b")              →  Running → Ready / Failed
 ```
 
-`Initialize` / `InitializeAsync` 抛出的异常（含取消产生的 `OperationCanceledException`）会把组设为 `Failed` 并触发 `Failed` 事件。已初始化的模块按逆序 `Shutdown`；某个模块的 `Shutdown` 抛异常不会挡住后面的模块。失败会递增 `RunSerial`，迟到的完成（并发波次中失败后才结束的模块）不会再记进已初始化列表，而是立即 `Shutdown`。失败后再次 `Run` 会重新初始化。全部是同步模块时，`RunAsync` 在调用当帧就结束。
+`Initialize` / `InitializeAsync` 抛出的异常（含取消产生的 `OperationCanceledException`）会把组设为 `Failed` 并触发 `Failed` 事件。已初始化的模块按逆序 `Shutdown`；某个模块的 `Shutdown` 抛异常不会挡住后面的模块。并发失败会立即取消同波次其它模块，并等待所有初始化退出后统一回滚；不响应取消的模块结束前，组保持 Running，禁止重置或重配，避免旧任务影响新一轮初始化。Bootstrap 销毁会递增 `RunSerial`，迟到的成功完成会立即 `Shutdown`。失败后再次 `Run` 会重新初始化。全部是同步模块时，`RunAsync` 在调用当帧就结束。
 
 ## 相关模块
 
 - `Framework.Res` → `ResourceModule`
 - `Framework.Config` → `ConfigModule`
 - 启动入口：`Assets/Scripts/Launch.cs`
+
+### 所有权与事件边界
+
+- 一个模块实例只能注册到一个组；重复类型与 null 项在配置时拒绝。配置先生成并验证快照，失败不会覆盖原有模块列表。
+- 外部依赖在启动时固定到具体提供组；Running / Ready 的依赖方仍存在时不能重置提供组。先重置依赖方，再重置提供方。
+- Bootstrap 销毁按组启动的逆序关闭，保证依赖方先于提供方关闭。组内仍按初始化完成的逆序关闭。
+- 状态、进度、Ready、Failed 的每个订阅者独立执行；订阅者异常仅记录日志，不改变初始化结果，也不阻止其它订阅者。通知回调中不允许重置或重配正在通知的组。
+- 初始化函数如果抛错，模块自身必须清理尚未完成的部分资源；Bootstrap 只关闭成功完成初始化的模块。

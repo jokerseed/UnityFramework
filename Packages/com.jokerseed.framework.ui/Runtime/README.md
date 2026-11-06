@@ -153,3 +153,8 @@ new ConfigModule(),
 - **事件绑定**：`AddUIEvent<T>` 在窗口销毁时自动取消订阅
 - **资源管理**：按 `UIReleasePolicy` 释放；`HideOnly` 关后仍算已打开，`Cached` / `HideAndDelayUnload` 关后进缓存由 `TryReviveCached` 复用
 - **异步取消**：`ShowAsync` 返回 `UIShowHandle`；`Cancel` 会停协程、取消 Res 调度请求，并销毁未绑定的实例
+
+## 排序与关闭边界
+
+- 每个 UILayer 最多同时显示 500 个窗口，窗口间保留 10 个排序值。超过上限抛出 InvalidOperationException，避免跨层排序；不支持未定义的 UILayer。
+- Shutdown 期间禁止再次初始化/打开窗口，重复关闭无操作。取消回调、窗口/Widget 销毁和事件退订的单项异常会记录并隔离，后续资源继续清理。

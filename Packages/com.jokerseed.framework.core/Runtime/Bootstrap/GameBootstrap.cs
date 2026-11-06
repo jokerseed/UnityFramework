@@ -21,6 +21,8 @@ namespace Framework.Bootstrap
         }
 
         readonly Dictionary<string, ModuleGroup> _groups = new Dictionary<string, ModuleGroup>();
+        readonly List<ModuleGroup> _startOrder = new List<ModuleGroup>();
+        bool _destroying;
         readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
 
         /// <summary>
@@ -30,10 +32,11 @@ namespace Framework.Bootstrap
         /// <param name="groupName">组名，不可为空白字符串。</param>
         /// <param name="modules">要注册的模块集合；顺序无强制要求，由拓扑排序决定初始化顺序。</param>
         /// <returns>对应的 <see cref="ModuleGroup"/> 实例，可用于监听事件。</returns>
-        /// <exception cref="ArgumentException"><paramref name="groupName"/> 为空或空白。</exception>
-        /// <exception cref="InvalidOperationException">该组已处于 Ready 状态。</exception>
+        /// <exception cref="ArgumentException"><paramref name="groupName"/> 为空或空白，或模块集合含 null。</exception>
+        /// <exception cref="InvalidOperationException">组正在运行、就绪或派发通知；模块类型重复或实例已由其它组拥有。</exception>
         public ModuleGroup SetModules(string groupName, IEnumerable<IGameModule> modules)
         {
+            ThrowIfDestroyed();
             if (string.IsNullOrWhiteSpace(groupName))
             {
                 throw new ArgumentException("Group name is required.", nameof(groupName));
@@ -45,13 +48,28 @@ namespace Framework.Bootstrap
                 _groups[groupName] = group;
             }
 
-            if (group.State == ModuleGroupState.Ready)
+            if (group.State == ModuleGroupState.Ready || group.State == ModuleGroupState.Running || group.IsNotifying || group.IsResetting)
             {
                 throw new InvalidOperationException(
                     $"Group '{groupName}' is already ready. Call ResetGroup(\"{groupName}\") before reconfiguring.");
             }
 
-            group.Configure(modules);
+            // Validate a snapshot before changing the existing configuration.
+            var snapshot = modules == null ? new List<IGameModule>() : new List<IGameModule>(modules);
+            var types = new HashSet<Type>();
+            foreach (var module in snapshot)
+            {
+                if (module == null) throw new ArgumentException("Modules cannot contain null.", nameof(modules));
+                if (!types.Add(module.GetType())) throw new InvalidOperationException($"Duplicate module: {module.GetType().Name}");
+                foreach (var other in _groups.Values)
+                {
+                    if (ReferenceEquals(other, group)) continue;
+                    foreach (var owned in other.Modules)
+                        if (ReferenceEquals(owned, module))
+                            throw new InvalidOperationException($"Module '{module.Name}' is owned by group '{other.Name}'.");
+                }
+            }
+            group.Configure(snapshot);
             return group;
         }
 
@@ -101,7 +119,10 @@ namespace Framework.Bootstrap
         /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
         public async UniTask RunAsync(string groupName, CancellationToken cancellationToken = default)
         {
+            ThrowIfDestroyed();
             var group = GetGroup(groupName);
+            if (group.IsResetting || group.IsNotifying)
+                throw new InvalidOperationException($"Group '{groupName}' is resetting or notifying observers.");
             if (group.State == ModuleGroupState.Running)
             {
                 await UniTask.WaitWhile(() => group.State == ModuleGroupState.Running, cancellationToken: cancellationToken);
@@ -124,24 +145,38 @@ namespace Framework.Bootstrap
         /// </summary>
         /// <param name="groupName">要重置的组名。</param>
         /// <exception cref="KeyNotFoundException">指定名称的模块组不存在。</exception>
-        /// <exception cref="InvalidOperationException">该组仍在 <see cref="ModuleGroupState.Running"/>。</exception>
+        /// <exception cref="InvalidOperationException">该组仍在运行、派发通知或重置；或其它活动组依赖该组。</exception>
         public void ResetGroup(string groupName)
         {
+            ThrowIfDestroyed();
             var group = GetGroup(groupName);
-            if (group.State == ModuleGroupState.Running)
+            if (group.State == ModuleGroupState.Running || group.IsNotifying || group.IsResetting)
             {
                 throw new InvalidOperationException(
                     $"Group '{groupName}' is running. Wait until it finishes before ResetGroup.");
             }
 
-            ShutdownGroup(group);
-            group.Modules.Clear();
-            group.Initialized.Clear();
-            group.SetState(ModuleGroupState.Idle);
+            foreach (var dependent in _groups.Values)
+                if (dependent.Providers.Contains(group))
+                    throw new InvalidOperationException($"Reset dependent group '{dependent.Name}' before '{group.Name}'.");
+
+            group.IsResetting = true;
+            try
+            {
+                ShutdownGroup(group);
+                _startOrder.Remove(group);
+                group.Providers.Clear();
+                group.Modules.Clear();
+                group.Initialized.Clear();
+                group.SetState(ModuleGroupState.Idle);
+            }
+            finally { group.IsResetting = false; }
         }
 
         async UniTask RunGroup(ModuleGroup group, CancellationTokenSource runCancellation)
         {
+            _startOrder.Remove(group);
+            _startOrder.Add(group);
             var serial = ++group.RunSerial;
             group.SetState(ModuleGroupState.Running);
 
@@ -151,7 +186,7 @@ namespace Framework.Bootstrap
             }
             catch (Exception failure)
             {
-                runCancellation.Cancel();
+                CancelSafely(runCancellation);
                 if (failure is OperationCanceledException)
                 {
                     GameLog.Warning(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} cancelled.");
@@ -171,6 +206,7 @@ namespace Framework.Bootstrap
                     GameLog.Exception(LogCategories.Bootstrap, shutdownError);
                 }
 
+                group.Providers.Clear();
                 group.SetState(ModuleGroupState.Failed, failure);
             }
         }
@@ -197,6 +233,7 @@ namespace Framework.Bootstrap
 
         async UniTask RunGroupInternal(ModuleGroup group, int serial, CancellationTokenSource runCancellation)
         {
+            runCancellation.Token.ThrowIfCancellationRequested();
             if (group.Modules.Count == 0)
             {
                 GameLog.Warning(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} has no modules.");
@@ -204,7 +241,12 @@ namespace Framework.Bootstrap
                 return;
             }
 
-            var waves = ModuleSorter.SortIntoWaves(group.Modules, CollectReadyModules(group.Name));
+            var available = CollectReadyModules(group.Name);
+            var waves = ModuleSorter.SortIntoWaves(group.Modules, available);
+            var dependencies = ModuleSorter.FindExternalDependencies(group.Modules, available);
+            foreach (var provider in _groups.Values)
+                foreach (var module in provider.Modules)
+                    if (dependencies.Contains(module)) group.Providers.Add(provider);
             var progress = new InitProgress();
             var totalModules = group.Modules.Count;
             var token = runCancellation.Token;
@@ -230,6 +272,7 @@ namespace Framework.Bootstrap
                 }
             }
 
+            token.ThrowIfCancellationRequested();
             group.SetState(ModuleGroupState.Ready);
             GameLog.Info(LogCategories.Bootstrap, $"Group {LogStyle.Name(group.Name)} {LogStyle.Ok("ready")}");
         }
@@ -277,20 +320,27 @@ namespace Framework.Bootstrap
             int serial,
             CancellationTokenSource runCancellation)
         {
+            // Each wrapper absorbs its failure, so WhenAll drains every initializer before
+            // rollback/retry can reuse an instance. Cancellation is still signalled immediately.
             var tasks = new UniTask[wave.Count];
+            Exception failure = null;
             for (var i = 0; i < wave.Count; i++)
-            {
-                tasks[i] = InitializeModule(group, wave[i], progress, totalModules, serial, runCancellation.Token, true);
-            }
+                tasks[i] = Observe(wave[i]);
+            await UniTask.WhenAll(tasks);
+            if (failure != null) throw failure;
 
-            try
+            async UniTask Observe(IGameModule module)
             {
-                await UniTask.WhenAll(tasks);
-            }
-            catch
-            {
-                runCancellation.Cancel();
-                throw;
+                try
+                {
+                    runCancellation.Token.ThrowIfCancellationRequested();
+                    await InitializeModule(group, module, progress, totalModules, serial, runCancellation.Token, true);
+                }
+                catch (Exception error)
+                {
+                    if (failure == null) failure = error;
+                    CancelSafely(runCancellation);
+                }
             }
         }
 
@@ -335,9 +385,12 @@ namespace Framework.Bootstrap
 
         static void ShutdownGroup(ModuleGroup group)
         {
-            for (var i = group.Initialized.Count - 1; i >= 0; i--)
+            // Detach ownership before calling user code, which may destroy the host.
+            var initialized = group.Initialized.ToArray();
+            group.Initialized.Clear();
+            for (var i = initialized.Length - 1; i >= 0; i--)
             {
-                var module = group.Initialized[i];
+                var module = initialized[i];
                 try
                 {
                     module.Shutdown();
@@ -348,17 +401,28 @@ namespace Framework.Bootstrap
                 }
             }
 
-            group.Initialized.Clear();
+        }
+
+        void ThrowIfDestroyed()
+        {
+            if (_destroying) throw new ObjectDisposedException(nameof(GameBootstrap));
+        }
+
+        static void CancelSafely(CancellationTokenSource source)
+        {
+            try { source.Cancel(); }
+            catch (Exception error) { GameLog.Exception(LogCategories.Bootstrap, error); }
         }
 
         protected override void OnDestroy()
         {
-            _lifetime.Cancel();
-            foreach (var pair in _groups)
-            {
-                ShutdownGroup(pair.Value);
-            }
-
+            _destroying = true;
+            // Invalidate completions before cancellation invokes user callbacks.
+            foreach (var group in _startOrder) group.RunSerial++;
+            CancelSafely(_lifetime);
+            for (var i = _startOrder.Count - 1; i >= 0; i--)
+                ShutdownGroup(_startOrder[i]);
+            _startOrder.Clear();
             _groups.Clear();
             _lifetime.Dispose();
             base.OnDestroy();

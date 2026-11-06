@@ -35,6 +35,7 @@
         "Framework.ObjectPool",
         "Framework.Coroutine",
         "Framework.Res",
+        "YooAsset",
         "Framework.Config",
         "Generated.Luban",
         "UnityEngine.TestRunner",
