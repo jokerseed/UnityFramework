@@ -6,6 +6,33 @@
 
 第一个面向开源的版本。框架代码从 `Assets/` 拆成 7 个嵌入式 UPM 包，异步链路统一为 UniTask，补齐客户端常用模块与工具链。
 
+### PR #31 / #32：生命周期、可选集成与验证补充
+
+以下变更已合并到主分支，补充本版本原有条目。
+
+#### 兼容性与迁移
+
+- **单例清理**：`DestroyInstance` 同步释放服务资源，再销毁 Unity 对象；清理异常可能向调用方传播。清理期间访问同类型 `Instance` 会抛出 `InvalidOperationException`。自定义单例子类应把资源清理从 `OnDestroy` 迁移到 `OnSingletonDestroy`，以获得拥有者专属、仅执行一次的清理保证。
+- **模块组所有权**：同一个模块实例只能属于一个组；标记为 `IExclusiveGameModule` 的全局服务模块，其相同具体类型也只能由一个组注册，直到该组重置。依赖提供组前需先重置依赖方；运行、重置或通知期间禁止不安全的重配/重入操作。
+- **资源初始化**：`ResourceManager.InitializeAsync` 拒绝重复或并发初始化。重新初始化前需 `Shutdown`，并等待旧初始化任务退出；关闭导致的异步资源请求取消以 `OperationCanceledException` 返回。
+- **HybridCLR**：基础框架不再直接引用可选的 `HybridCLR.Runtime`。需要该集成的项目须先安装匹配的 HybridCLR，再从 Framework Resource 的 Samples 导入 **HybridCLR Adapter**。以前只安装 HybridCLR 的项目也需补做这一步；`LoadAsync` / `InvokeEntry` 签名不变。
+- **UI / 音频行为**：每个 UI 层最多显示 500 个窗口，未定义层级被拒绝；关闭期间不能重开 UI。异步 BGM 采用最后请求优先，后续同步播放、停止或关闭会使旧请求失效。
+
+#### 修复与结构调整
+
+- 启动事件订阅者异常互相隔离；并发初始化失败先取消并等待所有初始化退出，再回滚；关闭回调重入不再重复释放已转移的模块所有权。
+- HTTP 4xx/5xx 保留响应状态和正文，连接/数据处理失败统一映射；WebSocket 主动关闭有包含发送队列等待的时限。
+- 合并资源加载按每个等待者限制回调预算，递归调度不能绕过预算；取消在 PlayerLoop 处理。初始化和失败清理的等待随关闭退出，避免资源驱动器已销毁后挂起。
+- 音频缓存句柄、异步播放和 SFX 音量生命周期修复；UI 清理异常隔离，并拆分纯逻辑窗口注册表与 Unity 布局适配器，保留 UIManager 公共 API。
+- 网络测试采用可控 DNS 超时和有界回环等待；补充回放、协程及单例生命周期回归测试。
+
+#### 验证范围
+
+- 新增按真实程序集边界生成的独立 .NET 消费者，以及不含演示项目的七包 Unity 消费者；后者仍需要 Unity 许可证。
+- PR #32 合并后的 Linux / Windows CI 各通过 81 个模拟测试和 12 个独立消费者测试（零跳过）；21 个 Python 工具测试和 Luban 漂移检查通过。
+- Unity 许可证门禁明确区分未执行与通过；结果校验要求非空且成功的 NUnit 测试结果。合并时未配置 `UNITY_LICENSE`，EditMode、PlayMode、干净 Unity 消费者均未运行，不代表 Unity 编译或运行验证通过。
+- 实际游戏启动/场景与资源流程、已安装 HybridCLR 的适配器，以及 IL2CPP / WebGL 构建仍需在相应环境验证。
+
 ### 不兼容改动
 
 - **Unity 版本**：工程升到 2021.3.45f2。2021.3.45f2 之前的版本受 Unity 运行时漏洞 CVE-2025-59489 影响，用旧版本打出的包需要用新版本重新构建并发布。
@@ -36,7 +63,7 @@
 - Core：`ISaveBackupStorage`，存档写入保留 `.bak`，读取失败时回退；`FileLogSink.Flush`；`LogStyle.StripRichText`；`RuntimeConsole.Toggle` 与三指轻点开关；对象池 `OnSpawn` / `OnUnspawn`；`FrameworkLinkXmlProcessor`，构建时合并各框架包的 `link.xml`（Unity 不读取包里的 link.xml）。
 - UI：`LocalizedTmpText`（装了 TextMeshPro 才编译）；`UIWindow.IsOccluded`；子 Widget 跟随父界面更新与销毁。
 - Res：Collector 过滤规则 `CollectTopDirectoryOnly`，父目录与子目录收集器不再重复收集。
-- 测试与 CI：dotnet 测试工程加入网络、内存池与存档代码，新增 TCP / KCP 环回、心跳、超时、存档备份、投射物扫掠、锁步窗口与物理回滚等测试；Unity 测试工作流在 PR 上运行（无许可证时跳过）并缓存 Library；CI 新增打表一致性检查。
+- 测试与 CI：dotnet 测试工程加入网络、内存池与存档代码，新增 TCP / KCP 环回、心跳、超时、存档备份、投射物扫掠、锁步窗口与物理回滚等测试；Unity 测试工作流在 PR 上运行并缓存 Library（可信运行缺少许可证时明确失败；fork PR 跳过需要 Secret 的作业）；CI 新增打表一致性检查。
 - Core：有限状态机与流程（`ProcedureManager`）、表现层定时器、存档与设置（原子写入、可替换存储与序列化）、本地化（多来源、回退语言、`LocalizedText`）、运行时调试控制台、滚动文件日志与未处理异常捕获。
 - Res：`ResourcePatcher`，用于 HostPlayMode 下统计并下载补丁，带进度与取消；可选的 `HotUpdateLoader`，用于 HybridCLR 补充元数据并加载热更程序集。
 - Config：`PreloadTableAssetsAsync`，供不允许同步加载的平台（WebGL / 小游戏）预热；`ReloadTables`，改表后热重载。
@@ -44,7 +71,7 @@
 - Network：WebSocket 频道（桌面 / 移动端用 `ClientWebSocket`，WebGL 用 jslib，可替换传输层）、带超时与取消的 `NetworkRpcClient`。
 - Network：KCP 频道（UDP，会话号由调用方指定；WebGL / 小游戏创建即失败）。HTTP 短请求 `HttpRequests` 不进入频道。
 - Battle：录像记录模拟版本，提供 golden 录像；`BattleSimulationVersion.Current` 写入录像与锁步输入。
-- 测试与 CI：`tests/Framework.Sim.Tests` 用纯 .NET 编译模拟层并运行测试（含 golden 录像、确定性扫描和文档相对链接），GitHub Actions 在 Linux / Windows 上跑；Unity EditMode / PlayMode 工作流每天定时跑，未配置许可证 Secret 时跳过。
+- 测试与 CI：`tests/Framework.Sim.Tests` 用纯 .NET 编译模拟层并运行测试（含 golden 录像、确定性扫描和文档相对链接），GitHub Actions 在 Linux / Windows 上跑；Unity EditMode / PlayMode / 干净包消费者工作流支持 PR、每日定时和手动触发；可信运行未配置许可证 Secret 时明确失败，测试不执行；fork PR 跳过需要 Secret 的作业。
 - Network：KCP 源码随 `com.jokerseed.framework.network` 分发（`Runtime/ThirdParty/KCP`），拷贝该包即可编译 KCP 频道。
 - 演示层：Luban 适配程序集改名为 `Game.Luban`，类型命名空间仍是 `Framework.GamePlay.Data`。
 - 裁剪：各相关包带 `link.xml`，保留内存池、热更加载和行为树 JSON 反序列化要用的程序集。
