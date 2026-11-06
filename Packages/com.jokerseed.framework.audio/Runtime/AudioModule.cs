@@ -9,7 +9,7 @@ using Framework.Res;
 namespace Framework.Audio
 {
     /// <summary>音频模块：初始化 <see cref="AudioManager"/>，Shutdown 时停止全部音频并释放缓存。</summary>
-    public sealed class AudioModule : IGameModule
+    public sealed class AudioModule : IExclusiveGameModule
     {
         /// <inheritdoc />
         public string Name => "Audio";
@@ -40,7 +40,6 @@ namespace Framework.Audio
         {
             if (AudioManager.HasInstance)
             {
-                AudioManager.Instance.Shutdown();
                 AudioManager.DestroyInstance();
             }
 

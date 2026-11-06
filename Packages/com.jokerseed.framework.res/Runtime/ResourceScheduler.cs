@@ -87,6 +87,7 @@ namespace Framework.Res
         bool _unloadRequested;
         UnloadUnusedAssetsOperation _unloadOperation;
         bool _stopped;
+        bool _ticking;
 
         /// <summary>等待发起的加载数量（已合并的同地址请求计为 1）。</summary>
         public int PendingLoadCount => _pendingLoads.Count;
@@ -234,18 +235,26 @@ namespace Framework.Res
         /// <summary>每帧推进队列。</summary>
         public void Tick()
         {
-            if (_stopped)
+            if (_stopped || _ticking)
             {
                 return;
             }
 
-            var frameStart = Time.realtimeSinceStartup;
-            PollInFlight();
-            StartPendingLoads(frameStart);
-            ProcessInstantiates(frameStart);
-            DispatchLoadCompletes(frameStart);
-            TryStartUnload(frameStart);
-            PollUnload();
+            _ticking = true;
+            try
+            {
+                var frameStart = Time.realtimeSinceStartup;
+                PollInFlight();
+                StartPendingLoads(frameStart);
+                ProcessInstantiates(frameStart);
+                DispatchLoadCompletes(frameStart);
+                TryStartUnload(frameStart);
+                PollUnload();
+            }
+            finally
+            {
+                _ticking = false;
+            }
         }
 
         /// <summary>取消全部未完成请求并清空队列。</summary>

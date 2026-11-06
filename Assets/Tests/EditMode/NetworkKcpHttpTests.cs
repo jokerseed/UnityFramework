@@ -1,12 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Framework.Events;
 using Framework.Network;
@@ -113,7 +115,7 @@ namespace Framework.Tests
                 var port = ((IPEndPoint)listener.LocalEndpoint).Port;
                 var serve = Task.Run(() =>
                 {
-                    using (var client = listener.AcceptTcpClient())
+                    using (var client = AcceptOrFail(listener))
                     using (var stream = client.GetStream())
                     {
                         ReadRequest(stream);
@@ -122,7 +124,7 @@ namespace Framework.Tests
                 });
                 try
                 {
-                    var response = await HttpRequests.GetAsync($"http://127.0.0.1:{port}/error");
+                    var response = await HttpRequests.GetAsync($"http://127.0.0.1:{port}/error", 5f);
                     Assert.AreEqual(int.Parse(status.Substring(0, 3)), response.StatusCode);
                     Assert.IsFalse(response.IsSuccess);
                     Assert.AreEqual("error details", Encoding.UTF8.GetString(response.Body));
@@ -141,7 +143,7 @@ namespace Framework.Tests
             Task serve = Task.Run(() => ServeOne(listener, "pong"));
             try
             {
-                var got = await HttpRequests.GetAsync($"http://127.0.0.1:{port}/ping");
+                var got = await HttpRequests.GetAsync($"http://127.0.0.1:{port}/ping", 5f);
                 Assert.IsTrue(got.IsSuccess, "status " + got.StatusCode);
                 Assert.AreEqual("pong", Encoding.UTF8.GetString(got.Body));
                 await serve;
@@ -176,9 +178,22 @@ namespace Framework.Tests
             }
         });
 
+        static TcpClient AcceptOrFail(TcpListener listener)
+        {
+            var elapsed = Stopwatch.StartNew();
+            while (!listener.Pending())
+            {
+                if (elapsed.ElapsedMilliseconds >= 5000)
+                    throw new TimeoutException("HTTP loopback server did not receive a connection.");
+                Thread.Sleep(5);
+            }
+
+            return listener.AcceptTcpClient();
+        }
+
         static byte[] ServeOne(TcpListener listener, string responseBody)
         {
-            using (var client = listener.AcceptTcpClient())
+            using (var client = AcceptOrFail(listener))
             using (var stream = client.GetStream())
             {
                 stream.ReadTimeout = 3000;
@@ -190,7 +205,8 @@ namespace Framework.Tests
 
         static byte[] ReadRequest(NetworkStream stream)
         {
-            var buffer = new MemoryStream();
+            stream.ReadTimeout = 3000;
+            using var buffer = new MemoryStream();
             var chunk = new byte[1024];
             while (buffer.Length < 8192)
             {
@@ -229,6 +245,7 @@ namespace Framework.Tests
 
         static void WriteResponse(NetworkStream stream, string body, string status = "200 OK")
         {
+            stream.WriteTimeout = 3000;
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
                 "HTTP/1.1 " + status + "\r\nContent-Type: text/plain\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n");

@@ -109,7 +109,7 @@ namespace Framework.Tests
         {
             var manager = _host.AddComponent<UIManager>();
             var bringToTop = typeof(UIManager).GetMethod("BringToTop", Private);
-            var stack = (List<UIWindow>)typeof(UIManager).GetField("_stack", Private).GetValue(manager);
+            var stack = (IReadOnlyList<UIWindow>)typeof(UIManager).GetProperty("Stack", Private).GetValue(manager);
             for (var i = 0; i < 500; i++) bringToTop.Invoke(manager, new object[] { new TestWindow() });
             Assert.That(stack[499].SortingOrder, Is.EqualTo(4990));
             var error = Assert.Throws<TargetInvocationException>(() => bringToTop.Invoke(manager, new object[] { new TestWindow() }));

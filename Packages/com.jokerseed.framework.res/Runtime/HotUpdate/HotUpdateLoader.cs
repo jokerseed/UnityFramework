@@ -31,11 +31,22 @@ namespace Framework.HotUpdate
     /// <summary>
     /// HybridCLR 热更程序集加载：先补充 AOT 元数据，再按依赖顺序 <see cref="Assembly.Load(byte[])"/> 热更 DLL。
     /// 字节通过 <see cref="ResourceManager"/> 加载，因此须在资源初始化（及补丁下载）之后调用。
-    /// 工程安装 <c>com.code-philosophy.hybridclr</c> 后定义 <c>FRAMEWORK_HYBRIDCLR</c>，才会执行 AOT 元数据补充。
+    /// 安装 HybridCLR 并导入可选适配器示例后，才会执行 AOT 元数据补充。
     /// Editor 下热更代码已作为普通程序集编译，直接返回已加载的程序集，不读取字节。
     /// </summary>
     public static class HotUpdateLoader
     {
+        static Action<string, byte[]> _aotMetadataLoader;
+
+        /// <summary>注册可选的 AOT 元数据后端；传 null 可清除。须在主线程、LoadAsync 前调用。</summary>
+        public static void RegisterAotMetadataLoader(Action<string, byte[]> loader)
+        {
+            _aotMetadataLoader = loader;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetBackend() => _aotMetadataLoader = null;
+
         /// <summary>补充 AOT 元数据并加载热更程序集。</summary>
         /// <param name="aotMetadataLocations">AOT 元数据 DLL 字节的寻址（HybridCLR 生成的裁剪后 AOT DLL）；可为空。</param>
         /// <param name="assemblies">热更程序集，按依赖顺序排列（被依赖的在前）。</param>
@@ -133,17 +144,11 @@ namespace Framework.HotUpdate
 
         static void LoadAotMetadata(string location, byte[] bytes)
         {
-#if FRAMEWORK_HYBRIDCLR
-            var code = HybridCLR.RuntimeApi.LoadMetadataForAOTAssembly(bytes, HybridCLR.HomologousImageMode.SuperSet);
-            if (code != HybridCLR.LoadImageErrorCode.OK)
-            {
-                throw new InvalidOperationException($"[HotUpdate] LoadMetadataForAOTAssembly '{location}' failed: {code}");
-            }
-
+            var loader = _aotMetadataLoader;
+            if (loader == null)
+                throw new NotSupportedException($"[HotUpdate] '{location}': AOT metadata requires an installed and registered backend. Install HybridCLR and import the HybridCLR Adapter sample.");
+            loader(location, bytes);
             GameLog.Info(LogCategories.Patch, $"AOT metadata loaded: {LogStyle.Name(location)}");
-#else
-            throw new NotSupportedException($"[HotUpdate] '{location}': AOT metadata requires HybridCLR (com.code-philosophy.hybridclr) to be installed.");
-#endif
         }
     }
 }

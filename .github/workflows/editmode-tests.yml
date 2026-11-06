@@ -145,3 +145,40 @@ jobs:
           name: playmode-results
           path: ${{ steps.tests.outputs.artifactsPath }}
           if-no-files-found: error
+
+  package-consumer:
+    name: Unity clean package consumer
+    needs: license
+    if: needs.license.outputs.enabled == 'true'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create project without demo or commercial Assets
+        run: python3 scripts/create_unity_consumer.py Temp/PackageConsumer
+      - name: Import packages and run public-API tests
+        id: tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: Temp/PackageConsumer
+          unityVersion: 2021.3.45f2
+          testMode: editmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify non-empty passing NUnit results
+        env:
+          UNITY_RESULTS_PATH: ${{ steps.tests.outputs.artifactsPath }}
+        run: python3 scripts/verify_unity_results.py "$UNITY_RESULTS_PATH"
+      - name: Upload consumer results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-package-consumer-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
+          if-no-files-found: error

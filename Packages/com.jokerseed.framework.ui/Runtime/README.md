@@ -158,3 +158,10 @@ new ConfigModule(),
 
 - 每个 UILayer 最多同时显示 500 个窗口，窗口间保留 10 个排序值。超过上限抛出 InvalidOperationException，避免跨层排序；不支持未定义的 UILayer。
 - Shutdown 期间禁止再次初始化/打开窗口，重复关闭无操作。取消回调、窗口/Widget 销毁和事件退订的单项异常会记录并隔离，后续资源继续清理。
+
+## 内部职责拆分
+
+- `WindowRegistry<TWindow>` 是引擎无关的内部状态模型，集中管理打开/缓存身份、HideOnly、层内置顶、500 窗口容量、排序与全屏遮挡快照。它不加载资源，也不触发用户回调。
+- `WindowUnityAdapter` 只把排序和遮挡结果应用到 Canvas / 窗口，不拥有窗口或资源。
+- `UIManager` 保持原有公开 API，负责加载、取消、延迟卸载、生命周期和 Unity 根节点。关闭先清空注册表再执行销毁回调，旧实例的迟到清理不能移除同类型的新实例。
+- `tests/Framework.Sim.Tests/WindowRegistryTests.cs` 直接编译同一份模型源码，可在没有 Unity 的环境验证层级、缓存、容量和关闭规则；Unity EditMode 测试继续验证适配层。

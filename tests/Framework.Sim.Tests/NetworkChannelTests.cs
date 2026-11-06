@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Framework.Events;
 using Framework.Network;
 using NUnit.Framework;
@@ -40,11 +42,12 @@ namespace Framework.Sim.Tests
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            TcpNetworkChannel channel = null;
             try
             {
-                var channel = new TcpNetworkChannel("tcp-echo", new DefaultNetworkChannelHelper());
+                channel = new TcpNetworkChannel("tcp-echo", new DefaultNetworkChannelHelper());
                 channel.Connect(IPAddress.Loopback, ((IPEndPoint)listener.LocalEndpoint).Port);
-                using (var server = listener.AcceptTcpClient())
+                using (var server = AcceptOrFail(listener))
                 {
                     PumpUntil(channel, () => channel.Connected);
                     byte[] received = null;
@@ -67,6 +70,7 @@ namespace Framework.Sim.Tests
             }
             finally
             {
+                channel?.Shutdown();
                 listener.Stop();
             }
         }
@@ -76,12 +80,15 @@ namespace Framework.Sim.Tests
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            TcpNetworkChannel channel = null;
             try
             {
-                var channel = new TcpNetworkChannel("tcp-dns", new DefaultNetworkChannelHelper());
+                var resolution = new TaskCompletionSource<IPAddress[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+                channel = new TcpNetworkChannel("tcp-dns", new DefaultNetworkChannelHelper(), _ => resolution.Task);
                 channel.Connect("localhost", ((IPEndPoint)listener.LocalEndpoint).Port);
                 Assert.AreEqual(NetworkChannelState.Connecting, channel.State, "解析在后台进行，调用返回时应处于 Connecting");
-                using (listener.AcceptTcpClient())
+                resolution.SetResult(new[] { IPAddress.Loopback });
+                using (AcceptOrFail(listener))
                 {
                     PumpUntil(channel, () => channel.Connected);
                 }
@@ -90,6 +97,7 @@ namespace Framework.Sim.Tests
             }
             finally
             {
+                channel?.Shutdown();
                 listener.Stop();
             }
         }
@@ -99,15 +107,16 @@ namespace Framework.Sim.Tests
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            TcpNetworkChannel channel = null;
             try
             {
-                var channel = new TcpNetworkChannel("tcp-heartbeat", new DefaultNetworkChannelHelper())
+                channel = new TcpNetworkChannel("tcp-heartbeat", new DefaultNetworkChannelHelper())
                 {
                     HeartBeatInterval = 0.1f,
                     MaxMissHeartBeatCount = 2,
                 };
                 channel.Connect(IPAddress.Loopback, ((IPEndPoint)listener.LocalEndpoint).Port);
-                using (listener.AcceptTcpClient())
+                using (AcceptOrFail(listener))
                 {
                     PumpUntil(channel, () => channel.Connected);
 
@@ -127,6 +136,7 @@ namespace Framework.Sim.Tests
             }
             finally
             {
+                channel?.Shutdown();
                 listener.Stop();
             }
         }
@@ -134,26 +144,42 @@ namespace Framework.Sim.Tests
         [Test]
         public void Tcp_ConnectTimeout_ReportsErrorAndCloses()
         {
-            var channel = new TcpNetworkChannel("tcp-timeout", new DefaultNetworkChannelHelper())
+            // A deliberately pending resolver exercises timeout without external routing,
+            // proxy settings, OS connection-refusal timing, or a skip on developer machines.
+            var resolution = new TaskCompletionSource<IPAddress[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var channel = new TcpNetworkChannel("tcp-timeout", new DefaultNetworkChannelHelper(), _ => resolution.Task)
             {
                 ConnectTimeoutSeconds = 0.2f,
             };
-
-            // 不可路由地址：要么一直挂起直到超时，要么系统立刻拒绝；两种情况都必须回到 Disconnected 并报错。
-            // 本机开着 TUN 模式代理时，代理会先接受任何地址的 TCP 连接，超时路径走不到，这时跳过而不是误报失败。
-            channel.Connect(IPAddress.Parse("10.255.255.1"), 9);
-            channel.Update(0.3f);
-            PumpUntil(channel, () => channel.State != NetworkChannelState.Connecting);
-            if (channel.State == NetworkChannelState.Connected)
+            try
+            {
+                channel.Connect("pending.invalid", 9);
+                Assert.AreEqual(NetworkChannelState.Connecting, channel.State);
+                channel.Update(0.3f);
+                channel.Update(0f);
+                Assert.AreEqual(NetworkChannelState.Disconnected, channel.State);
+                Assert.IsTrue(_errors.Exists(e => e.ChannelName == "tcp-timeout" && e.ErrorCode == NetworkErrorCode.ConnectError));
+            }
+            finally
             {
                 channel.Shutdown();
-                Assert.Ignore("A local proxy accepted the connection to an unroutable address; connect timeout cannot be exercised on this network.");
+                resolution.TrySetResult(Array.Empty<IPAddress>());
             }
+        }
 
-            PumpUntil(channel, () => channel.State == NetworkChannelState.Disconnected);
-            channel.Update(0f);
-            Assert.IsTrue(_errors.Exists(e => e.ChannelName == "tcp-timeout" && e.ErrorCode == NetworkErrorCode.ConnectError));
-            channel.Shutdown();
+        [Test]
+        public void Tcp_ResolverThrows_ReportsAddressError()
+        {
+            var channel = new TcpNetworkChannel("tcp-bad-host", new DefaultNetworkChannelHelper(),
+                _ => throw new ArgumentException("Invalid hostname"));
+            try
+            {
+                channel.Connect("bad.invalid", 9);
+                PumpUntil(channel, () => _errors.Exists(e => e.ChannelName == "tcp-bad-host"));
+                Assert.AreEqual(NetworkChannelState.Disconnected, channel.State);
+                Assert.IsTrue(_errors.Exists(e => e.ChannelName == "tcp-bad-host" && e.ErrorCode == NetworkErrorCode.AddressError));
+            }
+            finally { channel.Shutdown(); }
         }
 
         [Test]
@@ -172,8 +198,8 @@ namespace Framework.Sim.Tests
             });
 
             client.Send(9, new byte[] { 4, 5, 6, 7 });
-            var deadline = Environment.TickCount + WaitMilliseconds;
-            while (received == null && Environment.TickCount < deadline)
+            var elapsed = Stopwatch.StartNew();
+            while (received == null && elapsed.ElapsedMilliseconds < WaitMilliseconds)
             {
                 client.Update(0.01f);
                 server.Update(0.01f);
@@ -207,10 +233,10 @@ namespace Framework.Sim.Tests
 
         static void PumpUntil(INetworkChannelDriver channel, Func<bool> condition)
         {
-            var deadline = Environment.TickCount + WaitMilliseconds;
+            var elapsed = Stopwatch.StartNew();
             while (!condition())
             {
-                if (Environment.TickCount > deadline)
+                if (elapsed.ElapsedMilliseconds >= WaitMilliseconds)
                 {
                     Assert.Fail("Timed out waiting for channel.");
                 }
@@ -218,6 +244,19 @@ namespace Framework.Sim.Tests
                 channel.Update(0.01f);
                 Thread.Sleep(5);
             }
+        }
+
+        static TcpClient AcceptOrFail(TcpListener listener)
+        {
+            var elapsed = Stopwatch.StartNew();
+            while (!listener.Pending())
+            {
+                if (elapsed.ElapsedMilliseconds >= WaitMilliseconds)
+                    throw new TimeoutException("Timed out waiting for loopback connection.");
+                Thread.Sleep(5);
+            }
+
+            return listener.AcceptTcpClient();
         }
 
         static byte[] ReadFrame(NetworkStream stream)

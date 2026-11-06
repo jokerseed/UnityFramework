@@ -381,10 +381,10 @@ namespace Framework.DebugConsole
         }
 
         /// <inheritdoc />
-        protected override void OnDestroy()
+        protected override void OnSingletonDestroy()
         {
             StopCapture();
-            base.OnDestroy();
+            base.OnSingletonDestroy();
         }
     }
 }

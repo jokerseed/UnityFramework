@@ -9,7 +9,7 @@ namespace Framework.Localization
     /// <summary>
     /// 本地化模块：注册文本来源并设置初始语言（未指定时取系统语言）。
     /// </summary>
-    public sealed class LocalizationModule : IGameModule
+    public sealed class LocalizationModule : IExclusiveGameModule
     {
         readonly string _language;
         readonly string _fallbackLanguage;

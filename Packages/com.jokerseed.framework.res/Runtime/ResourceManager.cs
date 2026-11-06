@@ -30,6 +30,8 @@ namespace Framework.Res
         ResourceInitOptions _options;
         ResourceScheduler _scheduler;
         bool _initialized;
+        bool _initializing;
+        int _lifecycleVersion;
         bool _loadingMainScene;
         bool _stopped;
 
@@ -93,7 +95,7 @@ namespace Framework.Res
         /// <param name="cancellationToken">取消时停止等待并清理已创建的包。</param>
         /// <returns>初始化完成的任务。</returns>
         /// <exception cref="ArgumentNullException"><paramref name="options"/> 为 null。</exception>
-        /// <exception cref="InvalidOperationException">包初始化、版本请求或 Manifest 加载任一步骤失败。</exception>
+        /// <exception cref="InvalidOperationException">已初始化或正在初始化，或包初始化、版本请求、Manifest 加载失败。</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> 已取消。</exception>
         public async UniTask InitializeAsync(ResourceInitOptions options, CancellationToken cancellationToken = default)
         {
@@ -102,6 +104,35 @@ namespace Framework.Res
                 throw new ArgumentNullException(nameof(options));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_initializing || _initialized)
+            {
+                throw new InvalidOperationException("[Resource] Already initialized or initializing. Shut down before initializing again.");
+            }
+
+            _initializing = true;
+            var version = ++_lifecycleVersion;
+            try
+            {
+                await InitializeCoreAsync(options, version, cancellationToken);
+            }
+            catch
+            {
+                if (version == _lifecycleVersion && !_stopped)
+                {
+                    await CleanupFailedInitialize(options.PackageName).ToUniTask();
+                }
+
+                throw;
+            }
+            finally
+            {
+                _initializing = false;
+            }
+        }
+
+        async UniTask InitializeCoreAsync(ResourceInitOptions options, int version, CancellationToken cancellationToken)
+        {
             _stopped = false;
             _initialized = false;
             _options = options;
@@ -117,30 +148,27 @@ namespace Framework.Res
             }
 
             var initOperation = CreateInitializeOperation(options);
-            await WaitOrCleanup(initOperation, options.PackageName, cancellationToken);
+            await WaitInitializeOperation(initOperation, version, cancellationToken);
             if (initOperation.Status != EOperationStatus.Succeeded)
             {
                 var error = initOperation.Error;
-                await CleanupFailedInitialize(options.PackageName).ToUniTask();
                 throw new InvalidOperationException($"[Resource] Initialize package failed: {error}");
             }
 
             var versionOperation = _package.RequestPackageVersionAsync();
-            await WaitOrCleanup(versionOperation, options.PackageName, cancellationToken);
+            await WaitInitializeOperation(versionOperation, version, cancellationToken);
             if (versionOperation.Status != EOperationStatus.Succeeded)
             {
                 var error = versionOperation.Error;
-                await CleanupFailedInitialize(options.PackageName).ToUniTask();
                 throw new InvalidOperationException($"[Resource] Request package version failed: {error}");
             }
 
             var manifestOperation = _package.LoadPackageManifestAsync(
                 new LoadPackageManifestOptions(versionOperation.PackageVersion, options.ManifestLoadTimeoutSeconds));
-            await WaitOrCleanup(manifestOperation, options.PackageName, cancellationToken);
+            await WaitInitializeOperation(manifestOperation, version, cancellationToken);
             if (manifestOperation.Status != EOperationStatus.Succeeded)
             {
                 var error = manifestOperation.Error;
-                await CleanupFailedInitialize(options.PackageName).ToUniTask();
                 throw new InvalidOperationException($"[Resource] Load package manifest failed: {error}");
             }
 
@@ -202,7 +230,7 @@ namespace Framework.Res
             ResourceAssetHandle loaded = default;
             var request = LoadAssetScheduled<T>(location, h => loaded = h, priority);
             await WaitRequest(request, cancellationToken);
-            if (cancellationToken.IsCancellationRequested)
+            if (cancellationToken.IsCancellationRequested || request.Status == ResourceRequestStatus.Cancelled)
             {
                 loaded.Dispose();
                 throw new OperationCanceledException(cancellationToken);
@@ -271,7 +299,7 @@ namespace Framework.Res
             GameObject instance = null;
             var request = InstantiateScheduled(handle, parent, go => instance = go, worldPositionStays, priority);
             await WaitRequest(request, cancellationToken);
-            if (cancellationToken.IsCancellationRequested)
+            if (cancellationToken.IsCancellationRequested || request.Status == ResourceRequestStatus.Cancelled)
             {
                 if (instance != null)
                 {
@@ -475,6 +503,7 @@ namespace Framework.Res
             }
 
             _stopped = true;
+            _lifecycleVersion++;
             _scheduler?.Shutdown();
             _scheduler = null;
             ReleaseCache();
@@ -492,31 +521,47 @@ namespace Framework.Res
             GameLog.Info(LogCategories.Resource, $"Manager {LogStyle.Muted("shut down")}");
         }
 
-        async UniTask WaitOrCleanup(AsyncOperationBase operation, string packageName, CancellationToken cancellationToken)
+        internal async UniTask WaitInitializeOperation(AsyncOperationBase operation, int version, CancellationToken cancellationToken)
         {
-            try
+            // Destroying YooAsset can stop driving its operations. Check the manager lifetime
+            // while waiting too, rather than waiting forever for an abandoned operation.
+            while (true)
             {
-                await ((IEnumerator)operation).ToUniTask(cancellationToken: cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                await CleanupFailedInitialize(packageName).ToUniTask();
-                throw;
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_stopped || version != _lifecycleVersion)
+                {
+                    throw new OperationCanceledException("[Resource] Initialization was stopped.");
+                }
+
+                if (operation.IsDone)
+                {
+                    return;
+                }
+
+                await UniTask.Yield();
             }
         }
 
-        static async UniTask WaitRequest(ResourceRequestHandle request, CancellationToken cancellationToken)
+        internal static async UniTask WaitRequest(ResourceRequestHandle request, CancellationToken cancellationToken)
         {
-            if (!cancellationToken.CanBeCanceled)
+            // Token callbacks may run on a worker thread. Only touch scheduler queues and
+            // YooAsset handles from the player loop, never from CancellationToken.Register.
+            while (!request.IsDone)
             {
-                await ((IEnumerator)request).ToUniTask();
-                return;
-            }
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    request.Cancel();
+                    return;
+                }
 
-            using (cancellationToken.Register(request.Cancel))
-            {
-                await ((IEnumerator)request).ToUniTask();
+                await UniTask.Yield();
             }
+        }
+
+        internal IEnumerator WaitCleanupOperation(AsyncOperationBase operation)
+        {
+            // Shutdown destroys the driver, so an abandoned operation may never finish.
+            while (!_stopped && !operation.IsDone) yield return null;
         }
 
         IEnumerator CleanupFailedInitialize(string packageName)
@@ -544,7 +589,8 @@ namespace Framework.Res
 
             if (destroy != null)
             {
-                yield return destroy;
+                yield return WaitCleanupOperation(destroy);
+                if (_stopped) yield break;
             }
 
             try
@@ -568,10 +614,10 @@ namespace Framework.Res
         }
 
         /// <inheritdoc />
-        protected override void OnDestroy()
+        protected override void OnSingletonDestroy()
         {
             Shutdown();
-            base.OnDestroy();
+            base.OnSingletonDestroy();
         }
 
         InitializePackageOperation CreateInitializeOperation(ResourceInitOptions options)

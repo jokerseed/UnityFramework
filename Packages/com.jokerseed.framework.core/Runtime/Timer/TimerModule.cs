@@ -6,7 +6,7 @@ using Framework.Logging;
 namespace Framework.Timer
 {
     /// <summary>定时器模块：初始化 <see cref="TimerManager"/>，Shutdown 时取消全部定时器。</summary>
-    public sealed class TimerModule : IGameModule
+    public sealed class TimerModule : IExclusiveGameModule
     {
         /// <inheritdoc />
         public string Name => "Timer";
@@ -29,7 +29,6 @@ namespace Framework.Timer
         {
             if (TimerManager.HasInstance)
             {
-                TimerManager.Instance.CancelAll();
                 TimerManager.DestroyInstance();
             }
 

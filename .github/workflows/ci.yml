@@ -53,6 +53,34 @@ jobs:
           name: sim-results-${{ matrix.os }}
           path: tests/Framework.Sim.Tests/TestResults
 
+  package-consumer:
+    name: Isolated package consumer (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate independent assembly projects
+        run: python scripts/build_package_consumer.py "${{ runner.temp }}/framework-consumer"
+      - name: Test public API against separate assemblies
+        run: dotnet test "${{ runner.temp }}/framework-consumer/Consumer/Consumer.csproj" -c Release --logger "trx;LogFileName=consumer.trx"
+      - name: Upload consumer results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consumer-results-${{ matrix.os }}
+          path: ${{ runner.temp }}/framework-consumer/Consumer/TestResults
+
   luban-drift:
     name: Luban output up to date
     runs-on: ubuntu-latest

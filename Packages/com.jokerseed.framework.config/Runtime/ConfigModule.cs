@@ -12,7 +12,7 @@ namespace Framework.Config
     /// 配置模块：确保 <see cref="ConfigManager"/> 可用并注册表工厂；<b>不</b>在初始化时读表。
     /// 读表请在业务侧调用 <see cref="ConfigManager.LoadTables{TTables}"/>。
     /// </summary>
-    public sealed class ConfigModule : IGameModule
+    public sealed class ConfigModule : IExclusiveGameModule
     {
         readonly Action<ConfigManager> _register;
 

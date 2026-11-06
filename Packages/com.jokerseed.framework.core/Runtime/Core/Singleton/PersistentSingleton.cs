@@ -41,6 +41,8 @@ namespace Framework.Core
         static T _instance;
         static readonly object Lock = new object();
         static bool _applicationQuitting;
+        static bool _releasing;
+        bool _ownsInstance;
 
         static PersistentSingleton()
         {
@@ -54,6 +56,7 @@ namespace Framework.Core
         public static void ResetStaticState()
         {
             _applicationQuitting = false;
+            _releasing = false;
             if (_instance == null)
             {
                 _instance = null;
@@ -67,10 +70,12 @@ namespace Framework.Core
         /// 获取单例实例；若尚未创建则自动创建并标记为 DontDestroyOnLoad。
         /// 应用退出阶段返回现有实例（可能为 null），不再新建。
         /// </summary>
+        /// <exception cref="InvalidOperationException">本类型正在执行服务清理。</exception>
         public static T Instance
         {
             get
             {
+                if (_releasing) throw new InvalidOperationException($"Singleton {typeof(T).Name} is shutting down.");
                 if (_applicationQuitting)
                 {
                     return _instance;
@@ -100,19 +105,25 @@ namespace Framework.Core
             }
         }
 
-        /// <summary>销毁单例的 GameObject，并将内部引用置 null。</summary>
+        /// <summary>同步释放拥有实例的服务资源，然后销毁 GameObject；重复调用无效。</summary>
+        /// <exception cref="Exception">派生类清理钩子抛出异常；所有权仍会释放。</exception>
         public static void DestroyInstance()
         {
-            if (_instance == null)
+            if (_instance == null || _releasing) return;
+            var instance = _instance;
+            var target = instance.gameObject;
+            try
             {
-                return;
+                if (instance is PersistentSingleton<T> singleton) singleton.ReleaseOwnership();
             }
-
-            var target = _instance.gameObject;
-            _instance = null;
-            if (target != null)
+            finally
             {
-                Destroy(target);
+                if (_instance == instance) _instance = null;
+                if (target != null)
+                {
+                    if (Application.isPlaying) Destroy(target);
+                    else DestroyImmediate(target);
+                }
             }
         }
 
@@ -121,30 +132,48 @@ namespace Framework.Core
         {
             if (_instance != null && _instance != this)
             {
-                Destroy(gameObject);
+                if (Application.isPlaying) Destroy(gameObject);
+                else DestroyImmediate(gameObject);
                 return;
             }
 
             _instance = this as T;
+            _ownsInstance = true;
             if (Application.isPlaying)
             {
                 DontDestroyOnLoad(gameObject);
             }
         }
 
-        /// <summary>Unity 生命周期：实例被销毁时清除静态引用。</summary>
+        /// <summary>Unity 生命周期：仅拥有实例的对象执行一次服务清理，然后清除静态引用。</summary>
         protected virtual void OnDestroy()
         {
-            if (_instance == this)
+            ReleaseOwnership();
+        }
+
+        /// <summary>
+        /// 服务清理钩子。仅实际拥有单例的对象调用一次；DestroyInstance 时同步调用。
+        /// 派生类应在此释放资源，不应在 OnDestroy 中清理全局服务；清理期间不得重新获取本类型 Instance。
+        /// </summary>
+        protected virtual void OnSingletonDestroy() { }
+
+        void ReleaseOwnership()
+        {
+            if (!_ownsInstance) return;
+            _ownsInstance = false;
+            _releasing = true;
+            try { OnSingletonDestroy(); }
+            finally
             {
-                _instance = null;
+                if (_instance == this) _instance = null;
+                _releasing = false;
             }
         }
 
         /// <summary>Unity 生命周期：应用退出时设置标志，防止退出阶段重建单例。</summary>
         protected virtual void OnApplicationQuit()
         {
-            _applicationQuitting = true;
+            if (_ownsInstance) _applicationQuitting = true;
         }
     }
 }

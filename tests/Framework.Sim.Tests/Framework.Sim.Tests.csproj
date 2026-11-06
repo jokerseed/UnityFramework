@@ -47,6 +47,11 @@
     <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.battle/Editor/Determinism/DeterminismRules.cs" />
   </ItemGroup>
 
+  <ItemGroup Label="Engine-free UI window registry">
+    <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.ui/Runtime/WindowRegistry.cs" />
+    <Compile Include="$(RepoRoot)Packages/com.jokerseed.framework.ui/Runtime/UILayer.cs" />
+  </ItemGroup>
+
   <ItemGroup Label="Tests">
     <Compile Include="**/*.cs" Exclude="bin/**;obj/**" />
   </ItemGroup>

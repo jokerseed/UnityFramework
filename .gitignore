@@ -96,3 +96,6 @@ ThirdParty/luban-4.11.0/Tools/Luban/
 *.bak
 *.swp
 *~
+
+# UPM opt-in samples are source assets, not editor backup directories.
+!Packages/com.jokerseed.framework.*/Samples~/

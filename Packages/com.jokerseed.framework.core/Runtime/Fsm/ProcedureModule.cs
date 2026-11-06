@@ -9,7 +9,7 @@ namespace Framework.Fsm
     /// 流程模块：初始化时把流程注册到 <see cref="ProcedureManager"/>，不自动启动。
     /// 启动组 Ready 后由业务调用 <see cref="ProcedureManager.StartProcedure{TProcedure}"/>，保证入口流程用到的模块都已就绪。
     /// </summary>
-    public sealed class ProcedureModule : IGameModule
+    public sealed class ProcedureModule : IExclusiveGameModule
     {
         readonly ProcedureBase[] _procedures;
 
@@ -42,7 +42,6 @@ namespace Framework.Fsm
         {
             if (ProcedureManager.HasInstance)
             {
-                ProcedureManager.Instance.Shutdown();
                 ProcedureManager.DestroyInstance();
             }
 

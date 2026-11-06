@@ -9,7 +9,7 @@ using Framework.Res;
 namespace Framework.UI
 {
     /// <summary>UI 模块：初始化 <see cref="UIManager"/>，Shutdown 时关闭全部窗口。</summary>
-    public sealed class UIModule : IGameModule
+    public sealed class UIModule : IExclusiveGameModule
     {
         /// <inheritdoc/>
         public string Name => "UI";
@@ -40,7 +40,6 @@ namespace Framework.UI
         {
             if (UIManager.HasInstance)
             {
-                UIManager.Instance.Shutdown();
                 UIManager.DestroyInstance();
             }
 

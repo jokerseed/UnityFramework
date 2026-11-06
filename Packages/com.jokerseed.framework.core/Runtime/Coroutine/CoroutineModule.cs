@@ -7,7 +7,7 @@ using Framework.Logging;
 namespace Framework.Coroutine
 {
     /// <summary>协程模块：初始化 <see cref="CoroutineManager"/>，Shutdown 时停止托管协程。</summary>
-    public sealed class CoroutineModule : IGameModule
+    public sealed class CoroutineModule : IExclusiveGameModule
     {
         /// <inheritdoc />
         public string Name => "Coroutine";
@@ -34,7 +34,6 @@ namespace Framework.Coroutine
         {
             if (CoroutineManager.HasInstance)
             {
-                CoroutineManager.Instance.Shutdown();
                 CoroutineManager.DestroyInstance();
             }
 

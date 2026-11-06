@@ -257,10 +257,10 @@ namespace Framework.Timer
         }
 
         /// <inheritdoc />
-        protected override void OnDestroy()
+        protected override void OnSingletonDestroy()
         {
             CancelAll();
-            base.OnDestroy();
+            base.OnSingletonDestroy();
         }
     }
 }

@@ -12,7 +12,7 @@ namespace Framework.Logging
     /// 日志模块：实现 <see cref="IGameModule"/>，初始化选项从 <see cref="LoggingManager"/> 读取。
     /// 按选项挂接滚动文件 Sink 与未处理异常捕获。
     /// </summary>
-    public sealed class LoggingModule : IGameModule
+    public sealed class LoggingModule : IExclusiveGameModule
     {
         FileLogSink _fileSink;
         bool _crashHooked;

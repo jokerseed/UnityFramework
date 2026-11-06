@@ -186,7 +186,9 @@ ResourceManager.InitializeAsync      // 请求最新版本 + 加载 Manifest
 
 `editmode-tests.yml` 在每天 02:00（Asia/Shanghai）、指向 `main` 的 PR 及手动触发时运行 Unity EditMode 和 PlayMode。fork PR 明确跳过这些需要 Secret 的作业，绝不使用 `pull_request_target` 执行 PR 代码。其他运行若缺少 `UNITY_LICENSE` 会明确失败并说明“Unity 测试未运行”，不会用绿色状态表示未执行的测试；仍保持为可选检查，不自动修改分支保护。配置说明见 [GameCI activation](https://game.ci/docs/github/activation)。
 
-Unity 作业还要求产出非空且通过的 NUnit XML，上传结果供排查。`.NET` 测试不编译完整 Unity 项目，不能代替资源导入、模块启动、UI / 音频生命周期等 Unity 集成验证；现有 PlayMode 测试主要是协程冒烟覆盖，并非完整游戏验收。可用 `python3 -m unittest discover -s scripts/tests -v` 单独运行 CI 工具测试。
+Unity 作业还要求产出非空且通过的 NUnit XML，上传结果供排查。`.NET` 测试不编译完整 Unity 项目，不能代替资源导入、模块启动、UI / 音频生命周期等 Unity 集成验证；PlayMode 覆盖协程跨帧、停止、宿主 / 场景销毁和重启生命周期，并非完整游戏验收。可用 `python3 -m unittest discover -s scripts/tests -v` 单独运行 CI 工具测试。
+
+CI 另外按原 `.asmdef` 边界分别编译引擎无关程序集，在独立消费者中跑公开 API / golden 录像；有许可证时还导入不含演示或商业 Assets 的干净 Unity 包消费者。适用范围、日志入口的投影例外和本地命令见 [测试说明](tests/README.md)。
 
 ---
 

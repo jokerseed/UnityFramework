@@ -102,3 +102,12 @@ Run("b")              →  Running → Ready / Failed
 - Bootstrap 销毁按组启动的逆序关闭，保证依赖方先于提供方关闭。组内仍按初始化完成的逆序关闭。
 - 状态、进度、Ready、Failed 的每个订阅者独立执行；订阅者异常仅记录日志，不改变初始化结果，也不阻止其它订阅者。通知回调中不允许重置或重配正在通知的组。
 - 初始化函数如果抛错，模块自身必须清理尚未完成的部分资源；Bootstrap 只关闭成功完成初始化的模块。
+
+## 全局服务所有权约定
+
+- Bootstrap 管理模块的启动次序、取消与组依赖；PersistentSingleton 管理服务对象身份与最终释放。直接访问 Manager.Instance 仍兼容，但不要在 Bootstrap 管理期间手动关闭或替换该服务。
+- 包装全局单例或静态服务的模块实现 `IExclusiveGameModule`。同一具体类型只能注册到一个组；其它组通过 Dependencies 使用已有服务，重置原组后才可转移注册。普通 IGameModule 保持多实例能力。
+- 内置 Manager 的销毁清理集中在 `OnSingletonDestroy`，只对拥有单例身份的对象调用一次。重复 GameObject 的销毁不会清空活跃服务；DestroyInstance 同步完成清理，再安排 Unity 对象销毁，避免旧对象的延迟 OnDestroy 清掉替换实例。
+- 清理钩子期间访问本类型 Instance 会抛 InvalidOperationException；重复 DestroyInstance 不会重复释放。清理抛错仍会解绑并销毁对象。
+- 自定义派生类应将 OnDestroy 中的服务清理迁移至 OnSingletonDestroy；旧 OnDestroy override 仍可编译，但不能获得新钩子的一次性保证。所有 Unity 单例操作仍仅限主线程。
+- 模块初始化失败须自行清理部分初始化资源；已成功初始化的模块由 Bootstrap 逆序关闭。异步取消须等待初始化退出，不能由第二个入口抢先重建同一服务。
