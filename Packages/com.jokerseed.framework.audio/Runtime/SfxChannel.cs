@@ -21,6 +21,7 @@ namespace Framework.Audio
         readonly float[] _startedAt;
         readonly AudioClip[] _oneShotClips;
         readonly bool[] _reserved;
+        readonly float[] _volumeScales;
         readonly Dictionary<int, Loop> _loops = new Dictionary<int, Loop>(8);
         readonly AudioVolumeSettings _volume;
 
@@ -41,6 +42,7 @@ namespace Framework.Audio
             _startedAt = new float[PoolSize];
             _oneShotClips = new AudioClip[PoolSize];
             _reserved = new bool[PoolSize];
+            _volumeScales = new float[PoolSize];
 
             for (var i = 0; i < PoolSize; i++)
             {
@@ -71,7 +73,9 @@ namespace Framework.Audio
             source.pitch = pitch;
             source.loop = false;
             MarkOneShot(index, clip);
-            source.PlayOneShot(clip, _volume.GetSfxVolume(volumeScale));
+            _volumeScales[index] = volumeScale;
+            source.volume = _volume.GetSfxVolume(volumeScale);
+            source.PlayOneShot(clip, 1f);
         }
 
         /// <summary>播放 3D 音效。</summary>
@@ -98,7 +102,9 @@ namespace Framework.Audio
             source.pitch = pitch;
             source.loop = false;
             MarkOneShot(index, clip);
-            source.PlayOneShot(clip, _volume.GetSfxVolume(volumeScale));
+            _volumeScales[index] = volumeScale;
+            source.volume = _volume.GetSfxVolume(volumeScale);
+            source.PlayOneShot(clip, 1f);
         }
 
         /// <summary>播放循环音效。</summary>
@@ -160,9 +166,29 @@ namespace Framework.Audio
             _loops.Clear();
         }
 
-        /// <summary>刷新全部循环音效音量（保留各自的音量缩放）。</summary>
+        /// <summary>停止全部音效并清空音源引用。</summary>
+        public void StopAll()
+        {
+            StopAllLoops();
+            for (var i = 0; i < _pool.Count; i++)
+            {
+                _pool[i].Stop();
+                _pool[i].clip = null;
+                _oneShotClips[i] = null;
+            }
+        }
+
+        /// <summary>刷新全部音效音量（保留各自的音量缩放）。</summary>
         public void RefreshVolume()
         {
+            for (var i = 0; i < _pool.Count; i++)
+            {
+                if (!_reserved[i])
+                {
+                    _pool[i].volume = _volume.GetSfxVolume(_volumeScales[i]);
+                }
+            }
+
             foreach (var pair in _loops)
             {
                 pair.Value.Source.volume = _volume.GetSfxVolume(pair.Value.VolumeScale);

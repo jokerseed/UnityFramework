@@ -37,6 +37,7 @@ namespace Framework.UI
         int _inputBlockCount;
         int _inputBlockGeneration;
         bool _initialized;
+        bool _shuttingDown;
 
         /// <summary>当前打开的窗口数量。</summary>
         public int OpenCount => _stack.Count;
@@ -53,6 +54,11 @@ namespace Framework.UI
         /// <summary>初始化 UI 根节点与五层 Canvas。</summary>
         public void Initialize()
         {
+            if (_shuttingDown)
+            {
+                throw new InvalidOperationException("[UI] Cannot initialize during shutdown.");
+            }
+
             if (_initialized)
             {
                 return;
@@ -353,6 +359,25 @@ namespace Framework.UI
         /// <summary>关闭并销毁全部窗口（含缓存），释放 UI 根节点。</summary>
         public void Shutdown()
         {
+            if (_shuttingDown)
+            {
+                return;
+            }
+
+            _shuttingDown = true;
+            _initialized = false;
+            try
+            {
+                ShutdownCore();
+            }
+            finally
+            {
+                _shuttingDown = false;
+            }
+        }
+
+        void ShutdownCore()
+        {
             CancelAllPendingShows();
             CancelAllDelayedUnloads();
             _inputBlockCount = 0;
@@ -371,7 +396,14 @@ namespace Framework.UI
 
             foreach (var window in toDestroy)
             {
-                DestroyWindow(window, force: true);
+                try
+                {
+                    DestroyWindow(window, force: true);
+                }
+                catch (Exception ex)
+                {
+                    GameLog.Exception(LogCategories.UI, ex, "Destroy window during shutdown failed.");
+                }
             }
 
             foreach (var pair in _layerRoots)
@@ -560,7 +592,14 @@ namespace Framework.UI
             var pending = new List<UIShowHandle>(_pendingShows.Values);
             for (var i = 0; i < pending.Count; i++)
             {
-                pending[i].Cancel();
+                try
+                {
+                    pending[i].Cancel();
+                }
+                catch (Exception ex)
+                {
+                    GameLog.Exception(LogCategories.UI, ex, "Cancel pending window failed.");
+                }
             }
         }
 
@@ -599,7 +638,7 @@ namespace Framework.UI
             object userData) where TWindow : UIWindow, new()
         {
             var layerRoot = _layerRoots[metadata.Layer];
-            var sortingOrder = (int)metadata.Layer * LayerOrderStep + _stack.Count * WindowOrderStep;
+            var sortingOrder = (int)metadata.Layer * LayerOrderStep;
             var window = new TWindow();
             window.ReleasePolicy = metadata.ReleasePolicy;
             window.DelayUnloadSeconds = metadata.DelayUnloadSeconds;
@@ -647,6 +686,7 @@ namespace Framework.UI
                 return false;
             }
 
+            EnsureLayerCapacity(cached);
             _cached.Remove(windowType);
             cached.UserData = userData;
             cached.SetVisible(true);
@@ -752,7 +792,8 @@ namespace Framework.UI
             var timers = new List<ICoroutineHandle>(_delayUnloadTimers.Values);
             for (var i = 0; i < timers.Count; i++)
             {
-                timers[i].Stop();
+                try { timers[i].Stop(); }
+                catch (Exception ex) { GameLog.Exception(LogCategories.UI, ex, "Stop delayed unload failed."); }
             }
 
             _delayUnloadTimers.Clear();
@@ -804,14 +845,15 @@ namespace Framework.UI
         void RegisterWindow(UIWindow window)
         {
             var windowType = window.GetType();
-            _opened[windowType] = window;
             BringToTop(window);
+            _opened[windowType] = window;
             RefreshVisibility();
             GameLog.Info(LogCategories.UI, $"Open {LogStyle.Name(windowType.Name)} layer={LogStyle.Value(window.Layer)}");
         }
 
         void BringToTop(UIWindow window)
         {
+            EnsureLayerCapacity(window);
             _stack.Remove(window);
             var insertIndex = _stack.Count;
             for (var i = _stack.Count - 1; i >= 0; i--)
@@ -827,6 +869,22 @@ namespace Framework.UI
 
             _stack.Insert(insertIndex, window);
             RecalculateSortingOrders();
+        }
+
+        void EnsureLayerCapacity(UIWindow window)
+        {
+            var layerCount = 0;
+            for (var i = 0; i < _stack.Count; i++)
+            {
+                if (_stack[i] != window && _stack[i].Layer == window.Layer) layerCount++;
+            }
+
+            // 每层占用 5000 个排序值；禁止窗口越过下一层或 Unity 的 short 范围。
+            if (layerCount >= 500)
+            {
+                throw new InvalidOperationException("[UI] A layer supports at most 500 open windows.");
+            }
+
         }
 
         void RecalculateSortingOrders()
@@ -1020,8 +1078,14 @@ namespace Framework.UI
         static WindowMetadata ResolveMetadata(Type windowType)
         {
             var attribute = (UIWindowAttribute)Attribute.GetCustomAttribute(windowType, typeof(UIWindowAttribute));
+            var layer = attribute?.Layer ?? UILayer.UI;
+            if (!Enum.IsDefined(typeof(UILayer), layer))
+            {
+                throw new InvalidOperationException($"[UI] Unsupported layer: {layer}.");
+            }
+
             return new WindowMetadata(
-                attribute?.Layer ?? UILayer.UI,
+                layer,
                 attribute?.FullScreen ?? false,
                 string.IsNullOrEmpty(attribute?.Location) ? UIPaths.Window(windowType) : attribute.Location,
                 attribute?.ReleasePolicy ?? UIReleasePolicy.DestroyImmediate,

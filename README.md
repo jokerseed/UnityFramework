@@ -180,8 +180,13 @@ ResourceManager.InitializeAsync      // 请求最新版本 + 加载 Manifest
 |------|------|------|
 | 引擎无关层（FixedMath、Lockstep、ECS、GAS、FSM 等）+ golden 录像 | `tests/Framework.Sim.Tests` | `dotnet test tests/Framework.Sim.Tests` |
 | Unity EditMode | `Assets/Tests/EditMode` | Test Runner，或 `Unity -batchmode -runTests -testPlatform EditMode` |
+| Unity PlayMode | `Assets/Tests/PlayMode` | Test Runner，或 `Unity -batchmode -runTests -testPlatform PlayMode` |
 
-`.github/workflows/ci.yml` 在每次 push / PR 上于 Linux 与 Windows 运行 `dotnet test` 和确定性扫描；`editmode-tests.yml` 在每天定时以及手动触发时跑 Unity EditMode 和 PlayMode。没有配置 Unity 许可证 Secret 时，定时任务会跳过，不要把它设成分支保护的必需检查。
+`.github/workflows/ci.yml` 在推送到 `main` 及每个 PR 上运行 Linux / Windows 的 `dotnet test`（含确定性扫描和 golden 录像）、Luban 生成结果检查，以及 CI 结果验证脚本的单元测试。
+
+`editmode-tests.yml` 在每天 02:00（Asia/Shanghai）、指向 `main` 的 PR 及手动触发时运行 Unity EditMode 和 PlayMode。fork PR 明确跳过这些需要 Secret 的作业，绝不使用 `pull_request_target` 执行 PR 代码。其他运行若缺少 `UNITY_LICENSE` 会明确失败并说明“Unity 测试未运行”，不会用绿色状态表示未执行的测试；仍保持为可选检查，不自动修改分支保护。配置说明见 [GameCI activation](https://game.ci/docs/github/activation)。
+
+Unity 作业还要求产出非空且通过的 NUnit XML，上传结果供排查。`.NET` 测试不编译完整 Unity 项目，不能代替资源导入、模块启动、UI / 音频生命周期等 Unity 集成验证；现有 PlayMode 测试主要是协程冒烟覆盖，并非完整游戏验收。可用 `python3 -m unittest discover -s scripts/tests -v` 单独运行 CI 工具测试。
 
 ---
 

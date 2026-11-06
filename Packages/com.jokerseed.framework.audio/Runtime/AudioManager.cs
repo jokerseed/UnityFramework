@@ -22,6 +22,7 @@ namespace Framework.Audio
         BgmChannel _bgm;
         SfxChannel _sfx;
         bool _initialized;
+        long _bgmRequestVersion;
 
         /// <summary>主音量，范围 [0, 1]。</summary>
         public float MasterVolume
@@ -114,8 +115,10 @@ namespace Framework.Audio
                 return;
             }
 
+            _initialized = false;
+            _bgmRequestVersion++;
             _bgm?.StopImmediate();
-            _sfx?.StopAllLoops();
+            _sfx?.StopAll();
             _clipCache.ReleaseAll();
             _volume.Save();
 
@@ -142,6 +145,7 @@ namespace Framework.Audio
         public void PlayBgm(string location, float fadeSeconds = DefaultBgmFadeSeconds)
         {
             EnsureInitialized();
+            _bgmRequestVersion++;
             var clip = _clipCache.GetOrLoadSync(location);
             _bgm.Play(clip, fadeSeconds);
         }
@@ -152,6 +156,7 @@ namespace Framework.Audio
         public void PlayBgm(AudioClip clip, float fadeSeconds = DefaultBgmFadeSeconds)
         {
             EnsureInitialized();
+            _bgmRequestVersion++;
             _bgm.Play(clip, fadeSeconds);
         }
 
@@ -162,7 +167,7 @@ namespace Framework.Audio
         public ICoroutineHandle PlayBgmAsync(string location, float fadeSeconds = DefaultBgmFadeSeconds)
         {
             EnsureInitialized();
-            return GameCoroutine.StartGlobal(PlayBgmAsyncCoroutine(location, fadeSeconds));
+            return GameCoroutine.StartGlobal(PlayBgmAsyncCoroutine(location, fadeSeconds, ++_bgmRequestVersion));
         }
 
         /// <summary>停止 BGM。</summary>
@@ -174,6 +179,7 @@ namespace Framework.Audio
                 return;
             }
 
+            _bgmRequestVersion++;
             _bgm.Stop(fadeSeconds);
         }
 
@@ -251,11 +257,23 @@ namespace Framework.Audio
             _sfx.StopAllLoops();
         }
 
-        IEnumerator PlayBgmAsyncCoroutine(string location, float fadeSeconds)
+        IEnumerator PlayBgmAsyncCoroutine(string location, float fadeSeconds, long requestVersion)
         {
-            AudioClip clip = null;
-            yield return _clipCache.LoadAsync(location, c => clip = c);
-            _bgm.Play(clip, fadeSeconds);
+            yield return _clipCache.LoadAsync(location, clip =>
+            {
+                // 在缓存完成回调内绑定音源，不留下一帧的未持有 Clip 窗口。
+                if (_initialized && requestVersion == _bgmRequestVersion)
+                {
+                    _bgm.Play(clip, fadeSeconds);
+                }
+            });
+        }
+
+        /// <inheritdoc />
+        protected override void OnDestroy()
+        {
+            Shutdown();
+            base.OnDestroy();
         }
 
         void RefreshChannelVolumes()

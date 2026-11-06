@@ -76,3 +76,9 @@ new UIModule(),
 - **资源**：仅 `ResourceManager` 加载；缓存按 location 只持有一个 `ResourceAssetHandle` 直到 `Shutdown`。同一 Clip 的并发 `LoadAsync` 会等待第一次完成，不会覆盖或泄漏句柄
 - **淡入淡出**：走 `GameCoroutine.StartGlobal`，用 `Time.unscaledDeltaTime`，暂停 `timeScale` 时仍会淡完
 - **Shutdown**：停止全部音频 → 释放 Clip 缓存 → 保存音量 → 销毁 `AudioRoot`
+
+## 生命周期与音量边界
+
+- 缓存正在交付的 Clip 不参与本次 LRU 淘汰；全在使用时允许暂时超容。关闭时取消未完成请求，旧代等待者不会加入新会话。
+- BGM 采用最后请求优先：同步播放、停止或关闭使旧异步完成失效。异步完成直接绑定通道，避免跨帧资源空档。
+- SFX 的每次播放音量仅计算一次，主音量、静音与通道音量变更同时影响一次性和循环音效。关闭时先停止所有音源再释放缓存。

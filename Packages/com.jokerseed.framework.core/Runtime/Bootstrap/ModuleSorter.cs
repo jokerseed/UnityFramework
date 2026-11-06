@@ -111,6 +111,24 @@ namespace Framework.Bootstrap
             return waves;
         }
 
+        internal static HashSet<IGameModule> FindExternalDependencies(
+            IReadOnlyList<IGameModule> modules, IReadOnlyList<IGameModule> available)
+        {
+            var local = BuildModuleMap(modules);
+            var external = BuildExternalMap(available, local, out var duplicates);
+            var result = new HashSet<IGameModule>();
+            foreach (var module in modules)
+            {
+                if (module.Dependencies == null) continue;
+                foreach (var dependency in module.Dependencies)
+                {
+                    var resolved = ResolveDependency(module, dependency, local, external, duplicates, out var outside);
+                    if (outside) result.Add(external[resolved]);
+                }
+            }
+            return result;
+        }
+
         static Dictionary<Type, IGameModule> BuildModuleMap(IReadOnlyList<IGameModule> modules)
         {
             var moduleByType = new Dictionary<Type, IGameModule>(modules.Count);

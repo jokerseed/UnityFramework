@@ -1,8 +1,7 @@
-# 每天 02:00（Asia/Shanghai）、指向 main 的 PR，以及手动触发。不是分支保护的必需检查。
-#
-# 定时任务和 PR 先看 UNITY_LICENSE 是否为空：空则跳过，避免没有许可证时失败。
-# fork 来的 PR 拿不到仓库 Secret，同样跳过；引擎无关的模拟层由 ci.yml 的 dotnet 测试覆盖。
-# 手动 Run workflow 仍会进入 Unity 激活；没有 Secret 时在激活阶段失败。本仓库不提供许可证。
+# 每天 02:00（Asia/Shanghai）、指向 main 的 PR，以及手动触发。
+# fork PR 不运行需要 Secret 的 Unity 作业；只使用 pull_request，绝不使用 pull_request_target。
+# 可信运行缺少 UNITY_LICENSE 时明确失败，不能把跳过测试误当成验证通过。
+# 保持为可选检查：未配置许可证时 .NET CI 仍可独立验证引擎无关层。
 #
 # 需要的仓库 Secret（见 https://game.ci/docs/github/activation ）：
 #   UNITY_LICENSE   .ulf 许可证文件的全文
@@ -12,7 +11,7 @@
 # Unity 版本与 ProjectSettings/ProjectVersion.txt 一致：2021.3.45f2（tests/Framework.Sim.Tests 会检查两处一致）。
 # Library 按 Assets / Packages / ProjectSettings 的哈希缓存，未改动资源时跳过整套导入。
 
-name: EditMode tests
+name: Unity tests (license required)
 
 on:
   workflow_dispatch:
@@ -21,10 +20,9 @@ on:
   pull_request:
     branches: [main]
 
-# unity-test-runner 用 githubToken 把结果写成 Check Run，需要 checks: write。
+# 默认只读。仅执行 Unity 的作业需要创建测试 Check Run。
 permissions:
   contents: read
-  checks: write
 
 concurrency:
   group: unity-tests-${{ github.ref }}
@@ -32,7 +30,8 @@ concurrency:
 
 jobs:
   license:
-    name: License present
+    name: Require license (fork PRs skipped)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
@@ -43,14 +42,22 @@ jobs:
         run: |
           if [ -n "$UNITY_LICENSE" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Unity license is configured. Test jobs must still complete successfully." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::error::UNITY_LICENSE is not configured. Unity EditMode and PlayMode tests were NOT run."
+            echo "## Unity tests not verified" >> "$GITHUB_STEP_SUMMARY"
+            echo "UNITY_LICENSE is missing. No Unity tests ran. The separate .NET CI does not replace Unity integration tests." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
 
   editmode:
     name: Unity EditMode
     needs: license
-    if: github.event_name == 'workflow_dispatch' || needs.license.outputs.enabled == 'true'
+    if: needs.license.outputs.enabled == 'true'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -78,17 +85,27 @@ jobs:
           testMode: editmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify non-empty passing NUnit results
+        env:
+          UNITY_RESULTS_PATH: ${{ steps.tests.outputs.artifactsPath }}
+        run: python3 scripts/verify_unity_results.py "$UNITY_RESULTS_PATH"
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: editmode-results
           path: ${{ steps.tests.outputs.artifactsPath }}
+          if-no-files-found: error
 
   playmode:
     name: Unity PlayMode
     needs: license
-    if: github.event_name == 'workflow_dispatch' || needs.license.outputs.enabled == 'true'
+    if: needs.license.outputs.enabled == 'true'
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -116,9 +133,15 @@ jobs:
           testMode: playmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify non-empty passing NUnit results
+        env:
+          UNITY_RESULTS_PATH: ${{ steps.tests.outputs.artifactsPath }}
+        run: python3 scripts/verify_unity_results.py "$UNITY_RESULTS_PATH"
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playmode-results
           path: ${{ steps.tests.outputs.artifactsPath }}
+          if-no-files-found: error

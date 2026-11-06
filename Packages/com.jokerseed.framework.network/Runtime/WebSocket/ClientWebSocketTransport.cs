@@ -72,7 +72,7 @@ namespace Framework.Network
 
             _listener.OnTransportOpen(this);
             var chunk = new byte[ReceiveChunkSize];
-            var message = new MemoryStream(ReceiveChunkSize);
+            using var message = new MemoryStream(ReceiveChunkSize);
             try
             {
                 while (true)
@@ -134,27 +134,47 @@ namespace Framework.Network
 
         async Task CloseAfterAsync(Task previous)
         {
-            await previous.ConfigureAwait(false);
+            // The deadline includes draining sends. A stalled SendAsync must not prevent disposal.
+            var deadline = Task.Delay(CloseTimeout);
             try
             {
+                if (await Task.WhenAny(previous, deadline).ConfigureAwait(false) != previous)
+                {
+                    ObserveFault(previous);
+                    return;
+                }
+
+                await previous.ConfigureAwait(false);
                 if (_socket.State == WebSocketState.Open)
                 {
-                    using (var timeout = new CancellationTokenSource(CloseTimeout))
+                    var close = _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, string.Empty, _cts.Token);
+                    if (await Task.WhenAny(close, deadline).ConfigureAwait(false) == close)
                     {
-                        await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, string.Empty, timeout.Token)
-                            .ConfigureAwait(false);
+                        await close.ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        ObserveFault(close);
                     }
                 }
             }
-            catch (Exception ex) when (ex is WebSocketException || ex is OperationCanceledException)
+            catch (Exception)
             {
-                // 对端已断开或关闭握手超时：本端照常释放，主动关闭不再回调。
+                // Explicit close is best-effort, including a failed send chain.
             }
             finally
             {
                 _cts.Cancel();
+                _socket.Abort();
                 _socket.Dispose();
             }
+        }
+
+        static void ObserveFault(Task task)
+        {
+            _ = task.ContinueWith(t => { var ignored = t.Exception; },
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
 
         void Fail(NetworkErrorCode errorCode, string message)

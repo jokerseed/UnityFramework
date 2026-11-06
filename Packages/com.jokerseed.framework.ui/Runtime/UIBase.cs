@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Framework.Events;
+using Framework.Logging;
 using UnityEngine;
 
 namespace Framework.UI
@@ -93,16 +94,19 @@ namespace Framework.UI
                 return;
             }
 
+            IsCreated = false;
+
             // 子 Widget 先于自己销毁：它们通过 AddUIEvent 订阅的全局事件也要退订，否则会被事件总线一直持有。
             for (var i = _widgets.Count - 1; i >= 0; i--)
             {
-                _widgets[i].InternalDestroy();
+                try { _widgets[i].InternalDestroy(); }
+                catch (Exception ex) { GameLog.Exception(LogCategories.UI, ex, "Destroy widget failed."); }
             }
 
             _widgets.Clear();
             ClearUIEvents();
-            OnDestroy();
-            IsCreated = false;
+            try { OnDestroy(); }
+            catch (Exception ex) { GameLog.Exception(LogCategories.UI, ex, "Destroy UI callback failed."); }
             GameObject = null;
             Transform = null;
             RectTransform = null;
@@ -229,7 +233,8 @@ namespace Framework.UI
         {
             for (var i = 0; i < _eventSubscriptions.Count; i++)
             {
-                _eventSubscriptions[i]?.Dispose();
+                try { _eventSubscriptions[i]?.Dispose(); }
+                catch (Exception ex) { GameLog.Exception(LogCategories.UI, ex, "Dispose UI event failed."); }
             }
 
             _eventSubscriptions.Clear();

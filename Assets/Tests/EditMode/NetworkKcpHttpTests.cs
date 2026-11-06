@@ -104,6 +104,35 @@ namespace Framework.Tests
         });
 
         [UnityTest]
+        public IEnumerator HttpProtocolErrorsReturnStatusAndBody() => UniTask.ToCoroutine(async () =>
+        {
+            foreach (var status in new[] { "404 Not Found", "500 Internal Server Error" })
+            {
+                var listener = new TcpListener(IPAddress.Loopback, 0);
+                listener.Start();
+                var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                var serve = Task.Run(() =>
+                {
+                    using (var client = listener.AcceptTcpClient())
+                    using (var stream = client.GetStream())
+                    {
+                        ReadRequest(stream);
+                        WriteResponse(stream, "error details", status);
+                    }
+                });
+                try
+                {
+                    var response = await HttpRequests.GetAsync($"http://127.0.0.1:{port}/error");
+                    Assert.AreEqual(int.Parse(status.Substring(0, 3)), response.StatusCode);
+                    Assert.IsFalse(response.IsSuccess);
+                    Assert.AreEqual("error details", Encoding.UTF8.GetString(response.Body));
+                    await serve;
+                }
+                finally { listener.Stop(); }
+            }
+        });
+
+        [UnityTest]
         public IEnumerator HttpGetAndPostRoundTrip() => UniTask.ToCoroutine(async () =>
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -198,11 +227,11 @@ namespace Framework.Tests
             return buffer.ToArray();
         }
 
-        static void WriteResponse(NetworkStream stream, string body)
+        static void WriteResponse(NetworkStream stream, string body, string status = "200 OK")
         {
             var payload = Encoding.UTF8.GetBytes(body);
             var header = Encoding.ASCII.GetBytes(
-                "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n");
+                "HTTP/1.1 " + status + "\r\nContent-Type: text/plain\r\nContent-Length: " + payload.Length + "\r\nConnection: close\r\n\r\n");
             stream.Write(header, 0, header.Length);
             stream.Write(payload, 0, payload.Length);
         }

@@ -223,3 +223,7 @@ new ResourceModule(),
 - `Framework.UI` — `Show` 同步旁路；`ShowAsync` 走调度
 - `Framework.Audio` — `PlayBgmAsync` 等走 `LoadAssetScheduled`
 - `Assets/Scripts/Launch.cs` — 注册 `ResourceModule`
+
+### 合并加载的回调预算与取消
+
+`MaxCallbacksPerFrame` 与 `CallbackBudgetMs` 按每个等待者计算，包括加载失败的回调。合并请求可跨帧派发；尚未派发的请求仍可取消，回调内取消同地址请求或调用 Shutdown 也有效。共享加载句柄保留到最后一个等待者，已经交付的句柄由调用者独立释放。单个回调无法抢占，因此应保持回调简短。Shutdown 后新增请求直接返回 Cancelled。
