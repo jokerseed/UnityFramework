@@ -12,7 +12,7 @@ namespace Framework.GamePlay
     /// 玩法模块：持有 <see cref="BattleDirector"/>，作为 GAS + ECS 玩法的 Bootstrap 入口。
     /// 业务层通过 <see cref="Director"/> 创建 / 销毁 / 获取 <see cref="BattleSession"/>。
     /// </summary>
-    public sealed class GamePlayModule : IGameModule
+    public sealed class GamePlayModule : IExclusiveGameModule
     {
         static GamePlayModule s_instance;
 

@@ -27,6 +27,7 @@ namespace Framework.Network
         readonly Dictionary<ushort, Action<INetworkChannel, NetworkPacket>> _handlers =
             new Dictionary<ushort, Action<INetworkChannel, NetworkPacket>>(32);
         readonly INetworkChannelHelper _helper;
+        readonly Func<string, Task<IPAddress[]>> _resolveHost;
         readonly MemoryStream _serializeStream = new MemoryStream(256);
 
         IoSession _session;
@@ -46,7 +47,13 @@ namespace Framework.Network
         /// <param name="name">频道名称。</param>
         /// <param name="helper">协议辅助器，不可为 null。</param>
         public TcpNetworkChannel(string name, INetworkChannelHelper helper)
+            : this(name, helper, Dns.GetHostAddressesAsync)
         {
+        }
+
+        internal TcpNetworkChannel(string name, INetworkChannelHelper helper, Func<string, Task<IPAddress[]>> resolveHost)
+        {
+            _resolveHost = resolveHost ?? throw new ArgumentNullException(nameof(resolveHost));
             Name = name ?? string.Empty;
             _helper = helper ?? throw new ArgumentNullException(nameof(helper));
             if (_helper.PacketHeaderLength <= 0)
@@ -149,13 +156,25 @@ namespace Framework.Network
             }
 
             // 移动网络上 DNS 可能要几秒，同步解析会卡住主线程（Android 上可能触发 ANR）。
-            Dns.GetHostAddressesAsync(host).ContinueWith(
+            Task<IPAddress[]> resolution;
+            try
+            {
+                resolution = _resolveHost(host);
+            }
+            catch (Exception ex)
+            {
+                resolution = Task.FromException<IPAddress[]>(ex);
+            }
+
+            resolution.ContinueWith(
                 task => OnHostResolved(task, host, port, generation),
                 TaskScheduler.Default);
         }
 
         void OnHostResolved(Task<IPAddress[]> task, string host, int port, int generation)
         {
+            // Observe failed resolutions even when their connection generation is obsolete.
+            var error = task.Exception;
             var addresses = task.Status == TaskStatus.RanToCompletion ? OrderAddresses(task.Result) : null;
             IPAddress first = null;
             var stale = false;
@@ -187,8 +206,8 @@ namespace Framework.Network
 
             if (first == null)
             {
-                var message = task.Exception != null
-                    ? task.Exception.GetBaseException().Message
+                var message = error != null
+                    ? error.GetBaseException().Message
                     : $"No usable address for {host}.";
                 EnqueueError(NetworkErrorCode.AddressError, SocketError.HostNotFound, message);
                 return;

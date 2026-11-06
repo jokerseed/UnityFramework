@@ -1,0 +1,9 @@
+{
+    "name": "Framework.HotUpdate.HybridCLR",
+    "rootNamespace": "Framework.HotUpdate",
+    "references": [
+        "Framework.HotUpdate",
+        "HybridCLR.Runtime"
+    ],
+    "autoReferenced": true
+}

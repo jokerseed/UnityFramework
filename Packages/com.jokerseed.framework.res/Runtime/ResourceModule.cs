@@ -13,7 +13,7 @@ namespace Framework.Res
     /// 初始化选项从 <see cref="ResourceManager.InitOptions"/> 读取。
     /// 在 <c>GameBootstrap</c> 中注册后，其他依赖资源的模块须在 <c>Dependencies</c> 中声明对本模块的依赖。
     /// </summary>
-    public sealed class ResourceModule : IGameModule
+    public sealed class ResourceModule : IExclusiveGameModule
     {
         /// <summary>模块名称。</summary>
         public string Name => "Resource";

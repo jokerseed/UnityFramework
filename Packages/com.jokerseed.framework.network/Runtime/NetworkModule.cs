@@ -8,7 +8,7 @@ using Framework.MemoryPool;
 namespace Framework.Network
 {
     /// <summary>网络模块：初始化 <see cref="NetworkManager"/>，Shutdown 时关闭全部频道。</summary>
-    public sealed class NetworkModule : IGameModule
+    public sealed class NetworkModule : IExclusiveGameModule
     {
         /// <inheritdoc />
         public string Name => "Network";
@@ -38,7 +38,6 @@ namespace Framework.Network
         {
             if (NetworkManager.HasInstance)
             {
-                NetworkManager.Instance.Shutdown();
                 NetworkManager.DestroyInstance();
             }
 

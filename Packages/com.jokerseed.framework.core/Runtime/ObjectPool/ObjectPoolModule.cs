@@ -8,7 +8,7 @@ using Framework.MemoryPool;
 namespace Framework.ObjectPool
 {
     /// <summary>对象池模块：初始化 <see cref="ObjectPoolManager"/>，Shutdown 时销毁全部池。</summary>
-    public sealed class ObjectPoolModule : IGameModule
+    public sealed class ObjectPoolModule : IExclusiveGameModule
     {
         /// <summary>模块名称。</summary>
         public string Name => "ObjectPool";

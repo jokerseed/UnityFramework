@@ -19,12 +19,9 @@ namespace Framework.UI
     /// </summary>
     public sealed class UIManager : PersistentSingleton<UIManager>
     {
-        const int LayerOrderStep = 50;
-        const int WindowOrderStep = 10;
-
-        readonly List<UIWindow> _stack = new List<UIWindow>(16);
-        readonly Dictionary<Type, UIWindow> _opened = new Dictionary<Type, UIWindow>(16);
-        readonly Dictionary<Type, UIWindow> _cached = new Dictionary<Type, UIWindow>(8);
+        readonly WindowRegistry<UIWindow> _windows =
+            new WindowRegistry<UIWindow>(window => window.Layer, window => window.FullScreen);
+        IReadOnlyList<UIWindow> Stack => _windows.Stack;
         readonly Dictionary<Type, UIShowHandle> _pendingShows = new Dictionary<Type, UIShowHandle>(8);
         readonly Dictionary<Type, ICoroutineHandle> _delayUnloadTimers = new Dictionary<Type, ICoroutineHandle>(4);
         readonly Dictionary<UILayer, Transform> _layerRoots = new Dictionary<UILayer, Transform>(8);
@@ -40,7 +37,7 @@ namespace Framework.UI
         bool _shuttingDown;
 
         /// <summary>当前打开的窗口数量。</summary>
-        public int OpenCount => _stack.Count;
+        public int OpenCount => Stack.Count;
 
         /// <summary>是否每帧检测返回键（Esc / Android Back）并调用 <see cref="HandleBack"/>；默认 true。</summary>
         public bool BackKeyEnabled { get; set; } = true;
@@ -99,7 +96,7 @@ namespace Framework.UI
                 return revived;
             }
 
-            if (_opened.TryGetValue(windowType, out var existing))
+            if (_windows.TryGetOpened(windowType, out var existing))
             {
                 existing.UserData = userData;
                 existing.OnRefresh();
@@ -155,7 +152,7 @@ namespace Framework.UI
                 return UIShowHandle.Settled;
             }
 
-            if (_opened.TryGetValue(windowType, out var existing))
+            if (_windows.TryGetOpened(windowType, out var existing))
             {
                 existing.UserData = userData;
                 existing.OnRefresh();
@@ -227,7 +224,7 @@ namespace Framework.UI
             }
 
             var cancelledPending = CancelPendingShow(windowType);
-            if (!_opened.TryGetValue(windowType, out var window))
+            if (!_windows.TryGetOpened(windowType, out var window))
             {
                 return cancelledPending;
             }
@@ -262,13 +259,13 @@ namespace Framework.UI
             CancelDelayedUnload(windowType);
 
             var destroyed = false;
-            if (_opened.TryGetValue(windowType, out var opened))
+            if (_windows.TryGetOpened(windowType, out var opened))
             {
                 DestroyWindow(opened, force: true);
                 destroyed = true;
             }
 
-            if (_cached.TryGetValue(windowType, out var cached))
+            if (_windows.TryGetCached(windowType, out var cached))
             {
                 DestroyWindow(cached, force: true);
                 destroyed = true;
@@ -281,9 +278,9 @@ namespace Framework.UI
         public void CloseAll()
         {
             CancelAllPendingShows();
-            for (var i = _stack.Count - 1; i >= 0; i--)
+            for (var i = Stack.Count - 1; i >= 0; i--)
             {
-                CloseWindow(_stack[i]);
+                CloseWindow(Stack[i]);
             }
         }
 
@@ -292,7 +289,7 @@ namespace Framework.UI
         /// <returns>已打开则返回实例，否则返回 null。</returns>
         public TWindow Get<TWindow>() where TWindow : UIWindow
         {
-            return _opened.TryGetValue(typeof(TWindow), out var window) ? (TWindow)window : null;
+            return _windows.TryGetOpened(typeof(TWindow), out var window) ? (TWindow)window : null;
         }
 
         /// <summary>指定类型窗口是否已打开。</summary>
@@ -300,7 +297,7 @@ namespace Framework.UI
         /// <returns>已打开返回 true。</returns>
         public bool IsOpen<TWindow>() where TWindow : UIWindow
         {
-            return _opened.ContainsKey(typeof(TWindow));
+            return _windows.TryGetOpened(typeof(TWindow), out _);
         }
 
         /// <summary>指定类型窗口是否已缓存（<see cref="UIReleasePolicy.Cached"/> / <see cref="UIReleasePolicy.HideAndDelayUnload"/> 等待复用或延迟卸载中）。</summary>
@@ -308,7 +305,7 @@ namespace Framework.UI
         /// <returns>已缓存返回 true。</returns>
         public bool IsCached<TWindow>() where TWindow : UIWindow
         {
-            return _cached.ContainsKey(typeof(TWindow));
+            return _windows.TryGetCached(typeof(TWindow), out _);
         }
 
         /// <summary>
@@ -323,9 +320,9 @@ namespace Framework.UI
                 return false;
             }
 
-            for (var i = _stack.Count - 1; i >= 0; i--)
+            for (var i = Stack.Count - 1; i >= 0; i--)
             {
-                var window = _stack[i];
+                var window = Stack[i];
                 if (window.OnBack())
                 {
                     return true;
@@ -384,15 +381,7 @@ namespace Framework.UI
             _inputBlockGeneration++;
             _inputBlocker = null;
 
-            var toDestroy = new HashSet<UIWindow>(_opened.Values);
-            foreach (var window in _cached.Values)
-            {
-                toDestroy.Add(window);
-            }
-
-            _stack.Clear();
-            _opened.Clear();
-            _cached.Clear();
+            var toDestroy = _windows.Drain();
 
             foreach (var window in toDestroy)
             {
@@ -454,9 +443,9 @@ namespace Framework.UI
             }
 
             var deltaTime = Time.deltaTime;
-            for (var i = 0; i < _stack.Count; i++)
+            for (var i = 0; i < Stack.Count; i++)
             {
-                var window = _stack[i];
+                var window = Stack[i];
                 if (window != null && window.IsCreated && !window.IsOccluded && window.GameObject != null && window.GameObject.activeSelf)
                 {
                     window.InternalUpdate(deltaTime);
@@ -638,7 +627,7 @@ namespace Framework.UI
             object userData) where TWindow : UIWindow, new()
         {
             var layerRoot = _layerRoots[metadata.Layer];
-            var sortingOrder = (int)metadata.Layer * LayerOrderStep;
+            var sortingOrder = (int)metadata.Layer * WindowRegistry<UIWindow>.LayerOrderStep;
             var window = new TWindow();
             window.ReleasePolicy = metadata.ReleasePolicy;
             window.DelayUnloadSeconds = metadata.DelayUnloadSeconds;
@@ -667,12 +656,7 @@ namespace Framework.UI
                     Destroy(instance);
                 }
 
-                if (_opened.TryGetValue(typeof(TWindow), out var recorded) && ReferenceEquals(recorded, window))
-                {
-                    _opened.Remove(typeof(TWindow));
-                }
-
-                _stack.Remove(window);
+                _windows.Remove(window);
                 throw;
             }
         }
@@ -680,16 +664,14 @@ namespace Framework.UI
         bool TryReviveCached<TWindow>(Type windowType, object userData, out TWindow window)
             where TWindow : UIWindow, new()
         {
-            if (!_cached.TryGetValue(windowType, out var cached))
+            if (!_windows.TryGetCached(windowType, out var cached))
             {
                 window = null;
                 return false;
             }
 
-            EnsureLayerCapacity(cached);
-            _cached.Remove(windowType);
+            _windows.EnsureLayerCapacity(cached);
             cached.UserData = userData;
-            cached.SetVisible(true);
             RegisterWindow(cached);
             cached.OnRefresh();
             window = (TWindow)cached;
@@ -726,7 +708,7 @@ namespace Framework.UI
         {
             var windowType = window.GetType();
             CancelDelayedUnload(windowType);
-            _stack.Remove(window);
+            _windows.Hide(window);
             window.SetVisible(false);
             GameLog.Info(LogCategories.UI,
                 $"Hide {LogStyle.Name(windowType.Name)} policy={LogStyle.Value(window.ReleasePolicy)}");
@@ -737,10 +719,8 @@ namespace Framework.UI
         {
             var windowType = window.GetType();
             CancelDelayedUnload(windowType);
-            _stack.Remove(window);
-            _opened.Remove(windowType);
+            _windows.Cache(window);
             window.SetVisible(false);
-            _cached[windowType] = window;
             GameLog.Info(LogCategories.UI,
                 $"Close {LogStyle.Name(windowType.Name)} cached policy={LogStyle.Value(window.ReleasePolicy)}");
             RefreshVisibility();
@@ -760,12 +740,11 @@ namespace Framework.UI
             // 用真实时间：暂停界面把 timeScale 设为 0 时，缩放时间不走，窗口会永远不卸载。
             yield return new WaitForSecondsRealtime(delaySeconds);
             _delayUnloadTimers.Remove(windowType);
-            if (!_cached.TryGetValue(windowType, out var window))
+            if (!_windows.TryGetCached(windowType, out var window))
             {
                 yield break;
             }
 
-            _cached.Remove(windowType);
             DestroyWindow(window, force: true);
             GameLog.Info(LogCategories.UI,
                 $"Delay unload {LogStyle.Name(windowType.Name)} after {LogStyle.Value(delaySeconds)}s");
@@ -814,9 +793,7 @@ namespace Framework.UI
 
             var windowType = window.GetType();
             CancelDelayedUnload(windowType);
-            _opened.Remove(windowType);
-            _stack.Remove(window);
-            _cached.Remove(windowType);
+            _windows.Remove(window);
 
             var gameObject = window.GameObject;
             var assetHandle = window.AssetHandle;
@@ -845,89 +822,32 @@ namespace Framework.UI
         void RegisterWindow(UIWindow window)
         {
             var windowType = window.GetType();
-            BringToTop(window);
-            _opened[windowType] = window;
+            _windows.Register(window);
+            RecalculateSortingOrders();
             RefreshVisibility();
             GameLog.Info(LogCategories.UI, $"Open {LogStyle.Name(windowType.Name)} layer={LogStyle.Value(window.Layer)}");
         }
 
         void BringToTop(UIWindow window)
         {
-            EnsureLayerCapacity(window);
-            _stack.Remove(window);
-            var insertIndex = _stack.Count;
-            for (var i = _stack.Count - 1; i >= 0; i--)
-            {
-                if ((int)_stack[i].Layer <= (int)window.Layer)
-                {
-                    insertIndex = i + 1;
-                    break;
-                }
-
-                insertIndex = i;
-            }
-
-            _stack.Insert(insertIndex, window);
+            _windows.BringToTop(window);
             RecalculateSortingOrders();
-        }
-
-        void EnsureLayerCapacity(UIWindow window)
-        {
-            var layerCount = 0;
-            for (var i = 0; i < _stack.Count; i++)
-            {
-                if (_stack[i] != window && _stack[i].Layer == window.Layer) layerCount++;
-            }
-
-            // 每层占用 5000 个排序值；禁止窗口越过下一层或 Unity 的 short 范围。
-            if (layerCount >= 500)
-            {
-                throw new InvalidOperationException("[UI] A layer supports at most 500 open windows.");
-            }
-
         }
 
         void RecalculateSortingOrders()
         {
-            var layerCounters = new Dictionary<UILayer, int>();
-            for (var i = 0; i < _stack.Count; i++)
-            {
-                var window = _stack[i];
-                if (!layerCounters.TryGetValue(window.Layer, out var counter))
-                {
-                    counter = 0;
-                }
-
-                var sortingOrder = (int)window.Layer * LayerOrderStep + counter * WindowOrderStep;
-                window.SortingOrder = sortingOrder;
-
-                var canvas = window.GameObject != null ? window.GameObject.GetComponent<Canvas>() : null;
-                if (canvas != null)
-                {
-                    canvas.sortingOrder = sortingOrder;
-                }
-
-                layerCounters[window.Layer] = counter + 1;
-            }
+            foreach (var layout in _windows.SnapshotLayout())
+                WindowUnityAdapter.ApplySorting(layout);
         }
 
-        /// <summary>
-        /// 栈里的窗口都保持激活；被上层全屏窗口挡住的只关 Canvas 与射线检测（<see cref="UIWindow.SetOccluded"/>），
-        /// 避免整棵 UI 反复 SetActive 带来的 OnEnable/OnDisable 与 Canvas 重建开销。
-        /// </summary>
+        // 只应用模型结果，Unity 对象与射线检测不进入窗口注册表。
         void RefreshVisibility()
         {
-            var blockBelow = false;
-            for (var i = _stack.Count - 1; i >= 0; i--)
+            var layouts = _windows.SnapshotLayout();
+            for (var i = layouts.Length - 1; i >= 0; i--)
             {
-                var window = _stack[i];
-                window.SetVisible(true);
-                window.SetOccluded(blockBelow);
-
-                if (!blockBelow && window.FullScreen)
-                {
-                    blockBelow = true;
-                }
+                if (_windows.IsVisible(layouts[i].Window))
+                    WindowUnityAdapter.ApplyVisibility(layouts[i]);
             }
         }
 
@@ -950,7 +870,7 @@ namespace Framework.UI
             var canvas = layerGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.overrideSorting = true;
-            canvas.sortingOrder = (int)layer * LayerOrderStep;
+            canvas.sortingOrder = (int)layer * WindowRegistry<UIWindow>.LayerOrderStep;
 
             var scaler = layerGo.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -1121,10 +1041,10 @@ namespace Framework.UI
         }
 
         /// <inheritdoc />
-        protected override void OnDestroy()
+        protected override void OnSingletonDestroy()
         {
             Shutdown();
-            base.OnDestroy();
+            base.OnSingletonDestroy();
         }
     }
 }

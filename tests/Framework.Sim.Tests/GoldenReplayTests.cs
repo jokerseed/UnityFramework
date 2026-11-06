@@ -91,6 +91,43 @@ namespace Framework.Sim.Tests
                 $"逐帧结果变了，实际 0x{actual:X16}。有意改动请把 BattleSimulationVersion.Current 加一并更新 golden 值。");
         }
 
+        [TestCase(1)]
+        [TestCase(42)]
+        [TestCase(20260528)]
+        public void CombatReplay_AllFramesRepeatAcrossFreshSessions(int seed)
+        {
+            var first = MinimalBattle.Run(120, seed);
+            var second = MinimalBattle.Run(120, seed);
+            CollectionAssert.AreEqual(first.Checksums, second.Checksums,
+                "Compare every combat frame, not only the final checksum.");
+            Assert.Less(first.EnemyHealthRaw, first.EnemyHealthAtStartRaw);
+            Assert.Less(first.HeroHealthRaw, first.HeroHealthAtStartRaw);
+        }
+
+        [TestCase(0)]
+        [TestCase(37)]
+        [TestCase(119)]
+        public void Verifier_ReportsFirstCorruptedFrameAndStops(int index)
+        {
+            var tape = Record(Seed);
+            var frames = new List<BattleReplayFrame>(tape.Frames);
+            var original = frames[index];
+            frames[index] = new BattleReplayFrame(original.FrameIndex,
+                new List<BattleIntentCommand>(original.Commands).ToArray(), original.Checksum ^ 1L);
+            var corrupted = new BattleReplayTape(tape.Seed, tape.FixedDeltaTime, frames);
+            using (var director = new BattleDirector())
+            {
+                var session = director.CreateSession(Seed);
+                CreateActors(session, out _, out _);
+                var result = BattleReplayVerifier.Run(corrupted, session);
+                Assert.IsFalse(result.Matched);
+                Assert.AreEqual(index, result.MismatchFrameIndex);
+                Assert.AreEqual(index + 1, result.ComparedFrames);
+                Assert.AreEqual(original.Checksum ^ 1L, result.ExpectedChecksum);
+                Assert.AreEqual(original.Checksum, result.ActualChecksum);
+            }
+        }
+
         static BattleReplayTape Record(int seed)
         {
             using (var director = new BattleDirector())

@@ -9,7 +9,7 @@ namespace Framework.DebugConsole
     /// <summary>
     /// 调试控制台模块：Editor 与 Development Build 下创建 <see cref="RuntimeConsole"/>；正式包默认不创建。
     /// </summary>
-    public sealed class DebugConsoleModule : IGameModule
+    public sealed class DebugConsoleModule : IExclusiveGameModule
     {
         readonly bool _enableInRelease;
         bool _created;
@@ -49,7 +49,6 @@ namespace Framework.DebugConsole
         {
             if (_created && RuntimeConsole.HasInstance)
             {
-                RuntimeConsole.Instance.StopCapture();
                 RuntimeConsole.DestroyInstance();
             }
 

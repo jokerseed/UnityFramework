@@ -180,3 +180,7 @@ new NetworkModule(), // Dependencies: Logging + MemoryPool
 HTTP 4xx/5xx 返回 `HttpResponse`，保留状态码和响应正文；连接或数据处理失败统一抛出 `InvalidOperationException`，取消仍抛出 `OperationCanceledException`。超时参数必须为有限正数。
 
 原生 WebSocket 主动关闭的两秒时限覆盖待发送链和关闭帧；即使发送阻塞，超时后也会取消并释放套接字。主动关闭不发出错误或关闭通知。
+
+### DNS 与网络回归测试
+
+域名解析同步抛错也会转为 AddressError，并结束本次连接；旧连接的迟到解析异常会被观察且不会影响新连接。公开构造函数不变，内部解析器注入仅用于可重复测试。连接超时测试使用未完成的 DNS 任务，不再依赖外部不可路由地址或本机代理行为。回环测试的接入和读写均有明确时限，断言失败也会关闭 TCP 频道。

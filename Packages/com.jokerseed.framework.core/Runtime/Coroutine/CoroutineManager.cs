@@ -252,15 +252,10 @@ namespace Framework.Coroutine
             }
         }
 
-        protected override void OnDestroy()
+        protected override void OnSingletonDestroy()
         {
-            if (_listeningSceneUnload)
-            {
-                SceneManager.sceneUnloaded -= OnSceneUnloaded;
-                _listeningSceneUnload = false;
-            }
-
-            base.OnDestroy();
+            Shutdown();
+            base.OnSingletonDestroy();
         }
     }
 }

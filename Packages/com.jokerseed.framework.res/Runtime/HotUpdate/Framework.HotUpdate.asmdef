@@ -5,8 +5,7 @@
         "UniTask",
         "Framework.Core",
         "Framework.Logging",
-        "Framework.Res",
-        "HybridCLR.Runtime"
+        "Framework.Res"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -15,12 +14,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.code-philosophy.hybridclr",
-            "expression": "0.0.1",
-            "define": "FRAMEWORK_HYBRIDCLR"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

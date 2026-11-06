@@ -7,7 +7,7 @@ using Framework.Logging;
 namespace Framework.MemoryPool
 {
     /// <summary>内存池模块：从 <see cref="MemoryPoolManager"/> 读取严格检查，Shutdown 时清空所有池。</summary>
-    public sealed class MemoryPoolModule : IGameModule
+    public sealed class MemoryPoolModule : IExclusiveGameModule
     {
         /// <summary>模块名称。</summary>
         public string Name => "MemoryPool";

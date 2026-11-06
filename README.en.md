@@ -50,10 +50,11 @@ All editor tools live under **Tools → Framework**, and their paths are configu
 ## Tests and CI
 
 - `dotnet test tests/Framework.Sim.Tests` covers the engine-independent layers, the golden replay, and relative documentation links.
-- Unity EditMode tests are in `Assets/Tests/EditMode`. A PlayMode coroutine smoke test is in `Assets/Tests/PlayMode`.
+- Unity EditMode tests are in `Assets/Tests/EditMode`. PlayMode coroutine lifecycle tests are in `Assets/Tests/PlayMode`.
 - `.github/workflows/ci.yml` runs the dotnet tests (including the determinism scan and golden replay) on Linux and Windows for pushes to `main` and all PRs. It also checks Luban output drift and tests the CI result validator.
 - `editmode-tests.yml` runs nightly at 02:00 Asia/Shanghai, on PRs targeting `main`, and on demand. Fork PRs explicitly skip secret-dependent Unity jobs; the workflow never uses `pull_request_target`. Trusted runs fail clearly if `UNITY_LICENSE` is missing: this means Unity tests were **not run**, not that they passed. Keep this workflow optional until licensing is configured; branch protection is not changed automatically. See [GameCI activation](https://game.ci/docs/github/activation).
-- Unity jobs require non-empty passing NUnit XML and upload their results. The .NET suite does not compile the complete Unity project or replace asset-import, bootstrap, UI, or audio integration checks. Current PlayMode coverage is primarily a coroutine smoke test, not full game acceptance testing.
+- Unity jobs require non-empty passing NUnit XML and upload their results. The .NET suite does not compile the complete Unity project or replace asset-import, bootstrap, UI, or audio integration checks. PlayMode covers completion, cancellation, owner destruction, scene unloading, and restart, not full game acceptance testing.
+- CI also builds the engine-free sources as separate production-named assemblies following their `.asmdef` boundaries, then runs public-API replay tests from an independent consumer. Licensed Unity CI imports a clean seven-package consumer without demo or commercial Assets. See [test scope and commands](tests/README.md), including the two excluded Unity logging entry points in the .NET projection.
 - Run the CI tool tests locally with `python3 -m unittest discover -s scripts/tests -v`.
 
 ## License

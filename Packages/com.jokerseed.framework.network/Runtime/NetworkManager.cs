@@ -178,10 +178,10 @@ namespace Framework.Network
         }
 
         /// <inheritdoc />
-        protected override void OnDestroy()
+        protected override void OnSingletonDestroy()
         {
             Shutdown();
-            base.OnDestroy();
+            base.OnSingletonDestroy();
         }
     }
 }

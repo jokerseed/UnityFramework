@@ -10,7 +10,7 @@ namespace Framework.Save
     /// <summary>
     /// 存档模块：配置 <see cref="SaveManager"/>。默认存到 <c>persistentDataPath/Saves</c>，JSON 序列化。
     /// </summary>
-    public sealed class SaveModule : IGameModule
+    public sealed class SaveModule : IExclusiveGameModule
     {
         readonly ISaveStorage _storage;
         readonly ISaveSerializer _serializer;

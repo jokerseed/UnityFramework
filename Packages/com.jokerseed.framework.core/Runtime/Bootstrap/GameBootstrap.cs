@@ -33,7 +33,7 @@ namespace Framework.Bootstrap
         /// <param name="modules">要注册的模块集合；顺序无强制要求，由拓扑排序决定初始化顺序。</param>
         /// <returns>对应的 <see cref="ModuleGroup"/> 实例，可用于监听事件。</returns>
         /// <exception cref="ArgumentException"><paramref name="groupName"/> 为空或空白，或模块集合含 null。</exception>
-        /// <exception cref="InvalidOperationException">组正在运行、就绪或派发通知；模块类型重复或实例已由其它组拥有。</exception>
+        /// <exception cref="InvalidOperationException">组正在运行、就绪或派发通知；模块类型重复、实例已由其它组拥有，或独占服务模块类型已由其它组注册。</exception>
         public ModuleGroup SetModules(string groupName, IEnumerable<IGameModule> modules)
         {
             ThrowIfDestroyed();
@@ -65,7 +65,9 @@ namespace Framework.Bootstrap
                 {
                     if (ReferenceEquals(other, group)) continue;
                     foreach (var owned in other.Modules)
-                        if (ReferenceEquals(owned, module))
+                        if (ReferenceEquals(owned, module) ||
+                            (owned.GetType() == module.GetType() &&
+                             (owned is IExclusiveGameModule || module is IExclusiveGameModule)))
                             throw new InvalidOperationException($"Module '{module.Name}' is owned by group '{other.Name}'.");
                 }
             }
@@ -414,7 +416,8 @@ namespace Framework.Bootstrap
             catch (Exception error) { GameLog.Exception(LogCategories.Bootstrap, error); }
         }
 
-        protected override void OnDestroy()
+        /// <inheritdoc />
+        protected override void OnSingletonDestroy()
         {
             _destroying = true;
             // Invalidate completions before cancellation invokes user callbacks.
@@ -425,7 +428,7 @@ namespace Framework.Bootstrap
             _startOrder.Clear();
             _groups.Clear();
             _lifetime.Dispose();
-            base.OnDestroy();
+            base.OnSingletonDestroy();
         }
     }
 }

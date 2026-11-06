@@ -21,5 +21,12 @@
   "dependencies": {
     "com.jokerseed.framework.core": "0.1.0",
     "com.tuyoogame.yooasset": "3.0.5"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "HybridCLR Adapter",
+      "description": "Optional typed AOT metadata backend. Install com.code-philosophy.hybridclr before importing.",
+      "path": "Samples~/HybridCLRAdapter"
+    }
+  ]
 }
