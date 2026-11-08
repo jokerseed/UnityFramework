@@ -168,6 +168,78 @@ namespace Framework.Tests
             }
         }
 
+        [TestCase(false, false, false)]
+        [TestCase(true, false, false)]
+        [TestCase(true, true, false)]
+        [TestCase(true, true, true)]
+        [TestCase(false, true, false)]
+        [TestCase(false, true, true)]
+        public void SaveSlotDiscoveryAndDeletedEvent_IncludeBackupOnly(bool primary, bool backup, bool corruptBackup)
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "framework-save-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var serializer = new JsonUtilitySaveSerializer();
+                var bytes = serializer.Serialize(new Profile { Name = "a", Level = 1 });
+                if (primary || backup) Directory.CreateDirectory(dir);
+                if (primary) File.WriteAllBytes(Path.Combine(dir, "profile.sav"), bytes);
+                if (backup)
+                {
+                    if (corruptBackup) File.WriteAllText(Path.Combine(dir, "profile.sav.bak"), "{not json");
+                    else File.WriteAllBytes(Path.Combine(dir, "profile.sav.bak"), bytes);
+                }
+                var saves = _host.AddComponent<SaveManager>();
+                saves.Configure(new FileSaveStorage(dir), serializer);
+                var deletedEvents = 0;
+                saves.Deleted += key =>
+                {
+                    Assert.AreEqual("profile", key);
+                    deletedEvents++;
+                };
+
+                Assert.AreEqual(primary || backup, saves.Exists("profile"));
+                CollectionAssert.AreEqual(primary || backup ? new[] { "profile" } : Array.Empty<string>(), saves.ListKeys());
+                Assert.AreEqual(primary, File.Exists(Path.Combine(dir, "profile.sav")), "发现接口不能隐式恢复。");
+                if (corruptBackup)
+                    Assert.Throws<FormatException>(() => saves.LoadOrDefault("profile", () => new Profile()));
+
+                Assert.AreEqual(primary || backup, saves.Delete("profile"));
+                Assert.AreEqual(primary || backup ? 1 : 0, deletedEvents);
+                Assert.IsFalse(saves.Delete("profile"));
+                Assert.AreEqual(primary || backup ? 1 : 0, deletedEvents, "重复删除不能再次通知。");
+                Assert.IsFalse(saves.Exists("profile"));
+                Assert.IsEmpty(saves.ListKeys());
+                Assert.IsFalse(saves.TryLoad("profile", out Profile _));
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+        }
+
+        [Test]
+        public void SaveDeleteFailure_DoesNotRaiseDeleted()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "framework-save-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var saves = _host.AddComponent<SaveManager>();
+                saves.Configure(new FileSaveStorage(dir), new JsonUtilitySaveSerializer());
+                saves.Save("profile", new Profile { Name = "a", Level = 1 });
+                Directory.CreateDirectory(Path.Combine(dir, "profile.sav.bak"));
+                var deletedEvents = 0;
+                saves.Deleted += _ => deletedEvents++;
+
+                Assert.Throws<IOException>(() => saves.Delete("profile"));
+                Assert.AreEqual(0, deletedEvents);
+                Assert.IsTrue(File.Exists(Path.Combine(dir, "profile.sav")));
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+        }
+
         [Test]
         public void LocalizationPrefersLaterSourcesAndFallsBack()
         {

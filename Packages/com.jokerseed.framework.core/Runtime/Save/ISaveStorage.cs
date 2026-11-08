@@ -8,12 +8,14 @@ namespace Framework.Save
     /// </summary>
     public interface ISaveStorage
     {
-        /// <summary>键是否存在。</summary>
+        /// <summary>主存档或受支持的备份是否存在；不解析内容，也不代表存档有效。</summary>
         /// <param name="key">存档键。</param>
-        /// <returns>存在返回 true。</returns>
+        /// <returns>至少一份副本存在返回 true；两者均不存在返回 false。</returns>
+        /// <exception cref="System.IO.IOException">无法检查存档路径。</exception>
+        /// <exception cref="System.UnauthorizedAccessException">无权检查存档路径。</exception>
         bool Exists(string key);
 
-        /// <summary>读取存档字节。</summary>
+        /// <summary>读取主存档字节；仅有备份时返回 false，由调用方单独读取备份。</summary>
         /// <param name="key">存档键。</param>
         /// <param name="data">存在时输出字节。</param>
         /// <returns>存在返回 true。</returns>
@@ -24,13 +26,17 @@ namespace Framework.Save
         /// <param name="data">字节内容。</param>
         void Write(string key, byte[] data);
 
-        /// <summary>删除存档。</summary>
+        /// <summary>删除主存档与受支持的备份；内容损坏不影响显式删除。</summary>
         /// <param name="key">存档键。</param>
-        /// <returns>存在并删除返回 true。</returns>
+        /// <returns>至少一份副本原先存在且删除正常完成返回 true；两者均不存在返回 false。</returns>
+        /// <exception cref="System.IO.IOException">检查或删除失败；此前可能已删除部分副本。</exception>
+        /// <exception cref="System.UnauthorizedAccessException">无权检查或删除存档。</exception>
         bool Delete(string key);
 
-        /// <summary>列出全部存档键。</summary>
-        /// <returns>存档键列表。</returns>
+        /// <summary>列出主存档或受支持的备份对应的键，不解析或恢复内容。</summary>
+        /// <returns>按键字符串去重的存档键列表；包含内容损坏但仍存在的副本。</returns>
+        /// <exception cref="System.IO.IOException">无法枚举存档。</exception>
+        /// <exception cref="System.UnauthorizedAccessException">无权枚举存档。</exception>
         IReadOnlyList<string> ListKeys();
     }
 
