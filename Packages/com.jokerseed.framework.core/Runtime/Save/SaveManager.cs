@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Framework.Core;
-using Framework.Logging;
 
 namespace Framework.Save
 {
@@ -50,75 +48,22 @@ namespace Framework.Save
         }
 
         /// <summary>
-        /// 读取对象。主存档读取失败或解析失败时，若存储支持 <see cref="ISaveBackupStorage"/>，改读上一份备份并记警告。
+        /// 读取对象。主存档缺失、读取失败或解析失败时，若存储支持 <see cref="ISaveBackupStorage"/>，改读备份并记警告。
+        /// 支持 <see cref="ISaveRecoveryStorage"/> 的后端在返回成功前提升已验证的备份；提升失败直接抛出异常。
         /// </summary>
         /// <typeparam name="T">数据类型。</typeparam>
         /// <param name="key">存档键。</param>
         /// <param name="value">存在时输出数据。</param>
-        /// <returns>存在返回 true；不存在返回 false。</returns>
+        /// <returns>主档或备份可用时返回 true；两者都不存在时返回 false。</returns>
         /// <exception cref="InvalidOperationException">未配置。</exception>
-        /// <exception cref="FormatException">存档与备份都损坏或与类型不符。</exception>
+        /// <exception cref="FormatException">存在存档或备份，但没有可读且可解析的副本。</exception>
+        /// <exception cref="System.IO.IOException">备份有效，但修复主存档失败。</exception>
+        /// <exception cref="UnauthorizedAccessException">无权读取存档或写入恢复数据。</exception>
+        /// <exception cref="NotSupportedException">存储平台不支持所需的安全恢复操作。</exception>
         public bool TryLoad<T>(string key, out T value)
         {
             EnsureConfigured();
-            Exception primaryError;
-            try
-            {
-                if (!_storage.TryRead(key, out var data))
-                {
-                    if (TryLoadBackup(key, out value))
-                    {
-                        GameLog.Warning(LogCategories.Save, $"Save {LogStyle.Value(key)} missing, restored from backup.");
-                        return true;
-                    }
-
-                    value = default;
-                    return false;
-                }
-
-                value = _serializer.Deserialize<T>(data);
-                return true;
-            }
-            catch (Exception ex) when (ex is FormatException || ex is IOException)
-            {
-                primaryError = ex;
-            }
-
-            if (TryLoadBackup(key, out value))
-            {
-                GameLog.Warning(LogCategories.Save, $"Save {LogStyle.Value(key)} corrupted ({primaryError.Message}), restored from backup.");
-                return true;
-            }
-
-            throw primaryError is FormatException format
-                ? format
-                : new FormatException($"Save '{key}' cannot be read.", primaryError);
-        }
-
-        bool TryLoadBackup<T>(string key, out T value)
-        {
-            value = default;
-            if (!(_storage is ISaveBackupStorage backups))
-            {
-                return false;
-            }
-
-            try
-            {
-                if (!backups.TryReadBackup(key, out var data))
-                {
-                    return false;
-                }
-
-                value = _serializer.Deserialize<T>(data);
-                return true;
-            }
-            catch (Exception ex) when (ex is FormatException || ex is IOException)
-            {
-                GameLog.Warning(LogCategories.Save, $"Backup of {LogStyle.Value(key)} is unusable: {ex.Message}");
-                value = default;
-                return false;
-            }
+            return SaveReader.TryLoad(_storage, _serializer.Deserialize<T>, key, out value);
         }
 
         /// <summary>读取对象；不存在时用 <paramref name="createDefault"/> 创建（不自动保存）。</summary>
@@ -127,7 +72,11 @@ namespace Framework.Save
         /// <param name="createDefault">创建默认值的工厂。</param>
         /// <returns>读取或新建的数据。</returns>
         /// <exception cref="InvalidOperationException">未配置。</exception>
-        /// <exception cref="FormatException">存档内容损坏或与类型不符。</exception>
+        /// <exception cref="FormatException">存在存档或备份，但没有可读且可解析的副本。</exception>
+        /// <exception cref="System.IO.IOException">备份有效，但修复主存档失败。</exception>
+        /// <exception cref="UnauthorizedAccessException">无权读取存档或写入恢复数据。</exception>
+        /// <exception cref="NotSupportedException">存储平台不支持所需的安全恢复操作。</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="createDefault"/> 为 null。</exception>
         public T LoadOrDefault<T>(string key, Func<T> createDefault)
         {
             if (createDefault == null)

@@ -45,4 +45,21 @@ namespace Framework.Save
         /// <returns>备份存在返回 true。</returns>
         bool TryReadBackup(string key, out byte[] data);
     }
+
+    /// <summary>
+    /// 可选恢复能力：将已成功解析的备份提升为主存档，同时保留原备份。
+    /// 会在写入时轮换备份的后端应实现本接口，避免恢复后的下一次写入把坏主档保存为备份。
+    /// </summary>
+    public interface ISaveRecoveryStorage : ISaveBackupStorage
+    {
+        /// <summary>
+        /// 用已验证的备份字节修复主存档；成功或失败均不得覆盖已有备份。
+        /// 失败须抛出异常，不能报告恢复成功或先删除唯一可恢复的副本。
+        /// </summary>
+        /// <param name="key">存档键。</param>
+        /// <param name="data">已成功反序列化的备份字节，不可为 null。</param>
+        /// <exception cref="System.ArgumentNullException"><paramref name="data"/> 为 null。</exception>
+        /// <exception cref="System.IO.IOException">无法安全修复主存档。</exception>
+        void RestoreBackup(string key, byte[] data);
+    }
 }
