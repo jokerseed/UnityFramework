@@ -53,7 +53,7 @@ python3 scripts/create_unity_consumer.py Temp/PackageConsumer
 
 ## Unity PlayMode
 
-`Assets/Tests/PlayMode/CoroutinePlayModeTests.cs` 覆盖跨帧完成、幂等停止与其他协程隔离、宿主销毁、场景卸载与全局作用域隔离、Shutdown 后重新启动。测试用例自行清理宿主和场景，不依赖 Launch 场景和资源包；这仍不是完整游戏验收。
+`Assets/Tests/PlayMode/CoroutinePlayModeTests.cs` 覆盖跨帧完成、幂等停止与其他协程隔离、宿主销毁、场景卸载与全局作用域隔离、Shutdown 后重新启动。`BgmReplayPlayModeTests` 覆盖停止淡出期间重新播放当前曲目（即时 / 渐入、单源 / 双源），检查旧停止取消、播放位置保留、另一轨清理、实时目标音量和后续停止；也保护普通交叉淡入期间重复播放不重启淡入。测试用例自行清理宿主、音频 Clip 和场景，不依赖 Launch 场景和资源包；这仍不是完整游戏验收。
 
 ## CI
 

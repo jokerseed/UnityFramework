@@ -18,6 +18,7 @@ namespace Framework.Audio
 
         AudioSource _active;
         ICoroutineHandle _fadeHandle;
+        bool _isStopping;
 
         public bool IsPlaying => _active != null && _active.isPlaying;
 
@@ -48,9 +49,16 @@ namespace Framework.Audio
 
             if (_active.isPlaying && _active.clip == clip)
             {
-                // 已是当前曲目（可能正在淡入）：淡入照常进行；没有淡入时把音量对齐到目标值。
-                if (!IsFading)
+                if (_isStopping)
                 {
+                    // 新播放请求覆盖停止淡出，保留当前音源与播放位置，另一轨继续淡出。
+                    StopFade();
+                    var remaining = Other(_active);
+                    StartFade(_active, remaining.isPlaying ? remaining : null, fadeSeconds);
+                }
+                else if (!IsFading)
+                {
+                    // 已是当前曲目：现有淡入照常进行，静止时只对齐目标音量。
                     _active.volume = _volume.GetBgmVolume();
                 }
 
@@ -104,6 +112,7 @@ namespace Framework.Audio
                 return;
             }
 
+            _isStopping = true;
             _fadeHandle = GameCoroutine.StartGlobal(FadeOutAllCoroutine(fadeSeconds));
         }
 
@@ -193,6 +202,7 @@ namespace Framework.Audio
 
         void StopFade()
         {
+            _isStopping = false;
             if (_fadeHandle != null)
             {
                 GameCoroutine.Stop(_fadeHandle);
