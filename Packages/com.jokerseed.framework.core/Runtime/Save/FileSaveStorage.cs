@@ -7,10 +7,10 @@ namespace Framework.Save
     /// <summary>
     /// 本地文件存档：每个键一个 <c>{key}.sav</c> 文件。
     /// 写入时先把数据写进临时文件并强制落盘（<c>Flush(true)</c>），再替换正式文件，上一份正式文件保留为 <c>{key}.sav.bak</c>。
-    /// 写入中断或断电不会留下半截存档；正式文件损坏时 <see cref="SaveManager"/> 会改读备份。
+    /// 替换前的写入失败不会改动正式文件；正式文件损坏时 <see cref="SaveManager"/> 会读取并提升已验证的备份。
     /// 键只允许字母、数字、<c>_</c>、<c>-</c>、<c>.</c>。
     /// </summary>
-    public sealed class FileSaveStorage : ISaveStorage, ISaveBackupStorage
+    public sealed class FileSaveStorage : ISaveStorage, ISaveRecoveryStorage
     {
         const string Extension = ".sav";
         const string TempExtension = ".sav.tmp";
@@ -36,21 +36,15 @@ namespace Framework.Save
         public bool Exists(string key) => File.Exists(PathOf(key));
 
         /// <inheritdoc />
-        public bool TryRead(string key, out byte[] data)
-        {
-            var path = PathOf(key);
-            if (!File.Exists(path))
-            {
-                data = null;
-                return false;
-            }
-
-            data = File.ReadAllBytes(path);
-            return true;
-        }
+        public bool TryRead(string key, out byte[] data) => TryReadFile(PathOf(key), out data);
 
         /// <inheritdoc />
-        public void Write(string key, byte[] data)
+        public void Write(string key, byte[] data) => WriteCore(key, data, preserveBackup: false);
+
+        /// <inheritdoc />
+        public void RestoreBackup(string key, byte[] data) => WriteCore(key, data, preserveBackup: true);
+
+        void WriteCore(string key, byte[] data, bool preserveBackup)
         {
             if (data == null)
             {
@@ -69,7 +63,9 @@ namespace Framework.Save
 
             if (File.Exists(path))
             {
-                File.Replace(temp, path, BackupPathOf(key));
+                // null 表示不生成新备份：恢复不能让坏主档覆盖已验证的 .bak。
+                // 不支持原子替换的平台直接抛错，不降级为先删除主档再复制。
+                File.Replace(temp, path, preserveBackup ? null : BackupPathOf(key));
             }
             else
             {
@@ -78,17 +74,21 @@ namespace Framework.Save
         }
 
         /// <inheritdoc />
-        public bool TryReadBackup(string key, out byte[] data)
+        public bool TryReadBackup(string key, out byte[] data) => TryReadFile(BackupPathOf(key), out data);
+
+        static bool TryReadFile(string path, out byte[] data)
         {
-            var backup = BackupPathOf(key);
-            if (!File.Exists(backup))
+            try
+            {
+                data = File.ReadAllBytes(path);
+                return true;
+            }
+            catch (Exception ex) when (ex is FileNotFoundException || ex is DirectoryNotFoundException)
             {
                 data = null;
                 return false;
             }
-
-            data = File.ReadAllBytes(backup);
-            return true;
+            // 不用 File.Exists 探测读取：它会把权限等错误也当成“不存在”。
         }
 
         /// <inheritdoc />

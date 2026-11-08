@@ -106,6 +106,22 @@ namespace Framework.Tests
                 Assert.Throws<ArgumentException>(() => saves.Save("../escape", loaded));
 
                 File.WriteAllText(Path.Combine(dir, "profile.sav"), "{not json");
+                var savedEvents = 0;
+                saves.Saved += _ => savedEvents++;
+                Assert.IsTrue(saves.TryLoad("profile", out loaded));
+                Assert.AreEqual("a", loaded.Name);
+                Assert.AreEqual(1, loaded.Level);
+                Assert.AreEqual(0, savedEvents, "恢复不应被当成用户保存事件。");
+                Assert.AreEqual(File.ReadAllText(Path.Combine(dir, "profile.sav.bak")),
+                    File.ReadAllText(Path.Combine(dir, "profile.sav")));
+
+                saves.Save("profile", new Profile { Name = "d", Level = 4 });
+                File.WriteAllText(Path.Combine(dir, "profile.sav"), "{not json");
+                Assert.IsTrue(saves.TryLoad("profile", out loaded));
+                Assert.AreEqual("a", loaded.Name, "后续保存不能让坏主档覆盖可用备份。");
+
+                File.WriteAllText(Path.Combine(dir, "profile.sav"), "{not json");
+                File.WriteAllText(Path.Combine(dir, "profile.sav.bak"), "{not json");
                 Assert.Throws<FormatException>(() => saves.TryLoad("profile", out Profile _));
             }
             finally
@@ -114,6 +130,41 @@ namespace Framework.Tests
                 {
                     Directory.Delete(dir, true);
                 }
+            }
+        }
+
+        [Test]
+        public void SaveMissingPrimaryCorruptBackup_DoesNotCreateDefault()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "framework-save-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "profile.sav.bak"), "{not json");
+                var saves = _host.AddComponent<SaveManager>();
+                saves.Configure(new FileSaveStorage(dir), new JsonUtilitySaveSerializer());
+                var defaults = 0;
+
+                Assert.Throws<FormatException>(() => saves.LoadOrDefault("profile", () =>
+                {
+                    defaults++;
+                    return new Profile();
+                }));
+                Assert.AreEqual(0, defaults);
+                Assert.IsFalse(File.Exists(Path.Combine(dir, "profile.sav")));
+                Assert.AreEqual("{not json", File.ReadAllText(Path.Combine(dir, "profile.sav.bak")));
+
+                Assert.IsNotNull(saves.LoadOrDefault("new-profile", () =>
+                {
+                    defaults++;
+                    return new Profile();
+                }));
+                Assert.AreEqual(1, defaults);
+                Assert.IsFalse(File.Exists(Path.Combine(dir, "new-profile.sav")));
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
             }
         }
 
