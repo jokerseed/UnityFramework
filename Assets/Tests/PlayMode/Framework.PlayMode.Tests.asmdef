@@ -5,6 +5,7 @@
         "Framework.Core",
         "Framework.Logging",
         "Framework.Coroutine",
+        "Framework.Audio",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],
