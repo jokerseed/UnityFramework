@@ -22,7 +22,7 @@ namespace Framework.Save
         /// <summary>某个键保存成功后触发。</summary>
         public event Action<string> Saved;
 
-        /// <summary>某个键被删除后触发。</summary>
+        /// <summary>存储后端成功删除某个键的主档或备份后触发一次；不存在或删除失败时不触发。</summary>
         public event Action<string> Deleted;
 
         /// <summary>配置存储后端与序列化器。</summary>
@@ -87,19 +87,23 @@ namespace Framework.Save
             return TryLoad(key, out T value) ? value : createDefault();
         }
 
-        /// <summary>键是否存在。</summary>
+        /// <summary>主档或受支持的备份是否存在，不验证内容，也不执行恢复。</summary>
         /// <param name="key">存档键。</param>
-        /// <returns>存在返回 true。</returns>
+        /// <returns>至少一份副本存在返回 true；内容是否有效须调用 TryLoad 检查。</returns>
         /// <exception cref="InvalidOperationException">未配置。</exception>
+        /// <exception cref="System.IO.IOException">无法检查存档路径。</exception>
+        /// <exception cref="UnauthorizedAccessException">无权检查存档路径。</exception>
         public bool Exists(string key)
         {
             EnsureConfigured();
             return _storage.Exists(key);
         }
 
-        /// <summary>删除存档。</summary>
+        /// <summary>删除主档和受支持的备份；成功删除后通知 Deleted，删除失败不通知。</summary>
         /// <param name="key">存档键。</param>
-        /// <returns>存在并删除返回 true。</returns>
+        /// <returns>至少一份副本原先存在且删除完成返回 true；两者均不存在返回 false。</returns>
+        /// <exception cref="System.IO.IOException">检查或删除失败；此前可能已删除部分副本。</exception>
+        /// <exception cref="UnauthorizedAccessException">无权检查或删除存档。</exception>
         /// <exception cref="InvalidOperationException">未配置。</exception>
         public bool Delete(string key)
         {
@@ -113,9 +117,11 @@ namespace Framework.Save
             return true;
         }
 
-        /// <summary>列出全部存档键。</summary>
-        /// <returns>存档键列表。</returns>
+        /// <summary>列出主档或受支持的备份对应的键，不验证或恢复内容。</summary>
+        /// <returns>按键字符串去重的存档键列表，包含损坏副本对应的键。</returns>
         /// <exception cref="InvalidOperationException">未配置。</exception>
+        /// <exception cref="System.IO.IOException">无法枚举存档。</exception>
+        /// <exception cref="UnauthorizedAccessException">无权枚举存档。</exception>
         public IReadOnlyList<string> ListKeys()
         {
             EnsureConfigured();

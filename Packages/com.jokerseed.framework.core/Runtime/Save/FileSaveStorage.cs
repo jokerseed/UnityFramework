@@ -33,7 +33,7 @@ namespace Framework.Save
         public string Directory { get; }
 
         /// <inheritdoc />
-        public bool Exists(string key) => File.Exists(PathOf(key));
+        public bool Exists(string key) => SaveFileExists(PathOf(key)) || SaveFileExists(BackupPathOf(key));
 
         /// <inheritdoc />
         public bool TryRead(string key, out byte[] data) => TryReadFile(PathOf(key), out data);
@@ -96,40 +96,69 @@ namespace Framework.Save
         {
             var path = PathOf(key);
             var backup = BackupPathOf(key);
-            var existed = File.Exists(path);
-            if (existed)
+            // 先检查两个副本；权限问题或同名目录不是“没有存档”。
+            var primaryExisted = SaveFileExists(path);
+            var backupExisted = SaveFileExists(backup);
+            if (primaryExisted)
             {
                 File.Delete(path);
             }
 
-            if (File.Exists(backup))
+            if (backupExisted)
             {
                 File.Delete(backup);
             }
 
-            return existed;
+            return primaryExisted || backupExisted;
         }
 
         /// <inheritdoc />
         public IReadOnlyList<string> ListKeys()
         {
-            var keys = new List<string>();
-            if (!System.IO.Directory.Exists(Directory))
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+            try
             {
-                return keys;
+                AddKeys(keys, Extension);
+                AddKeys(keys, BackupExtension);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // 未创建过存档目录，不是读取失败。
             }
 
-            foreach (var file in System.IO.Directory.GetFiles(Directory, "*" + Extension))
+            var result = new List<string>(keys);
+            result.Sort(StringComparer.Ordinal);
+            return result;
+        }
+
+        void AddKeys(HashSet<string> keys, string extension)
+        {
+            foreach (var file in System.IO.Directory.GetFiles(Directory, "*" + extension))
             {
-                // Windows 的三字符扩展名通配会顺带匹配更长的扩展名，这里只认精确的 .sav。
-                if (file.EndsWith(Extension, StringComparison.OrdinalIgnoreCase))
+                // 保留平台的通配大小写语义，并过滤 Windows 三字符扩展名的宽松匹配。
+                if (file.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
                 {
-                    keys.Add(Path.GetFileNameWithoutExtension(file));
+                    var name = Path.GetFileName(file);
+                    keys.Add(name.Substring(0, name.Length - extension.Length));
                 }
             }
+        }
 
-            keys.Sort(StringComparer.Ordinal);
-            return keys;
+        static bool SaveFileExists(string path)
+        {
+            try
+            {
+                if ((File.GetAttributes(path) & FileAttributes.Directory) != 0)
+                {
+                    throw new IOException($"Save path '{path}' is a directory, not a file.");
+                }
+
+                return true;
+            }
+            catch (Exception ex) when (ex is FileNotFoundException || ex is DirectoryNotFoundException)
+            {
+                return false;
+            }
         }
 
         string PathOf(string key)
