@@ -11,13 +11,30 @@ namespace Framework.Events
     /// </summary>
     internal sealed class HandlerList<T> : IEventChannel where T : struct
     {
+        sealed class Subscription : IDisposable
+        {
+            readonly HandlerList<T> _owner;
+            internal readonly Action<T> Handler;
+
+            internal Subscription(HandlerList<T> owner, Action<T> handler)
+            {
+                _owner = owner;
+                Handler = handler;
+            }
+
+            public void Dispose()
+            {
+                _owner.Remove(this);
+            }
+        }
+
         struct PendingOp
         {
-            public Action<T> Handler;
+            public Subscription Subscription;
             public bool IsAdd;
         }
 
-        readonly List<Action<T>> _handlers = new List<Action<T>>(4);
+        readonly List<Subscription> _handlers = new List<Subscription>(4);
         readonly List<PendingOp> _pending = new List<PendingOp>(4);
         int _invokeDepth;
 
@@ -28,7 +45,7 @@ namespace Framework.Events
             {
                 for (var i = 0; i < _handlers.Count; i++)
                 {
-                    var handler = _handlers[i];
+                    var handler = _handlers[i].Handler;
                     if (IsPendingRemove(handler))
                     {
                         continue;
@@ -54,39 +71,79 @@ namespace Framework.Events
             }
         }
 
-        public void Add(Action<T> handler)
+        public IDisposable Add(Action<T> handler)
         {
             if (handler == null)
             {
                 throw new ArgumentNullException(nameof(handler));
             }
 
-            if (_invokeDepth > 0)
+            // 同一有效注册共享凭证；退订后重订必须创建新身份，旧凭证不能影响它。
+            var subscription = FindCurrent(handler);
+            if (subscription != null)
             {
-                _pending.Add(new PendingOp { Handler = handler, IsAdd = true });
-                return;
+                return subscription;
             }
 
-            if (!_handlers.Contains(handler))
+            subscription = new Subscription(this, handler);
+            if (_invokeDepth > 0)
             {
-                _handlers.Add(handler);
+                _pending.Add(new PendingOp { Subscription = subscription, IsAdd = true });
             }
+            else
+            {
+                _handlers.Add(subscription);
+            }
+
+            return subscription;
         }
 
         public void Remove(Action<T> handler)
         {
-            if (handler == null)
+            if (handler != null)
+            {
+                Remove(FindCurrent(handler));
+            }
+        }
+
+        void Remove(Subscription subscription)
+        {
+            if (subscription == null || FindCurrent(subscription.Handler) != subscription)
             {
                 return;
             }
 
             if (_invokeDepth > 0)
             {
-                _pending.Add(new PendingOp { Handler = handler, IsAdd = false });
-                return;
+                _pending.Add(new PendingOp { Subscription = subscription, IsAdd = false });
+            }
+            else
+            {
+                _handlers.Remove(subscription);
+            }
+        }
+
+        // 将待处理操作纳入查询，让分发中的重复订阅、退订和重订也遵守注册身份。
+        Subscription FindCurrent(Action<T> handler)
+        {
+            for (var i = _pending.Count - 1; i >= 0; i--)
+            {
+                var op = _pending[i];
+                if (op.Subscription.Handler == handler)
+                {
+                    return op.IsAdd ? op.Subscription : null;
+                }
             }
 
-            _handlers.Remove(handler);
+            for (var i = 0; i < _handlers.Count; i++)
+            {
+                if (_handlers[i].Handler == handler)
+                {
+                    return _handlers[i];
+                }
+            }
+
+            return null;
         }
 
         public void Clear()
@@ -95,12 +152,15 @@ namespace Framework.Events
             _pending.Clear();
         }
 
-        /// <summary>按操作队列里该回调的最后一次操作判断：最后一次是 Remove 则本轮分发跳过它。</summary>
+        /// <summary>
+        /// 本轮快照仍按委托判断最后一次操作：Remove 后 Add 会恢复原处理器本轮的调用，
+        /// 即使新注册拥有不同身份；只从未在快照出现过的处理器需等待最外层分发结束。
+        /// </summary>
         bool IsPendingRemove(Action<T> handler)
         {
             for (var i = _pending.Count - 1; i >= 0; i--)
             {
-                if (_pending[i].Handler == handler)
+                if (_pending[i].Subscription.Handler == handler)
                 {
                     return !_pending[i].IsAdd;
                 }
@@ -116,14 +176,11 @@ namespace Framework.Events
                 var op = _pending[i];
                 if (op.IsAdd)
                 {
-                    if (!_handlers.Contains(op.Handler))
-                    {
-                        _handlers.Add(op.Handler);
-                    }
+                    _handlers.Add(op.Subscription);
                 }
                 else
                 {
-                    _handlers.Remove(op.Handler);
+                    _handlers.Remove(op.Subscription);
                 }
             }
 

@@ -16,7 +16,7 @@ dotnet test -c Release
 | `SmokeTests` | 不依赖 Unity 建一场战斗并推进 |
 | `GoldenReplayTests` | 固定种子与输入的逐帧校验和；与仓库里的 golden 值比对；录像对拍；模拟版本不符时拒绝对拍；多种子战斗逐帧复现；首帧 / 中间帧 / 末帧损坏定位 |
 | `DeterminismScanTests` | 与 Unity 菜单 **Tools/Framework/Battle/Scan Determinism** 相同的规则（`DeterminismRules`）扫描模拟层源码 |
-| `EventBusTests` | 事件分发中订阅 / 退订的顺序语义 |
+| `EventBusTests` | 实例 / 全局总线的分发顺序、过期订阅凭证、重复注册、嵌套分发及预热后 Publish 零分配 |
 | `FileLogSinkTests` | 滚动日志文件 |
 | `FsmLifecycleTests` | 进入与观察者回调重入、同实例往返、订阅快照、异常传播及退出期间的保护 |
 
@@ -41,7 +41,7 @@ dotnet test /tmp/framework-consumer/Consumer/Consumer.csproj -c Release
 
 生成器从最近的 `.asmdef` 确定每个 `.cs` 的归属，按原程序集名称分别构建 9 个 `noEngineReferences` 程序集，以及 Events 和 Logging。项目引用只采用各自声明的直接依赖，禁用 .NET 默认的传递项目引用，能发现单程序集测试隐藏的 `internal` 越界和缺失引用。遇到未支持的条件编译程序集或缺失依赖时明确失败，不静默合并。
 
-这是引擎无关投影，不是完整 Unity 编译：Logging 仅排除 `LoggingManager.cs` / `LoggingModule.cs` 两个 Unity 入口及其 Core / UniTask 引用；其余所选程序集无源文件排除，不使用 Unity 替身。源文件复制到独立目录，不引用 `Assets/`。外部消费者通过公开 API 跑 golden 与多种子重放测试，并断言代码确实位于不同生产程序集。
+这是引擎无关投影，不是完整 Unity 编译：Logging 仅排除 `LoggingManager.cs` / `LoggingModule.cs` 两个 Unity 入口及其 Core / UniTask 引用；其余所选程序集无源文件排除，不使用 Unity 替身。源文件复制到独立目录，不引用 `Assets/`。外部消费者通过公开 API 跑 golden、多种子重放和事件总线生命周期测试，并断言代码确实位于不同生产程序集。
 
 完整包导入另由干净 Unity 工程验证：
 

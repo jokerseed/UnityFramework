@@ -82,7 +82,7 @@ def generate(root, output):
         ET.ElementTree(project).write(destination, encoding="utf-8", xml_declaration=True)
     consumer = output / "Consumer"
     consumer.mkdir()
-    for name in ("GoldenReplayTests.cs",):
+    for name in ("GoldenReplayTests.cs", "EventBusTests.cs"):
         shutil.copy2(root / "tests/Framework.Sim.Tests" / name, consumer / name)
     shutil.copy2(root / "tests/Framework.PackageConsumer.Tests/AssemblyBoundaryTests.cs", consumer)
     project = ET.Element("Project", Sdk="Microsoft.NET.Sdk")

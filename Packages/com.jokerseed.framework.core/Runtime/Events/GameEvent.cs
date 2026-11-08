@@ -43,7 +43,8 @@ namespace Framework.Events
         /// <summary>订阅指定事件类型，返回可用于自动取消订阅的凭证。</summary>
         /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
         /// <param name="handler">事件处理委托，不可为 null。</param>
-        /// <returns>订阅凭证；调用 Dispose 时自动取消订阅。</returns>
+        /// <returns>当前注册的凭证；重复订阅共享注册，任一凭证的 Dispose 都会退订。旧凭证不会影响退订或 Clear 后的新注册。</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="handler"/> 为 null。</exception>
         public static IDisposable Subscribe<TEvent>(Action<TEvent> handler) where TEvent : struct
         {
             return Mgr.Bus.Subscribe(handler);
