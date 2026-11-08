@@ -36,8 +36,11 @@ fsm.Start<Idle>();
 fsm.Update(Time.deltaTime);
 ```
 
-- 切换顺序：旧状态 `OnExit` → `StateChanged` 事件 → 新状态 `OnEnter`，`CurrentStateTime` 归零
-- `OnEnter` 里可以直接再切换；`OnExit` 里切换会抛 `InvalidOperationException`
+- 切换顺序：旧状态 `OnExit` → 设置新 `CurrentState` 并将 `CurrentStateTime` 归零 → 新状态 `OnEnter` → `StateChanged` 事件。首次启动没有 `OnExit`，事件的旧状态为 null。
+- `OnEnter` 里可以立即再切换或销毁。只有返回后仍有效的那次进入会发出 `StateChanged`；例如 A 的 `OnEnter` 立即进入 B，则只通知 A → B，不再补发首次进入 A 的旧通知。即使后来返回同一个状态实例，也不会补发旧通知。
+- 事件按 `OnEnter` 完成后的订阅快照同步分发。监听器内添加/移除订阅只影响后续分发；监听器切换或销毁状态机后，本次旧通知立即停止，后续监听器只接收仍有效的新通知。同状态重入也算一次新进入。`ProcedureChanged` 使用相同规则。
+- `OnExit` 里切换或销毁会抛 `InvalidOperationException`，调用 `Update` 会被忽略，不增加计时、不执行 `OnUpdate`。
+- 回调异常采用立即向调用方传播的规则：`OnExit` 抛错会中止切换/销毁并保留原状态；`OnEnter` 抛错会保留已设置的新状态但不发送本次通知；事件监听器抛错会中止本次分发但不会跳过 `OnEnter` 或回滚已完成的进入。回调自身已执行的操作不会回滚，调用方处理异常后可继续切换或销毁。
 - 状态间共享数据用持有者字段，或 `SetData` / `TryGetData`
 - 帧同步逻辑可以用 `Fsm<T>`，但 `Update` 要传逻辑帧步长，不要传 `Time.deltaTime`
 

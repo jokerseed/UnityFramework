@@ -12,7 +12,8 @@ namespace Framework.Fsm
         {
         }
 
-        /// <summary>进入本状态时调用；可在此直接切换到下一个状态。</summary>
+        /// <summary>进入本状态时调用；可在此直接切换到下一个状态或销毁状态机。</summary>
+        /// <remarks>调用前已设置当前状态并将计时归零。异常向调用方传播，不回滚当前状态，也不发送本次 StateChanged 通知。</remarks>
         /// <param name="fsm">所属状态机。</param>
         protected virtual void OnEnter(Fsm<TOwner> fsm)
         {
@@ -25,7 +26,8 @@ namespace Framework.Fsm
         {
         }
 
-        /// <summary>离开本状态时调用；此时不允许再切换状态。</summary>
+        /// <summary>离开本状态时调用；此时不允许切换或销毁状态机，Update 被忽略。</summary>
+        /// <remarks>异常向调用方传播并中止切换或销毁，保留原当前状态；状态内已执行的操作不回滚。</remarks>
         /// <param name="fsm">所属状态机。</param>
         protected virtual void OnExit(Fsm<TOwner> fsm)
         {

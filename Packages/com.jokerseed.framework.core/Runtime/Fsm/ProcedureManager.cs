@@ -22,7 +22,8 @@ namespace Framework.Fsm
         /// <summary>进入当前流程后经过的时间（秒，受 timeScale 影响）。</summary>
         public float CurrentProcedureTime => _fsm?.CurrentStateTime ?? 0f;
 
-        /// <summary>流程切换后触发，参数为（旧流程，新流程）；首次启动时旧流程为 null。</summary>
+        /// <summary>流程 OnEnter 完成且该次进入仍有效后触发，参数为（旧流程，新流程）；首次启动时旧流程为 null。</summary>
+        /// <remarks>按订阅快照同步通知；监听器切换或关闭流程后停止旧通知，异常向调用方传播并中止分发。</remarks>
         public event Action<ProcedureBase, ProcedureBase> ProcedureChanged;
 
         /// <summary>注册全部流程。</summary>
@@ -86,10 +87,26 @@ namespace Framework.Fsm
 
         void OnStateChanged(FsmState<ProcedureManager> previous, FsmState<ProcedureManager> next)
         {
+            var fsm = _fsm;
+            var version = fsm.StateVersion;
             GameLog.Info(
                 LogCategories.Procedure,
                 $"{LogStyle.Name(previous?.GetType().Name ?? "-")} → {LogStyle.Name(next.GetType().Name)}");
-            ProcedureChanged?.Invoke((ProcedureBase)previous, (ProcedureBase)next);
+            var listeners = ProcedureChanged;
+            if (listeners == null)
+            {
+                return;
+            }
+
+            foreach (Action<ProcedureBase, ProcedureBase> listener in listeners.GetInvocationList())
+            {
+                if (_fsm != fsm || !fsm.IsRunning || version != fsm.StateVersion)
+                {
+                    break;
+                }
+
+                listener((ProcedureBase)previous, (ProcedureBase)next);
+            }
         }
 
         void EnsureInitialized()

@@ -12,6 +12,7 @@ namespace Framework.Fsm
     {
         readonly Dictionary<Type, FsmState<TOwner>> _states = new Dictionary<Type, FsmState<TOwner>>();
         readonly Dictionary<string, object> _data = new Dictionary<string, object>();
+        ulong _stateVersion;
         bool _exiting;
         bool _destroyed;
 
@@ -68,8 +69,14 @@ namespace Framework.Fsm
         /// <summary>是否已启动且未销毁。</summary>
         public bool IsRunning => CurrentState != null && !_destroyed;
 
-        /// <summary>状态切换后触发，参数为（旧状态，新状态）；首次启动时旧状态为 null。</summary>
+        /// <summary>新状态的 OnEnter 返回后且该次进入仍有效时触发，参数为（旧状态，新状态）；首次启动时旧状态为 null。</summary>
+        /// <remarks>
+        /// OnEnter 立即切换或销毁时不通知已失效的进入。监听器按进入完成后的订阅快照同步调用；
+        /// 监听器可切换或销毁状态机，此时停止旧通知。监听器异常向调用方传播并中止本次分发，不回滚已完成的进入。
+        /// </remarks>
         public event Action<FsmState<TOwner>, FsmState<TOwner>> StateChanged;
+
+        internal ulong StateVersion => _stateVersion;
 
         /// <summary>以指定状态启动。</summary>
         /// <typeparam name="TState">初始状态类型。</typeparam>
@@ -126,11 +133,11 @@ namespace Framework.Fsm
             EnterState(next, previous);
         }
 
-        /// <summary>驱动当前状态的 OnUpdate。</summary>
+        /// <summary>驱动当前状态的 OnUpdate；未运行或正在 OnExit 时忽略。</summary>
         /// <param name="deltaTime">距上次更新的时间（秒）。</param>
         public void Update(float deltaTime)
         {
-            if (!IsRunning)
+            if (!IsRunning || _exiting)
             {
                 return;
             }
@@ -178,11 +185,17 @@ namespace Framework.Fsm
         public bool RemoveData(string key) => _data.Remove(key);
 
         /// <summary>退出当前状态并对所有状态调用 OnDestroy；之后状态机不可再用。</summary>
+        /// <exception cref="InvalidOperationException">在 OnExit 中调用。</exception>
         public void Destroy()
         {
             if (_destroyed)
             {
                 return;
+            }
+
+            if (_exiting)
+            {
+                throw new InvalidOperationException($"FSM '{Name}' cannot be destroyed inside OnExit.");
             }
 
             if (CurrentState != null)
@@ -213,8 +226,30 @@ namespace Framework.Fsm
         {
             CurrentState = next;
             CurrentStateTime = 0f;
-            StateChanged?.Invoke(previous, next);
+            var version = unchecked(++_stateVersion);
             next.InvokeEnter(this);
+
+            // 不能只比较状态实例：OnEnter 或监听器可能 A -> B -> A，甚至重入同一状态。
+            if (_destroyed || version != _stateVersion)
+            {
+                return;
+            }
+
+            var listeners = StateChanged;
+            if (listeners == null)
+            {
+                return;
+            }
+
+            foreach (Action<FsmState<TOwner>, FsmState<TOwner>> listener in listeners.GetInvocationList())
+            {
+                if (_destroyed || version != _stateVersion)
+                {
+                    break;
+                }
+
+                listener(previous, next);
+            }
         }
 
         FsmState<TOwner> GetStateOrThrow(Type stateType)
