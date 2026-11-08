@@ -12,11 +12,12 @@ namespace Framework.Events
 
         /// <summary>
         /// 订阅指定事件类型，返回可用于取消订阅的 <see cref="IDisposable"/>。
-        /// 订阅本身会产生少量分配（凭证装箱），不要放在每帧路径里；分发过程中订阅/退订会在本轮分发结束后按调用顺序生效。
+        /// 新注册会产生少量分配（订阅凭证），不要放在每帧路径里；分发过程中订阅/退订会在本轮分发结束后按调用顺序生效。
         /// </summary>
         /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
         /// <param name="handler">事件处理委托，不可为 null。</param>
-        /// <returns>订阅凭证；调用 Dispose 时自动取消订阅。</returns>
+        /// <returns>当前注册的凭证；重复订阅共享注册，任一凭证的 Dispose 都会退订。旧凭证不会影响退订或 Clear 后的新注册。</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="handler"/> 为 null。</exception>
         IDisposable Subscribe<TEvent>(Action<TEvent> handler) where TEvent : struct;
 
         /// <summary>取消订阅指定事件类型的处理器。</summary>

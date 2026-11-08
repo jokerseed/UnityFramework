@@ -18,6 +18,7 @@ class PackageConsumerGeneratorTests(unittest.TestCase):
         self.root = Path(self.temp.name) / "repo"
         self.output = Path(self.temp.name) / "consumer"
         for name in ("Framework.Sim.Tests/GoldenReplayTests.cs",
+                     "Framework.Sim.Tests/EventBusTests.cs",
                      "Framework.PackageConsumer.Tests/AssemblyBoundaryTests.cs"):
             path = self.root / "tests" / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,6 +45,7 @@ class PackageConsumerGeneratorTests(unittest.TestCase):
         self.assertEqual(["../Child/Child.csproj"], [node.get("Include") for node in references])
         self.assertEqual("true", parent.findtext(".//DisableTransitiveProjectReferences"))
         self.assertFalse((self.output / "UnityOnly").exists())
+        self.assertEqual("// fixture", (self.output / "Consumer/EventBusTests.cs").read_text())
         self.assertFalse(any(path.name == "UnityOnly.cs" for path in self.output.rglob("*.cs")))
 
     def test_duplicate_names_are_rejected(self):

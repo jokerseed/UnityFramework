@@ -6,7 +6,7 @@ namespace Framework.Events
     /// <summary>
     /// 零 GC 实例事件总线：每个实例独立通道，适合战斗内表现层隔离。
     /// "零 GC"指 <see cref="Publish{TEvent}"/>：值类型事件按 <c>in</c> 传递、不装箱。
-    /// <see cref="Subscribe{TEvent}"/> 会分配一次（委托与返回凭证装箱），请在初始化时订阅、不要在每帧路径里反复订阅。
+    /// <see cref="Subscribe{TEvent}"/> 新注册会分配凭证，请在初始化时订阅、不要在每帧路径里反复订阅。
     /// 全局事件请使用 <see cref="GameEvent"/> / <see cref="GlobalEventBus"/>。
     /// </summary>
     public sealed class ZeroGcEventBus : IEventBus
@@ -27,11 +27,11 @@ namespace Framework.Events
         /// <summary>订阅指定事件类型，返回可用于取消订阅的凭证。</summary>
         /// <typeparam name="TEvent">事件类型，必须为值类型（struct）。</typeparam>
         /// <param name="handler">事件处理委托，不可为 null。</param>
-        /// <returns>订阅凭证；调用 Dispose 时自动取消订阅。</returns>
+        /// <returns>当前注册的凭证；重复订阅共享注册，任一凭证的 Dispose 都会退订。旧凭证不会影响退订或 Clear 后的新注册。</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="handler"/> 为 null。</exception>
         public IDisposable Subscribe<TEvent>(Action<TEvent> handler) where TEvent : struct
         {
-            GetOrCreateHandlers<TEvent>().Add(handler);
-            return new Subscription<TEvent>(this, handler);
+            return GetOrCreateHandlers<TEvent>().Add(handler);
         }
 
         /// <summary>取消订阅指定事件类型的处理器。</summary>
@@ -71,26 +71,6 @@ namespace Framework.Events
             }
 
             return (HandlerList<TEvent>)channel;
-        }
-
-        readonly struct Subscription<TEvent> : IDisposable where TEvent : struct
-        {
-            readonly ZeroGcEventBus _bus;
-            readonly Action<TEvent> _handler;
-
-            public Subscription(ZeroGcEventBus bus, Action<TEvent> handler)
-            {
-                _bus = bus;
-                _handler = handler;
-            }
-
-            public void Dispose()
-            {
-                if (_handler != null)
-                {
-                    _bus.Unsubscribe(_handler);
-                }
-            }
         }
     }
 }
