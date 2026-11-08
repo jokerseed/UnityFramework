@@ -6,6 +6,12 @@
 
 第一个面向开源的版本。框架代码从 `Assets/` 拆成 7 个嵌入式 UPM 包，异步链路统一为 UniTask，补齐客户端常用模块与工具链。
 
+### 状态机回调重入
+
+- `StateChanged` / `ProcedureChanged` 改为在 `OnEnter` 完成后通知；监听器切换、销毁或抛异常不再导致尚未进入的状态被退出，或已销毁的状态再次进入。
+- `OnEnter` 仍可立即切换或销毁，已失效的进入不再补发通知；监听器重入后停止旧通知，按进入代数区分同实例往返和同状态重入。
+- `OnExit` 中禁止销毁状态机，避免递归退出或销毁后复活；退出期间的 `Update` 被忽略。补充生命周期、订阅快照及异常恢复回归测试。
+
 ### 存档备份恢复
 
 - 修复从好备份恢复后下一次保存把坏主档写入 `.bak` 的问题。文件后端先安全提升已验证备份并保留 `.bak`；新增可选 `ISaveRecoveryStorage`，不改变已有存储接口。
@@ -41,6 +47,7 @@
 
 ### 不兼容改动
 
+- **状态机事件顺序**：`StateChanged` / `ProcedureChanged` 从 `OnEnter` 前移到成功返回后；短暂状态可能不产生通知，重入使旧通知停止。需要每次进入都执行的逻辑请放在 `OnEnter`，不要依赖事件初始化状态。异常处理和重入契约见 Fsm 模块 README。
 - **Unity 版本**：工程升到 2021.3.45f2。2021.3.45f2 之前的版本受 Unity 运行时漏洞 CVE-2025-59489 影响，用旧版本打出的包需要用新版本重新构建并发布。
 - **战斗模拟版本升到 2**：配置数值改为按万分之一量化、实体 ID 带代数、投射物扫掠命中、死亡单位不再结算伤害、周期效果刷新默认不重置计时。版本 1 的录像不能再对拍，也不能和旧客户端同场。
 - **内置技能**：`ProjectileAbility`、`MeleeStrikeAbility`、`CircleAoeAbility`、`ConeAoeAbility`、`ChanneledProjectileAbility`、`MeleeSweepAbility`、`DashAbility` 的构造函数改收 `FP`；配置值请经 `FixedConfig.FromConfig` 转换。`TSRandom.Next(float, float)` 改为 `Next(FP, FP)`，TSRandom 的静态 API（`instance` / `Init` / `value` / `Range` / `CallNext` / `insideUnitSphere`）已删除，改用实例方法。

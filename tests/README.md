@@ -18,6 +18,7 @@ dotnet test -c Release
 | `DeterminismScanTests` | 与 Unity 菜单 **Tools/Framework/Battle/Scan Determinism** 相同的规则（`DeterminismRules`）扫描模拟层源码 |
 | `EventBusTests` | 事件分发中订阅 / 退订的顺序语义 |
 | `FileLogSinkTests` | 滚动日志文件 |
+| `FsmLifecycleTests` | 进入与观察者回调重入、同实例往返、订阅快照、异常传播及退出期间的保护 |
 
 ### golden 值失败怎么办
 
@@ -52,6 +53,8 @@ python3 scripts/create_unity_consumer.py Temp/PackageConsumer
 该工程只复制 7 个非 legacy 框架包、固定版本的必要依赖、编辑器版本及公开 API 测试。不复制演示场景、商业插件、生成表、项目设置和本地路径依赖。外部 Git 包首次解析需要网络；此检查并不覆盖 HybridCLR 可选模式、IL2CPP、WebGL 或商业插件组合。
 
 ## Unity PlayMode
+
+Unity EditMode 中的 `ProcedureLifecycleTests` 补充流程管理器的事件转发覆盖：进入完成后通知、观察者切换/同实例往返/关闭重启、立即流程跳转和异常后继续运行。这部分需要 Unity 执行，不能用纯 .NET FSM 通过代替。
 
 `Assets/Tests/PlayMode/CoroutinePlayModeTests.cs` 覆盖跨帧完成、幂等停止与其他协程隔离、宿主销毁、场景卸载与全局作用域隔离、Shutdown 后重新启动。`BgmReplayPlayModeTests` 覆盖停止淡出期间重新播放当前曲目（即时 / 渐入、单源 / 双源），检查旧停止取消、播放位置保留、另一轨清理、实时目标音量和后续停止；也保护普通交叉淡入期间重复播放不重启淡入。测试用例自行清理宿主、音频 Clip 和场景，不依赖 Launch 场景和资源包；这仍不是完整游戏验收。
 
