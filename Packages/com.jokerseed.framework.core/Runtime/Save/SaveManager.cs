@@ -25,14 +25,17 @@ namespace Framework.Save
         /// <summary>存储后端成功删除某个键的主档或备份后触发一次；不存在或删除失败时不触发。</summary>
         public event Action<string> Deleted;
 
-        /// <summary>配置存储后端与序列化器。</summary>
+        /// <summary>配置存储后端与序列化器；参数校验失败时保留原配置。</summary>
         /// <param name="storage">存储后端。</param>
         /// <param name="serializer">序列化器。</param>
         /// <exception cref="ArgumentNullException">参数为 null。</exception>
         public void Configure(ISaveStorage storage, ISaveSerializer serializer)
         {
-            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
-            _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+            if (storage == null) throw new ArgumentNullException(nameof(storage));
+            if (serializer == null) throw new ArgumentNullException(nameof(serializer));
+
+            _storage = storage;
+            _serializer = serializer;
         }
 
         /// <summary>保存对象。</summary>
