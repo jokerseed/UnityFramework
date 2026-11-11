@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sim-results-${{ matrix.os }}
           path: tests/Framework.Sim.Tests/TestResults
@@ -76,7 +76,7 @@ jobs:
         run: dotnet test "${{ runner.temp }}/framework-consumer/Consumer/Consumer.csproj" -c Release --logger "trx;LogFileName=consumer.trx"
       - name: Upload consumer results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: consumer-results-${{ matrix.os }}
           path: ${{ runner.temp }}/framework-consumer/Consumer/TestResults
